@@ -56,7 +56,7 @@ if ($postIds) {
 }
 
 $stmt = db()->prepare(
-  "SELECT bp.*, u.username, u.is_verified,
+  "SELECT bp.*, u.username, u.is_verified, u.avatar, u.is_banned, u.gravatar_email,
      (SELECT COUNT(*) FROM broadcast_post_views v WHERE v.post_id = bp.id) AS views_count,
      (SELECT COUNT(*) FROM broadcast_post_comments c WHERE c.post_id = bp.id) AS comments_count
    FROM broadcast_posts bp JOIN users u ON u.id = bp.author_id
@@ -128,7 +128,7 @@ require_once __DIR__ . '/includes/header.php';
     <?php foreach (array_reverse($posts) as $p): ?>
       <div class="msg-bubble-row" data-id="<?= (int)$p['id'] ?>">
         <div class="msg-bubble" style="max-width:80%">
-          <b style="color:var(--accent-2);font-size:12px;display:block;margin-bottom:4px"><a href="/profile?username=<?= e($p['username']) ?>" style="color:inherit;text-decoration:none"><?= e($p['username']) ?></a><?= verify_badge((bool)$p['is_verified']) ?></b>
+          <div style="margin-bottom:4px"><?= render_user_badge($p, 22) ?></div>
           <?= render_with_stickers($p['body']) ?>
           <div style="font-size:10.5px;color:var(--text-dim);margin-top:4px;display:flex;gap:10px;align-items:center">
             <span><?= e($p['created_at']) ?></span>

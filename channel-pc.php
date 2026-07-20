@@ -97,8 +97,12 @@ if ($__user) {
 }
 ?>
 <div class="container">
+  <?php ensure_channel_avatar_columns(); ?>
+  <?php if (!empty($channel['cover_url'])): ?>
+    <div class="channel-cover" style="width:100%;aspect-ratio:4/1;min-height:120px;border-radius:14px;overflow:hidden;margin-bottom:14px;background:#111 url('<?= e($channel['cover_url']) ?>') center/cover"></div>
+  <?php endif; ?>
   <div class="channel-header">
-    <?php if ($channel['logo_url']): ?><img src="<?= e($channel['logo_url']) ?>" alt="<?= e($channel['title']) ?>"><?php endif; ?>
+    <img src="<?= e(channel_avatar_url($channel, 160)) ?>" alt="<?= e($channel['title']) ?>">
     <div>
       <h1><?= e($channel['title']) ?></h1>
       <div class="channel-stats"><?= (int)$channel['views'] ?> просмотров · <?= $channel['type'] === 'radio' ? 'Радио' : 'Телеканал' ?></div>

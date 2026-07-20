@@ -52,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 db()->prepare('UPDATE forum_threads SET views = views + 1 WHERE id = ?')->execute([$threadId]);
 
 $stmt = db()->prepare(
-  'SELECT fp.*, u.username, u.role, u.avatar, u.is_verified FROM forum_posts fp
+  'SELECT fp.*, u.username, u.role, u.avatar, u.is_verified, u.is_banned, u.gravatar_email FROM forum_posts fp
    JOIN users u ON u.id = fp.user_id
    WHERE fp.thread_id = ? AND fp.is_deleted = 0 ORDER BY fp.created_at ASC LIMIT 500'
 );
@@ -86,12 +86,11 @@ require_once __DIR__ . '/includes/header.php';
     <?php foreach ($posts as $p): ?>
       <div class="forum-post">
         <div class="forum-post-author">
-          <?php if ($p['avatar']): ?><img src="<?= e($p['avatar']) ?>" alt=""><?php endif; ?>
-          <b><a href="/profile.php?username=<?= e($p['username']) ?>" style="color:inherit;text-decoration:none"><?= e($p['username']) ?></a></b><?= verify_badge((bool)$p['is_verified']) ?>
+          <?= render_user_badge($p, 28) ?>
           <?php if ($p['role'] === 'admin'): ?><span class="role-badge">админ</span><?php endif; ?>
           <span style="color:var(--text-dim);font-size:12px"><?= e($p['created_at']) ?></span>
           <?php if ($__user && (int)$p['user_id'] !== (int)$__user['id']): ?>
-            <a href="/messages.php?with=<?= (int)$p['user_id'] ?>" style="color:var(--accent-2);font-size:12px;margin-left:4px">написать</a>
+            <a href="/messages?with=<?= (int)$p['user_id'] ?>" style="color:var(--accent-2);font-size:12px;margin-left:4px">написать</a>
           <?php endif; ?>
         </div>
         <div class="forum-post-body"><?= bbcode_to_html($p['message']) ?></div>

@@ -19,13 +19,21 @@ if ($__user) {
 }
 
 $pageTitle = $pageTitle ?? SITE_NAME;
+
+// Гарантируем колонки gravatar_email/cover_url ГЛОБАЛЬНО на каждой странице, а не точечно
+// в паре файлов — иначе любая страница, которая выбирает u.gravatar_email или c.gravatar_email/
+// c.cover_url раньше, чем эта функция была вызвана хоть где-то, падает 500 (поймал именно
+// так на forum_category.php при добавлении единого render_user_badge()).
+try { ensure_user_gravatar_column(); } catch (\Throwable $e) {}
+try { ensure_channel_avatar_columns(); } catch (\Throwable $e) {}
+
 $seoDescription = $seoDescription ?? 'StreamLive — платформа для создания онлайн телеканалов и радио';
 $seoKeywords = $seoKeywords ?? '';
 $seoImage = $seoImage ?? null;
 $__canonical = SITE_URL . ($_SERVER['REQUEST_URI'] ?? '/');
 ?>
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" class="<?= ($_COOKIE['site_color_mode'] ?? 'dark') === 'light' ? 'light-mode' : '' ?>">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -42,6 +50,7 @@ $__canonical = SITE_URL . ($_SERVER['REQUEST_URI'] ?? '/');
   <?php $__cssPath = __DIR__ . '/../assets/css/style.css'; $__cssVer = file_exists($__cssPath) ? filemtime($__cssPath) : time(); ?>
   <link rel="stylesheet" href="/assets/css/style.css?v=<?= $__cssVer ?>">
   <?php require_once __DIR__ . '/themes.php'; $__activeTheme = themes_active(); if ($__activeTheme): ?><link rel="stylesheet" href="<?= e($__activeTheme['css']) ?>?v=<?= time() ?>"><?php endif; ?>
+  <link rel="stylesheet" href="/assets/css/light-mode.css?v=<?= file_exists(__DIR__ . '/../assets/css/light-mode.css') ? filemtime(__DIR__ . '/../assets/css/light-mode.css') : time() ?>">
   <?php if (!empty($extraHead)) echo $extraHead; ?>
 </head>
 
@@ -304,8 +313,22 @@ if (month === 12 || month === 1 || month === 2) { // Winter
       <a href="/auth/login.php">Войти</a>
       <a href="/auth/register.php" class="btn btn-primary btn-sm">Регистрация</a>
     <?php endif; ?>
+    <button type="button" id="color-mode-toggle" class="btn btn-outline btn-sm" title="Светлая/тёмная тема" style="margin-left:6px">
+      <?= ($_COOKIE['site_color_mode'] ?? 'dark') === 'light' ? '🌙' : '☀️' ?>
+    </button>
   </div>
 </nav>
+<script>
+(function () {
+  var btn = document.getElementById('color-mode-toggle');
+  if (!btn) return;
+  btn.addEventListener('click', function () {
+    var isLight = document.documentElement.classList.toggle('light-mode');
+    document.cookie = 'site_color_mode=' + (isLight ? 'light' : 'dark') + ';path=/;max-age=' + (60 * 60 * 24 * 365);
+    btn.textContent = isLight ? '🌙' : '☀️';
+  });
+})();
+</script>
 <?php foreach ($__flash as $type => $msg): ?>
   <div class="container"><div class="alert alert-<?= e($type) ?>"><?= e($msg) ?></div></div>
 <?php endforeach; ?>

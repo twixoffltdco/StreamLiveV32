@@ -31,11 +31,11 @@ function themes_write_file(string $path, string $content): void {
 function themes_save(string $slug, string $name, string $css, string $header, string $footer): void {
   themes_bootstrap(true);
   themes_write_file(themes_public_css_dir()."/$slug.css", $css);
-  themes_write_file(themes_dir()."/$slug.header.html", $header);
-  themes_write_file(themes_dir()."/$slug.footer.html", $footer);
+  themes_write_file(themes_dir()."/$slug.header.php", $header);
+  themes_write_file(themes_dir()."/$slug.footer.php", $footer);
   $themes=themes_all();
   $themes=array_values(array_filter($themes, fn($t)=>($t['slug']??'')!==$slug));
-  $themes[]=['slug'=>$slug,'name'=>$name,'css'=>'/assets/themes/'.$slug.'.css','header'=>"$slug.header.html",'footer'=>"$slug.footer.html"];
+  $themes[]=['slug'=>$slug,'name'=>$name,'css'=>'/assets/themes/'.$slug.'.css','header'=>"$slug.header.php",'footer'=>"$slug.footer.php"];
   themes_save_all($themes);
 }
 function themes_active(): ?array { $slug=$_COOKIE['site_theme'] ?? ''; foreach (themes_all() as $t) if (($t['slug'] ?? '')===$slug) return $t; return null; }

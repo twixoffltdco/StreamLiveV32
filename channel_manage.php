@@ -3,6 +3,7 @@ require_once __DIR__ . '/includes/header.php';
 require_login();
 
 $id = (int)($_GET['id'] ?? 0);
+ensure_channel_avatar_columns();
 $stmt = db()->prepare('SELECT * FROM channels WHERE id = ? AND owner_id = ?');
 $stmt->execute([$id, $__user['id']]);
 $channel = $stmt->fetch();
@@ -25,12 +26,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     flash_set('success', $newState ? 'Трансляция остановлена. Зрители увидят «эфир завершён», пока вы её не включите обратно.' : 'Трансляция включена — эфир снова идёт по расписанию.');
     redirect('/channel_manage.php?id=' . $id);
   } elseif ($action === 'update_settings') {
+    ensure_channel_avatar_columns();
     $stmt = db()->prepare(
-      'UPDATE channels SET title=?, description=?, logo_url=?, default_source_id=?, seo_title=?, seo_description=?, seo_keywords=?, is_public=?
+      'UPDATE channels SET title=?, description=?, logo_url=?, gravatar_email=?, cover_url=?, default_source_id=?, seo_title=?, seo_description=?, seo_keywords=?, is_public=?
        WHERE id = ? AND owner_id = ?'
     );
     $stmt->execute([
       trim($_POST['title']), trim($_POST['description']), trim($_POST['logo_url']) ?: null,
+      trim($_POST['gravatar_email'] ?? '') ?: null, trim($_POST['cover_url'] ?? '') ?: null,
       $_POST['default_source_id'] !== '' ? (int)$_POST['default_source_id'] : null,
       trim($_POST['seo_title']), trim($_POST['seo_description']), trim($_POST['seo_keywords']),
       !empty($_POST['is_public']) ? 1 : 0,
@@ -195,8 +198,12 @@ try {
       <input type="text" name="title" value="<?= e($channel['title']) ?>" required>
       <label>Описание</label>
       <textarea name="description"><?= e($channel['description']) ?></textarea>
-      <label>Логотип</label>
-      <input type="url" name="logo_url" value="<?= e($channel['logo_url']) ?>">
+      <label>Логотип (прямая ссылка на картинку)</label>
+      <input type="url" name="logo_url" value="<?= e($channel['logo_url']) ?>" placeholder="https://.../logo.png">
+      <label>Или Gravatar — логотип подтянется по e-mail (как на gravatar.com), если задан — берём его вместо ссылки выше</label>
+      <input type="email" name="gravatar_email" value="<?= e($channel['gravatar_email'] ?? '') ?>" placeholder="channel@example.com">
+      <label>Обложка канала (баннер вверху страницы канала)</label>
+      <input type="url" name="cover_url" value="<?= e($channel['cover_url'] ?? '') ?>" placeholder="https://.../cover.jpg">
       <label>Источник по умолчанию</label>
       <select name="default_source_id">
         <option value="">— нет —</option>

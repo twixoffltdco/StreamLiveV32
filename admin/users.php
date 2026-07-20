@@ -3,7 +3,13 @@
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   csrf_verify();
   $id = (int)$_POST['user_id'];
-  if ($_POST['action'] === 'ban') {
+  if ($_POST['action'] === 'reset_password') {
+    $tempPassword = bin2hex(random_bytes(5)); // временный пароль, показываем один раз админу
+    $hash = password_hash($tempPassword, PASSWORD_DEFAULT);
+    db()->prepare('UPDATE users SET password_hash = ?, must_change_password = 1, password_reset_by_admin_at = NOW() WHERE id = ?')
+      ->execute([$hash, (int)$_POST['user_id']]);
+    flash_set('success', 'Временный пароль: ' . $tempPassword . ' — передайте его пользователю, он сменит его при первом входе (после 2FA, если включена)');
+  } elseif ($_POST['action'] === 'ban') {
     db()->prepare('UPDATE users SET is_banned = 1 WHERE id = ?')->execute([$id]);
   } elseif ($_POST['action'] === 'unban') {
     db()->prepare('UPDATE users SET is_banned = 0 WHERE id = ?')->execute([$id]);

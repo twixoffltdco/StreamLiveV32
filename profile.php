@@ -46,6 +46,12 @@ require_once __DIR__ . '/includes/header.php';
     <img src="<?= e(user_avatar_url($profileUser, 192)) ?>" alt="" class="profile-avatar" onerror="this.style.display='none'">
     <div class="profile-info">
       <h1>@<?= e($profileUser['username']) ?><?= verify_badge((bool)$profileUser['is_verified']) ?></h1>
+      <?php if (!empty($profileUser['is_banned'])): ?>
+        <div class="alert alert-error" style="margin:10px 0 4px">
+          🚫 Этот аккаунт заблокирован на платформе. Мы не несём ответственности за действия
+          пользователя вне платформы.
+        </div>
+      <?php endif; ?>
       <div class="profile-stats">
         <span><b><?= count($channels) ?></b> каналов</span>
         <span><b><?= count($bcChannels) ?></b> публикаций-каналов</span>

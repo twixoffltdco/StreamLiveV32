@@ -32,6 +32,11 @@ function require_login(): array {
     flash_set('error', 'Нужно войти в аккаунт');
     redirect('/auth/login.php');
   }
+  $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+  $allowedWhilePending = ['/auth/force_password_change.php', '/auth/logout.php'];
+  if (!empty($user['must_change_password']) && !in_array($currentPath, $allowedWhilePending, true)) {
+    redirect('/auth/force_password_change.php');
+  }
   return $user;
 }
 

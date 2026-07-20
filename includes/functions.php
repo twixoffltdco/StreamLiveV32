@@ -11,8 +11,14 @@ if (session_status() === PHP_SESSION_NONE) {
   // не отправляться обратно, из-за чего "слетает" 2FA/вход.
   $__isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
     || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+  // 30 дней — раньше lifetime было 0 (кука "до закрытия браузера"), из-за чего вход слетал
+  // при закрытии браузера/выключении ПК. Плюс поднимаем gc_maxlifetime — иначе даже с
+  // долгоживущей курой хостинг мог сам стереть данные сессии на сервере по дефолтному
+  // таймауту (часто ~24 минуты бездействия), и долгая кука была бы бесполезна.
+  $__sessionLifetime = 60 * 60 * 24 * 30;
+  ini_set('session.gc_maxlifetime', (string)$__sessionLifetime);
   session_set_cookie_params([
-    'lifetime' => 0,
+    'lifetime' => $__sessionLifetime,
     'path' => '/',
     'domain' => '',
     'secure' => $__isHttps,
@@ -346,10 +352,57 @@ function user_avatar_url(array $user, int $size = 96): string {
   return $user['avatar'] ?: '/assets/img/avatar-placeholder.png';
 }
 
+// Единый компонент "аватарка + ник" — как на YouTube/TikTok, чтобы везде на сайте
+// (форум, каналы-рассылки, комментарии, сообщения, ресурсы) выглядело одинаково,
+// а не по-разному в каждом шаблоне. $size — диаметр кружка в пикселях.
+function render_user_badge(array $user, int $size = 28, bool $link = true): string {
+  $avatar = user_avatar_url($user, $size * 2); // берём с запасом на retina-экраны
+  $name = e($user['username'] ?? 'Гость');
+  $verified = !empty($user['is_verified']) ? verify_badge(true) : '';
+  $banned = !empty($user['is_banned'])
+    ? ' <span class="user-banned-badge" title="Аккаунт заблокирован на платформе" style="color:var(--danger);font-size:11px;border:1px solid var(--danger);border-radius:8px;padding:0 5px">заблокирован</span>'
+    : '';
+  $img = '<img src="' . e($avatar) . '" alt="" style="width:' . $size . 'px;height:' . $size . 'px;border-radius:50%;object-fit:cover;flex-shrink:0" loading="lazy">';
+  $inner = $img . '<span style="font-weight:600">' . $name . '</span>' . $verified . $banned;
+  $style = 'display:inline-flex;align-items:center;gap:8px;text-decoration:none;color:inherit';
+  if ($link && !empty($user['username'])) {
+    return '<a href="/profile.php?username=' . urlencode($user['username']) . '" style="' . $style . '">' . $inner . '</a>';
+  }
+  return '<span style="' . $style . '">' . $inner . '</span>';
+}
+
 function ensure_user_gravatar_column(): void {
   if (!table_column_exists('users', 'gravatar_email')) {
     db()->exec('ALTER TABLE users ADD COLUMN gravatar_email VARCHAR(191) DEFAULT NULL');
   }
+}
+
+// То же самое, что ensure_user_gravatar_column(), но для ТВ/радио каналов — Gravatar и
+// обложка/баннер канала (sql/migrations/027_channel_gravatar_cover.sql). Пробуем максимум
+// раз за время жизни процесса — не гонять ALTER на каждый заход на страницу канала.
+function ensure_channel_avatar_columns(): void {
+  static $checked = false;
+  if ($checked) return;
+  $checked = true;
+  try {
+    if (!table_column_exists('channels', 'gravatar_email')) {
+      db()->exec('ALTER TABLE channels ADD COLUMN gravatar_email VARCHAR(191) DEFAULT NULL');
+    }
+    if (!table_column_exists('channels', 'cover_url')) {
+      db()->exec('ALTER TABLE channels ADD COLUMN cover_url VARCHAR(500) DEFAULT NULL');
+    }
+  } catch (Throwable $e) { /* нет прав ALTER на хостинге — тогда просто выполни миграцию 027 руками через phpMyAdmin */ }
+}
+
+// Логотип ТВ/радио канала — тот же принцип, что у user_avatar_url(): если владелец указал
+// gravatar_email — тянем аватар с Gravatar по e-mail, иначе — logo_url (прямая ссылка),
+// иначе — заглушка.
+function channel_avatar_url(array $channel, int $size = 96): string {
+  $email = trim((string)($channel['gravatar_email'] ?? ''));
+  if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    return 'https://www.gravatar.com/avatar/' . md5(strtolower($email)) . '?s=' . max(24, min(512, $size)) . '&d=mp';
+  }
+  return $channel['logo_url'] ?: '/assets/img/avatar-placeholder.png';
 }
 
 function recommended_channels(?array $user, ?int $currentId = null, int $limit = 20): array {
