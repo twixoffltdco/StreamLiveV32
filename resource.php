@@ -5,7 +5,11 @@ $r = resource_find((string)($_GET['slug'] ?? ''), true);
 $u = current_user();
 if (!$r || ($r['status'] !== 'published' && !resource_can_moderate($u))) { http_response_code(404); die('Ресурс не найден'); }
 db()->prepare('UPDATE resources SET views = views + 1 WHERE id = ?')->execute([$r['id']]);
-$pageTitle = $r['title']; $seoDescription = $r['summary'] ?: mb_substr(strip_tags($r['readme'] ?? ''), 0, 160); $seoKeywords = $r['tags'] ?? '';
+$pageTitle = $r['title'];
+$__resourceText = strip_tags((string)($r['readme'] ?? ''));
+$__resourceExcerpt = function_exists('mb_substr') ? mb_substr($__resourceText, 0, 160) : substr($__resourceText, 0, 160);
+$seoDescription = $r['summary'] ?: $__resourceExcerpt;
+$seoKeywords = $r['tags'] ?? '';
 require_once __DIR__ . '/includes/header.php';
 $downloadHref = '/resource_download.php?slug=' . urlencode($r['slug']);
 ?>

@@ -24,7 +24,22 @@ function resources_ensure_table(): void {
     INDEX idx_user (user_id),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-  foreach (['repo_full_name VARCHAR(255) DEFAULT NULL','repo_stars INT DEFAULT NULL','repo_language VARCHAR(80) DEFAULT NULL'] as $def) {
+  $columns = [
+    'summary VARCHAR(500) DEFAULT NULL',
+    'readme MEDIUMTEXT',
+    'external_url VARCHAR(1000) DEFAULT NULL',
+    'download_url VARCHAR(1000) DEFAULT NULL',
+    'repo_full_name VARCHAR(255) DEFAULT NULL',
+    'repo_stars INT DEFAULT NULL',
+    'repo_language VARCHAR(80) DEFAULT NULL',
+    'tags VARCHAR(500) DEFAULT NULL',
+    "status ENUM('published','hidden') NOT NULL DEFAULT 'published'",
+    'hidden_reason VARCHAR(500) DEFAULT NULL',
+    'views BIGINT NOT NULL DEFAULT 0',
+    'created_at DATETIME DEFAULT CURRENT_TIMESTAMP',
+    'updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP',
+  ];
+  foreach ($columns as $def) {
     $col = strtok($def, ' ');
     try { if (!table_column_exists('resources', $col)) db()->exec('ALTER TABLE resources ADD COLUMN ' . $def); } catch (Throwable $e) {}
   }
