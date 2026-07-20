@@ -2,7 +2,8 @@
 require_once __DIR__ . '/functions.php';
 
 function resources_ensure_table(): void {
-  db()->exec("CREATE TABLE IF NOT EXISTS resources (
+  try {
+    db()->exec("CREATE TABLE IF NOT EXISTS resources (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     slug VARCHAR(180) UNIQUE NOT NULL,
@@ -24,6 +25,15 @@ function resources_ensure_table(): void {
     INDEX idx_user (user_id),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+  } catch (Throwable $e) {
+    // На части хостингов (и, похоже, у тебя) у пользователя БД нет права CREATE TABLE в
+    // рантайме, даже если через phpMyAdmin всё создаётся нормально — раньше это падало
+    // необработанным исключением и клало 500 на КАЖДЫЙ заход на /resources. Если таблицы
+    // всё ещё физически нет — resources_list()/resource_find() ниже сами поймают ошибку
+    // запроса и вернут пустой результат вместо падения всей страницы. Один раз выполни
+    // sql/migrations/024_resources.sql через phpMyAdmin — и рантайм-CREATE вообще не понадобится.
+    return;
+  }
   $columns = [
     'summary VARCHAR(500) DEFAULT NULL',
     'readme MEDIUMTEXT',
@@ -51,15 +61,23 @@ function resource_can_moderate(?array $u): bool { return $u && in_array($u['role
 
 function resources_list(bool $includeHidden = false, int $limit = 50): array {
   resources_ensure_table();
-  $sql = "SELECT r.*, u.username FROM resources r JOIN users u ON u.id = r.user_id" . ($includeHidden ? '' : " WHERE r.status = 'published'") . " ORDER BY r.created_at DESC LIMIT " . max(1, min(200, $limit));
-  return db()->query($sql)->fetchAll();
+  try {
+    $sql = "SELECT r.*, u.username FROM resources r JOIN users u ON u.id = r.user_id" . ($includeHidden ? '' : " WHERE r.status = 'published'") . " ORDER BY r.created_at DESC LIMIT " . max(1, min(200, $limit));
+    return db()->query($sql)->fetchAll();
+  } catch (Throwable $e) {
+    return []; // таблицы ещё нет и создать не вышло (см. resources_ensure_table) — не роняем страницу
+  }
 }
 
 function resource_find(string $slug, bool $includeHidden = false): ?array {
   resources_ensure_table();
-  $sql = "SELECT r.*, u.username FROM resources r JOIN users u ON u.id = r.user_id WHERE r.slug = ?" . ($includeHidden ? '' : " AND r.status = 'published'") . " LIMIT 1";
-  $stmt = db()->prepare($sql); $stmt->execute([$slug]);
-  return $stmt->fetch() ?: null;
+  try {
+    $sql = "SELECT r.*, u.username FROM resources r JOIN users u ON u.id = r.user_id WHERE r.slug = ?" . ($includeHidden ? '' : " AND r.status = 'published'") . " LIMIT 1";
+    $stmt = db()->prepare($sql); $stmt->execute([$slug]);
+    return $stmt->fetch() ?: null;
+  } catch (Throwable $e) {
+    return null;
+  }
 }
 
 

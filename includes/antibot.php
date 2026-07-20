@@ -50,6 +50,22 @@ function antibot_exempt_paths(): array {
   ];
 }
 
+// Сравнение с исключениями — БЕЗ учёта .php на конце. Раньше сравнивали точной строкой,
+// а после перехода на красивые ссылки (.htaccess) реальный REQUEST_URI для большинства
+// путей — уже БЕЗ .php (например, "/auth/login", а не "/auth/login.php"), пока список
+// выше исторически писался с .php. Из-за этого точное сравнение никогда не совпадало,
+// и исключения из списка выше по факту НЕ РАБОТАЛИ — ни для логина, ни для 2FA, ни для
+// части AJAX-путей. Именно это било по входу/2FA: обычный вход — это несколько запросов
+// подряд (открыть страницу, отправить пароль, открыть форму 2FA, отправить код), и без
+// рабочего исключения это легко превышает лимит 5 запросов/10 сек и ловит капчу.
+function antibot_is_exempt_path(string $path): bool {
+  $normalized = rtrim(preg_replace('#\.php$#', '', $path), '/');
+  foreach (antibot_exempt_paths() as $exempt) {
+    if ($normalized === rtrim(preg_replace('#\.php$#', '', $exempt), '/')) return true;
+  }
+  return false;
+}
+
 function antibot_client_ip(): string {
   // На большинстве бесплатного шаред-хостинга сайт не за собственным прокси/CDN,
   // так что REMOTE_ADDR обычно надёжен. X-Forwarded-For берём только как запасной
@@ -219,7 +235,7 @@ function antibot_mark_captcha_passed(string $ip): void {
 // на 3 часа и лимит запросов вообще никогда не сработает. Считаем всё только в PHP.
 function antibot_guard(): void {
   $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
-  if (in_array($path, antibot_exempt_paths(), true)) return;
+  if (antibot_is_exempt_path((string)$path)) return;
   // Панель администратора не блокируем антиботом вообще — админ не должен случайно
   // сам себя запереть на 24 часа, кликая по своим же страницам.
   if (strpos((string)$path, '/admin/') === 0) return;
@@ -244,7 +260,7 @@ function antibot_guard(): void {
     $nowStr = date('Y-m-d H:i:s');
     $stmt = $pdo->prepare('SELECT * FROM antibot_ip_log WHERE ip = ?');
     $stmt->execute([$ip]);
-    $row = $stmt->fetch();
+    $row = $stmt->fetch() ?: null;
 
     if (antibot_captcha_pass_valid($row)) {
       return;

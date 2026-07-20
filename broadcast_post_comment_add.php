@@ -21,6 +21,7 @@ try {
   $id = (int)db()->lastInsertId();
   echo json_encode([
     'ok' => true, 'id' => $id, 'username' => $user['username'],
+    'avatar' => $user['avatar'] ?? null,
     'is_verified' => (bool)($user['is_verified'] ?? false),
   ]);
 } catch (\Throwable $e) {

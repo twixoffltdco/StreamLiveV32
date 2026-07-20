@@ -21,7 +21,7 @@ $pageTitle = $category['title'] . ' — Форум';
 require_once __DIR__ . '/includes/header.php';
 
 $stmt = db()->prepare(
-  "SELECT t.*, u.username,
+  "SELECT t.*, u.username, u.avatar,
      (SELECT COUNT(*) FROM forum_posts p WHERE p.thread_id = t.id AND p.is_deleted = 0) AS post_count
    FROM forum_threads t JOIN users u ON u.id = t.user_id
    WHERE t.category_id = ? AND t.is_deleted = 0
@@ -45,7 +45,10 @@ $threads = $stmt->fetchAll();
           <?php if ($t['is_pinned']): ?><span class="pin-badge">Закреплено</span><?php endif; ?>
           <?php if ($t['is_locked']): ?><span class="lock-badge">Закрыто</span><?php endif; ?>
           <a href="/forum_thread.php?id=<?= (int)$t['id'] ?>" class="forum-thread-title"><?= e($t['title']) ?></a>
-          <div style="color:var(--text-dim);font-size:12px">от <a href="/profile.php?username=<?= e($t['username']) ?>" style="color:var(--text-dim)"><?= e($t['username']) ?></a> · <?= e($t['created_at']) ?></div>
+          <div style="color:var(--text-dim);font-size:12px;display:flex;align-items:center;gap:6px;margin-top:2px">
+            <img src="<?= e($t['avatar'] ?: '/assets/img/avatar-placeholder.png') ?>" alt="" style="width:18px;height:18px;border-radius:50%;object-fit:cover" onerror="this.style.display='none'">
+            от <a href="/profile?username=<?= e($t['username']) ?>" style="color:var(--text-dim)"><?= e($t['username']) ?></a> · <?= e($t['created_at']) ?>
+          </div>
         </div>
         <div class="forum-thread-stats">
           <div><b><?= (int)$t['post_count'] ?></b><span>ответов</span></div>

@@ -58,9 +58,16 @@ function ddos_expensive_routes(): array {
 
 function ddos_expensive_route_guard(string $path, string $ip): bool {
   $routes = ddos_expensive_routes();
-  if (!isset($routes[$path])) return true; // не в списке — не наша забота, обычный антибот уже отработал
-
-  $rule = $routes[$path];
+  // Сравниваем без учёта .php на конце — реальный REQUEST_URI после перехода на красивые
+  // ссылки (.htaccess) для большинства путей уже без .php, а ключи в ddos_expensive_routes()
+  // исторически с .php. Точным сравнением строк это никогда не совпадало, и лимит на логин
+  // (защита от брутфорса пароля) по факту не применялся.
+  $normalizedPath = rtrim(preg_replace('#\.php$#', '', $path), '/');
+  $rule = null;
+  foreach ($routes as $routePath => $routeRule) {
+    if ($normalizedPath === rtrim(preg_replace('#\.php$#', '', $routePath), '/')) { $rule = $routeRule; break; }
+  }
+  if ($rule === null) return true; // не в списке — не наша забота, обычный антибот уже отработал
   try {
     db()->exec(
       'CREATE TABLE IF NOT EXISTS ddos_route_log (

@@ -264,10 +264,12 @@ require_once __DIR__ . '/includes/header.php';
       html += '<p style="color:var(--text-dim);font-size:12px;margin:4px 0 8px">Пока нет комментариев — будьте первым.</p>';
     } else {
       comments.forEach(function (c) {
-        html += '<div style="margin-bottom:8px;font-size:12.5px">' +
-          '<b style="color:var(--accent-2)">' + esc(c.username) + '</b>' +
+        var avatarSrc = c.avatar || '/assets/img/avatar-placeholder.png';
+        html += '<div style="margin-bottom:8px;font-size:12.5px;display:flex;gap:6px;align-items:flex-start">' +
+          '<img src="' + escAttr(avatarSrc) + '" alt="" style="width:20px;height:20px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.style.display=\'none\'">' +
+          '<span><b style="color:var(--accent-2)">' + esc(c.username) + '</b>' +
           (c.is_verified ? ' \u2713' : '') +
-          ': ' + esc(c.body) +
+          ': ' + esc(c.body) + '</span>' +
         '</div>';
       });
     }
@@ -318,8 +320,10 @@ require_once __DIR__ . '/includes/header.php';
       var countEl = feed.querySelector('.msg-bubble-row[data-id="' + postId + '"] .post-comments-count');
       if (countEl) countEl.textContent = String(parseInt(countEl.textContent, 10) + 1);
       var newLine = document.createElement('div');
-      newLine.style.cssText = 'margin-bottom:8px;font-size:12.5px';
-      newLine.innerHTML = '<b style="color:var(--accent-2)">' + esc(data.username) + '</b>' + (data.is_verified ? ' \u2713' : '') + ': ' + esc(text);
+      newLine.style.cssText = 'margin-bottom:8px;font-size:12.5px;display:flex;gap:6px;align-items:flex-start';
+      var avatarSrc = data.avatar || '/assets/img/avatar-placeholder.png';
+      newLine.innerHTML = '<img src="' + escAttr(avatarSrc) + '" alt="" style="width:20px;height:20px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.style.display=\'none\'">' +
+        '<span><b style="color:var(--accent-2)">' + esc(data.username) + '</b>' + (data.is_verified ? ' \u2713' : '') + ': ' + esc(text) + '</span>';
       panel.insertBefore(newLine, form);
     }).catch(function () { input.disabled = false; });
   });
