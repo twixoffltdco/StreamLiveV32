@@ -1,0 +1,14 @@
+<?php
+require_once __DIR__ . '/../includes/header.php';
+require_once __DIR__ . '/../includes/moderator_auth.php';
+require_moderator();
+?>
+<div class="admin-shell">
+  <div class="admin-sidebar">
+    <a href="/moderator/index">Очередь на модерацию</a>
+    <a href="/moderator/flagged">Скрыть/восстановить канал</a>
+    <a href="/moderator/videos">Модерация видео</a>
+    <a href="/moderator/users">Пользователи</a>
+      <a href="/moderator/resources">Ресурсы</a>
+  </div>
+  <div class="admin-content">

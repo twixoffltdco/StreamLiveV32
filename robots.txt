@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /auth/
+Disallow: /channel_manage.php
+Disallow: /dashboard.php
+Disallow: /messages.php
+Disallow: /antibot_challenge.php
+Disallow: /antibot_verify.php
+Disallow: /antibot_image.svg.php
+Disallow: /diagnose.php
+Disallow: /install/
+
+Sitemap: https://streamlive.freedev.app/sitemap.xml.php

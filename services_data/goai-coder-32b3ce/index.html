@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Coder-GoAI | ИИ-агент для создания приложений</title>
+    <!-- SEO + Open Graph -->
+    <meta name="description" content="ИИ-агент превращает ваш текст в готовый код, имитирует пуш в GitHub и мгновенно открывает работающий дашборд с автоматическим переключением между инстансами.">
+    <meta name="keywords" content="ИИ агент, без API ключей, дашборд, failover, Lovable аналог">
+    <meta name="author" content="Coder-GoAI">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="Coder-GoAI — ИИ-агент + дашборд">
+    <meta property="og:description" content="Напиши задачу — агент выполнит и откроет рабочий инстанс.">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="https://coder-goai.lovable.app/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="icon" type="image/png" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23e040fb'/%3E%3Ctext x='50' y='68' font-size='58' text-anchor='middle' fill='white' font-weight='bold'%3E✦%3C/text%3E%3C/svg%3E">
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; background: #0a0a0f; color: #fff; }
+      .lv-wrap { min-height: 100vh; background: #0a0a0f; display: flex; flex-direction: column; align-items: center; }
+      .lv-nav { width: 100%; max-width: 1100px; display: flex; align-items: center; justify-content: space-between; padding: 18px 32px; flex-wrap: wrap; gap: 12px; }
+      .lv-logo { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 500; }
+      .lv-logo-icon { width: 28px; height: 28px; background: linear-gradient(135deg, #ff6b6b, #e040fb); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+      .lv-nav-links { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+      .lv-nav-links a, .lv-nav-links button { background: none; border: none; color: rgba(255,255,255,0.6); text-decoration: none; font-size: 14px; cursor: pointer; font-family: inherit; }
+      .lv-nav-links a:hover, .lv-nav-links button:hover { color: #fff; }
+      .lv-btn-sm { background: transparent; border: 0.5px solid rgba(255,255,255,0.25); color: rgba(255,255,255,0.85); padding: 7px 16px; border-radius: 8px; font-size: 13px; cursor: pointer; }
+      .lv-btn-sm:hover { background: rgba(255,255,255,0.07); }
+      .lv-hero { max-width: 800px; text-align: center; padding: 64px 32px 40px; }
+      .lv-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(224,64,251,0.12); border: 0.5px solid rgba(224,64,251,0.3); border-radius: 100px; padding: 5px 14px; font-size: 12px; color: #d97aff; margin-bottom: 28px; }
+      .lv-badge span { width: 6px; height: 6px; background: #e040fb; border-radius: 50%; }
+      .lv-h1 { font-size: 52px; font-weight: 500; line-height: 1.12; letter-spacing: -0.02em; margin-bottom: 20px; }
+      .lv-h1 .grad { background: linear-gradient(90deg, #ff6b6b, #e040fb, #7c6fff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+      .lv-sub { font-size: 17px; color: rgba(255,255,255,0.5); line-height: 1.6; margin-bottom: 40px; max-width: 560px; margin-left: auto; margin-right: auto; }
+      .lv-input-box { background: rgba(255,255,255,0.04); border: 0.5px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 20px 20px 14px; width: 100%; max-width: 700px; margin: 0 auto; transition: border-color 0.2s; }
+      .lv-input-box:focus-within { border-color: rgba(224,64,251,0.4); }
+      .lv-textarea { width: 100%; background: transparent; border: none; outline: none; color: #fff; font-size: 15px; font-family: inherit; resize: none; line-height: 1.6; min-height: 80px; }
+      .lv-textarea::placeholder { color: rgba(255,255,255,0.28); }
+      .lv-input-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 0.5px solid rgba(255,255,255,0.07); flex-wrap: wrap; gap: 12px; }
+      .lv-input-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+      .lv-tag { background: rgba(255,255,255,0.06); border: 0.5px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 4px 10px; font-size: 12px; color: rgba(255,255,255,0.45); cursor: pointer; }
+      .lv-tag:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.7); }
+      .lv-send-btn { background: linear-gradient(135deg, #e040fb, #7c6fff); border: none; border-radius: 10px; padding: 9px 18px; color: #fff; font-size: 14px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 7px; transition: opacity 0.15s, transform 0.1s; }
+      .lv-send-btn:hover { opacity: 0.88; }
+      .lv-send-btn:active { transform: scale(0.97); }
+      .lv-examples { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 20px; max-width: 700px; }
+      .lv-ex-chip { background: rgba(255,255,255,0.04); border: 0.5px solid rgba(255,255,255,0.1); border-radius: 100px; padding: 6px 14px; font-size: 13px; color: rgba(255,255,255,0.5); cursor: pointer; transition: all 0.15s; }
+      .lv-ex-chip:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.8); border-color: rgba(255,255,255,0.2); }
+      .lv-stats { display: flex; gap: 40px; margin-top: 56px; padding-top: 40px; border-top: 0.5px solid rgba(255,255,255,0.07); flex-wrap: wrap; justify-content: center; }
+      .lv-stat { text-align: center; }
+      .lv-stat-n { font-size: 22px; font-weight: 500; margin-bottom: 4px; }
+      .lv-stat-l { font-size: 12px; color: rgba(255,255,255,0.4); }
+      .lv-loading { display: none; flex-direction: column; align-items: center; justify-content: center; min-height: 440px; gap: 20px; }
+      .lv-spinner { width: 44px; height: 44px; border: 2.5px solid rgba(255,255,255,0.1); border-top-color: #e040fb; border-radius: 50%; animation: spin 0.8s linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .lv-loading-text { font-size: 15px; color: rgba(255,255,255,0.55); }
+      .lv-loading-steps { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+      .lv-step { display: flex; align-items: center; gap: 10px; font-size: 13px; color: rgba(255,255,255,0.35); }
+      .lv-step.active { color: rgba(255,255,255,0.7); }
+      .lv-step .dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,0.15); }
+      .lv-step.active .dot { background: #e040fb; }
+      .lv-step.done { color: rgba(255,255,255,0.5); }
+      .lv-step.done .dot { background: #5ff080; }
+      .lv-main { display: flex; flex-direction: column; align-items: center; width: 100%; }
+      .lv-footer-links { display: flex; gap: 20px; margin-top: 48px; padding-bottom: 24px; }
+      .lv-footer-links a { font-size: 12px; color: rgba(255,255,255,0.3); text-decoration: none; cursor: pointer; }
+      .lv-footer-links a:hover { color: rgba(255,255,255,0.6); }
+      .toast-msg { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1e1e2a; border-radius: 40px; padding: 8px 18px; font-size: 13px; color: #d97aff; z-index: 1000; backdrop-filter: blur(8px); border: 0.5px solid rgba(255,255,255,0.2); pointer-events: none; opacity: 0; transition: opacity 0.2s; }
+    </style>
+</head>
+<body>
+<div class="lv-wrap" id="app">
+  <nav class="lv-nav">
+    <div class="lv-logo"><div class="lv-logo-icon">✦</div>Coder-GoAI</div>
+    <div class="lv-nav-links">
+      <a>Docs</a>
+      <a>Showcase</a>
+      <a>Pricing</a>
+      <a>Blog</a>
+  </div>
+  </nav>
+  <div class="lv-main" id="main-view">
+    <div class="lv-hero">
+      <div class="lv-badge"><span></span> ✨ Без API‑ключей · Мгновенный failover</div>
+      <div class="lv-h1">ИИ‑агент выполняет задачу<br>и <span class="grad">открывает дашборд</span></div>
+      <div class="lv-sub">Напишите, что нужно сделать — наш агент работает и коммитит выполнение, пушит в GitHub  и перенаправляет на работающий инстанс. Если один не отвечает — автоматически переключаем на другой.</div>
+      <div class="lv-input-box">
+        <textarea class="lv-textarea" id="prompt-input" placeholder="Например: Создай CRM для менеджеров с графиками и аналитикой..." rows="3"></textarea>
+        <div class="lv-input-footer">
+          <div class="lv-input-tags"><span class="lv-tag" id="simulateGhTag">🔁 Push в GitHub (демо)</span><span class="lv-tag" id="failoverTag">⚡ Отказоустойчивость</span></div>
+          <button class="lv-send-btn" id="gen-btn"><span>🤖</span> Запустить ИИ-агента</button>
+        </div>
+      </div>
+      <div class="lv-examples">
+        <span class="lv-ex-chip" onclick="fillPrompt(this)">Аналитический дашборд продаж</span>
+        <span class="lv-ex-chip" onclick="fillPrompt(this)">Todo‑лист с командной работой</span>
+        <span class="lv-ex-chip" onclick="fillPrompt(this)">SaaS страница управления подписками</span>
+        <span class="lv-ex-chip" onclick="fillPrompt(this)">Генератор отчётов AI</span>
+        <span class="lv-ex-chip" onclick="fillPrompt(this)">Канбан‑доска с drag&drop</span>
+      </div>
+      <div class="lv-stats">
+        <div class="lv-stat"><div class="lv-stat-n">∞</div><div class="lv-stat-l">Без ключей</div></div>
+        <div class="lv-stat"><div class="lv-stat-n">9+</div><div class="lv-stat-l">Инстансов</div></div>
+        <div class="lv-stat"><div class="lv-stat-n">&lt;1с</div><div class="lv-stat-l">Failover</div></div>
+        <div class="lv-stat"><div class="lv-stat-n">✨</div><div class="lv-stat-l">AI Agent ready</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="lv-loading" id="loading-view" style="display:none;">
+    <div class="lv-spinner"></div>
+    <div class="lv-loading-text" id="loading-headline">ИИ-агент принимает задачу...</div>
+    <div class="lv-loading-steps" id="loadingStepsContainer">
+      <div class="lv-step" id="s1"><div class="dot"></div> 📝 Анализ промпта пользователя</div>
+      <div class="lv-step" id="s2"><div class="dot"></div> 🧠 Генерация архитектуры решения (AI Agent)</div>
+      <div class="lv-step" id="s3"><div class="dot"></div> 💾 Симуляция пуша в GitHub (репозиторий создан)</div>
+      <div class="lv-step" id="s4"><div class="dot"></div> 🌍 Проверка доступных инстансов</div>
+      <div class="lv-step" id="s5"><div class="dot"></div> 🔁 Отказоустойчивый перебор — открываем дашборд</div>
+      <div class="lv-step" id="s6"><div class="dot"></div> ✅ Готово! Перенаправление...</div>
+    </div>
+  </div>
+
+  <div class="lv-footer-links"><a>Terms</a><a>Privacy</a><a>GitHub Actions (demo)</a><a>Status</a></div>
+  <div id="toastMsg" class="toast-msg"></div>
+</div>
+
+<script>
+  // ====================== СПИСОК ИНСТАНСОВ (НИЧЕГО НЕ УДАЛЯТЬ) ======================
+  const INSTANCES = [
+    "https://coder-goai.lovable.app",
+    "https://coder-goai.base44.app/login",
+    "https://freecoder-goai.base44.app/login",
+    "https://s1coder-goai.base44.app/login",
+    "https://s2coder-goai.base44.app/login",
+    "https://s3coder-goai.base44.app/login",
+    "https://s4coder-goai.base44.app/login",
+    "https://s5coder-goai.base44.app/login",
+    "https://s6coder-goai.base44.app/login",
+    "https://codergoai.freebuff.app"
+  ];
+
+  // Вспомогательный тост
+  function showToast(msg, duration = 2000) {
+    const toast = document.getElementById('toastMsg');
+    toast.textContent = msg;
+    toast.style.opacity = '1';
+    setTimeout(() => { toast.style.opacity = '0'; }, duration);
+  }
+
+  // Проверка доступности инстанса (HEAD запрос с таймаутом, ничего не удаляет, не изменяет)
+  async function isInstanceAlive(url) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
+      // используем fetch с mode 'no-cors' чтобы не было CORS-блокировки, но так мы не получим статус, зато узнаем о сетевых ошибках
+      await fetch(url, { method: 'HEAD', mode: 'no-cors', signal: controller.signal });
+      clearTimeout(timeoutId);
+      return true;
+    } catch (err) {
+      console.warn(`Инстанс ${url} не отвечает:`, err);
+      return false;
+    }
+  }
+
+  // Failover: перебираем инстансы, открываем первый работающий
+  async function redirectToWorkingInstance() {
+    for (const url of INSTANCES) {
+      const alive = await isInstanceAlive(url);
+      if (alive) {
+        showToast(`✅ Найден работающий инстанс: ${url}`, 1500);
+        window.location.href = url;
+        return true;
+      }
+    }
+    // Если ни один не доступен — открываем первый из списка как fallback
+    showToast(`⚠️ Все инстансы временно недоступны? Открываем основной`, 2000);
+    setTimeout(() => { window.location.href = INSTANCES[0]; }, 800);
+    return false;
+  }
+
+  // Имитация работы ИИ-агента + "пуша в GitHub" (без реальных ключей)
+  async function simulateAgentAndRedirect(userPrompt) {
+    // шаги анимации
+    const steps = ['s1','s2','s3','s4','s5','s6'];
+    const headlines = [
+      '🤖 ИИ-агент: анализирую запрос...',
+      '⚙️ Генерация архитектуры и кода (AI Agent)',
+      '📦 Push в GitHub: создан репозиторий "ai-app-by-agent" + коммит',
+      '🌍 Сканирование инстансов для failover',
+      '🔄 Автоматический перебор — ищем живой дашборд',
+      '🚀 Успех! Перенаправляем на рабочий инстанс'
+    ];
+    
+    for (let i = 0; i < steps.length; i++) {
+      if (i > 0) {
+        const prev = document.getElementById(steps[i-1]);
+        if (prev) prev.className = 'lv-step done';
+      }
+      const curr = document.getElementById(steps[i]);
+      if (curr) curr.className = 'lv-step active';
+      document.getElementById('loading-headline').innerHTML = headlines[i];
+      
+      // добавим небольшие задержки для реализма
+      if (i === 2) {
+        // Симуляция пуша в GitHub: выводим в консоль и тост
+        console.log(`[DEMO] ИИ-агент запушил код в репозиторий "coder-ai-${Date.now()}" на основе запроса: "${userPrompt.substring(0, 80)}"`);
+        showToast(`📦 Демо-пуш в GitHub выполнен (репозиторий: agent-app-${Date.now().toString().slice(-6)})`, 1800);
+      }
+      await new Promise(r => setTimeout(r, 650));
+    }
+    // финальная метка
+    document.getElementById('s6').className = 'lv-step done';
+    document.getElementById('loading-headline55').innerHTML = '✅ Готово! Открываем дашборд...';
+    await new Promise(r => setTimeout(r, 500));
+    // Запускаем отказоустойчивый переход
+    await redirectToWorkingInstance();
+  }
+
+  // Обработчик кнопки генерации
+  const genBtn = document.getElementById('gen-btn');
+  const promptInput = document.getElementById('prompt-input');
+  const mainViewDiv = document.getElementById('main-view');
+  const loadingDiv = document.getElementById('loading-view');
+
+  async function startAgent() {
+    const prompt = promptInput.value.trim();
+    if (!prompt) {
+      showToast('✏️ Напишите задачу для ИИ-агента', 1500);
+      promptInput.style.border = '1px solid #ff6b6b';
+      setTimeout(() => promptInput.style.border = '', 1000);
+      return;
+    }
+    // Переключаем интерфейс
+    mainViewDiv.style.display = 'none';
+    loadingDiv.style.display = 'flex';
+    
+    // Сброс классов шагов
+    const stepIds = ['s1','s2','s3','s4','s5','s6'];
+    stepIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.className = 'lv-step';
+    });
+    
+    try {
+      await simulateAgentAndRedirect(prompt);
+    } catch (err) {
+      console.error(err);
+      showToast('⚠️ Ошибка при работе агента, но дашборд всё равно откроется', 2000);
+      await redirectToWorkingInstance();
+    }
+  }
+
+  genBtn.addEventListener('click', startAgent);
+  
+  // Кнопка "Дашборд" — сразу запускает failover без генерации
+  document.getElementById('dashboardBtn').addEventListener('click', async () => {
+    showToast('🔄 Поиск доступного инстанса...', 1000);
+    await redirectToWorkingInstance();
+  });
+  
+  // Кнопка симуляции GitHub (просто уведомление)
+  document.getElementById('ghNotifyBtn').addEventListener('click', () => {
+    showToast('🔁 GitHub интеграция При генерации агент "пушит" код в воображаемый репозиторий.', 2500);
+  });
+  
+  document.getElementById('simulateGhTag').addEventListener('click', () => {
+    showToast('📘 ИИ-агент при генерации создаст демо-коммит в GitHub (логи в консоли)', 2000);
+  });
+  document.getElementById('failoverTag').addEventListener('click', () => {
+    showToast('⚡ Отказоустойчивость: при недоступности одного инстанса автоматически переключаем на другой. Ничего не удаляем!', 2500);
+  });
+  
+  function fillPrompt(el) {
+    promptInput.value = el.innerText;
+  }
+  window.fillPrompt = fillPrompt;
+  
+  // Enter в textarea
+  promptInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      startAgent();
+    }
+  });
+  
+  // небольшая проверка при загрузке: показываем приветствие
+  console.log('✅ Coder-GoAI готов. failover активен. Инстансы:', INSTANCES);
+</script>
+</body>
+</html>

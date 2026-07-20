@@ -1,0 +1,73 @@
+# StreamLive — корневой .htaccess
+# Красивые ссылки без .php на ВСЕХ страницах проекта + базовая защита служебных папок.
+# Антидудос/антибот (рейт-лимит, капча, JS-проверка при всплеске трафика) живёт в PHP
+# (includes/antibot.php, подключается из includes/functions.php на каждый запрос) —
+# на бесплатном Apache-хостинге нет доступа к mod_evasive/mod_security, поэтому вся
+# логика лимитов сделана на уровне приложения, а не здесь.
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # ---- 1) Точечные "человеческие" маршруты для страниц с параметром в URL ----
+  # /video/nazvanie-slug     → video.php?slug=nazvanie-slug
+  RewriteRule ^video/([a-z0-9-]+)/?$ video.php?slug=$1 [L,QSA]
+
+  # /channel/nazvanie-slug   → channel.php?slug=nazvanie-slug
+  RewriteRule ^channel/([a-z0-9-]+)/?$ channel.php?slug=$1 [L,QSA]
+
+  # /s/nazvanie-slug         → s.php?slug=nazvanie-slug (задеплоенные GitHub-сервисы)
+  RewriteRule ^s/([a-z0-9-]+)/?$ s.php?slug=$1 [L,QSA]
+
+  # /u/username              → profile.php?username=username
+  RewriteRule ^u/([a-zA-Z0-9_-]+)/?$ profile.php?username=$1 [L,QSA]
+
+  # ---- 2) Общее правило для всех остальных страниц: /forum → forum.php, /videos → videos.php,
+  # /rating → rating.php и так далее — работает сразу для ЛЮБОГО .php-файла в корне проекта,
+  # включая те, что появятся в будущем, без необходимости дописывать сюда новую строку
+  # на каждую новую страницу.
+  #
+  # Условия защищают от неправильного срабатывания:
+  #   - !-f и !-d — если по такому пути реально существует файл или папка (assets/, storage/,
+  #     admin/, картинка, css) — правило вообще не трогает запрос, отдаётся как есть;
+  #   - третье условие проверяет, что рядом реально лежит файл с расширением .php — иначе
+  #     обычный 404 на несуществующую страницу останется обычным 404, а не подключит что попало.
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{DOCUMENT_ROOT}/$1.php -f
+  RewriteRule ^([a-zA-Z0-9_\-/]+)/?$ $1.php [L,QSA]
+
+  # ---- 3) Если где-то на сайте (старая ссылка, закладка) открыли явный .php-адрес —
+  # незаметно для пользователя редиректим на красивый вариант, чтобы в адресной строке
+  # .php не светился нигде. Только для GET/HEAD — POST-формы и fetch()-запросы (лайки,
+  # избранное, чат, комментарии и т.д.) НЕ трогаем: 301 на POST ломает отправку форм,
+  # браузер обязан повторить её как GET, а бэкенд ждёт именно POST.
+  RewriteCond %{REQUEST_METHOD} GET [OR]
+  RewriteCond %{REQUEST_METHOD} HEAD
+  RewriteCond %{THE_REQUEST} \s/+([a-zA-Z0-9_\-/]+)\.php[\s?] [NC]
+  RewriteRule ^ /%1 [R=301,L]
+</IfModule>
+
+# ---- Служебные папки — закрываем прямой доступ из браузера ----
+# includes/*.php не предназначены для прямого открытия (только через require из других
+# файлов), а sql/*.sql — вообще не PHP и без этой защиты отдались бы как обычный текст,
+# раскрывая структуру базы. services_data/ НЕ трогаем — там лежат опубликованные through
+# /s/ сервисы пользователей, они должны открываться напрямую.
+<IfModule mod_authz_core.c>
+  <FilesMatch "\.(sql|log|env)$">
+    Require all denied
+  </FilesMatch>
+</IfModule>
+<IfModule !mod_authz_core.c>
+  <FilesMatch "\.(sql|log|env)$">
+    Order allow,deny
+    Deny from all
+  </FilesMatch>
+</IfModule>
+
+RewriteEngine On
+RewriteRule ^includes/ - [F,L]
+RewriteRule ^config/ - [F,L]
+RewriteRule ^sql/ - [F,L]
+
+# Запрещаем листинг содержимого папок без index-файла
+Options -Indexes
