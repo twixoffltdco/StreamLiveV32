@@ -33,6 +33,30 @@ function ensure_auth_schema(): void {
 }
 ensure_auth_schema();
 
+function auth_canonical_path(?string $path): string {
+  $path = '/' . ltrim((string)($path ?: '/'), '/');
+  if ($path !== '/' && substr($path, -1) === '/') {
+    $path = rtrim($path, '/');
+  }
+  if (substr($path, -4) === '.php') {
+    $path = substr($path, 0, -4);
+  }
+  return $path ?: '/';
+}
+
+function auth_path_is(array $paths, ?string $currentPath = null): bool {
+  $current = auth_canonical_path($currentPath ?? parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH));
+  foreach ($paths as $path) {
+    if ($current === auth_canonical_path($path)) return true;
+  }
+  return false;
+}
+
+function auth_path_starts_with(string $prefix, ?string $currentPath = null): bool {
+  $current = auth_canonical_path($currentPath ?? parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH));
+  return strpos($current, auth_canonical_path($prefix)) === 0;
+}
+
 function normalize_auth_redirect_target($next, string $fallback = '/dashboard.php'): string {
   if (!is_string($next)) return $fallback;
   $next = trim($next);
@@ -43,7 +67,7 @@ function normalize_auth_redirect_target($next, string $fallback = '/dashboard.ph
     '/auth/login.php', '/auth/register.php', '/auth/2fa_setup.php', '/auth/2fa_verify.php',
     '/auth/oauth_start.php', '/auth/oauth_callback.php', '/auth/logout.php',
   ];
-  if (in_array($nextPath, $blockedExact, true) || strpos($nextPath, '/admin/') === 0) return $fallback;
+  if (auth_path_is($blockedExact, $nextPath) || auth_path_starts_with('/admin/', $nextPath)) return $fallback;
 
   return $next;
 }
@@ -92,7 +116,7 @@ function require_login(): array {
   }
   $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
   $allowedWhilePending = ['/auth/force_password_change.php', '/auth/logout.php'];
-  if (!empty($user['must_change_password']) && !in_array($currentPath, $allowedWhilePending, true)) {
+  if (!empty($user['must_change_password']) && !auth_path_is($allowedWhilePending, $currentPath)) {
     redirect('/auth/force_password_change.php');
   }
   return $user;
@@ -184,7 +208,7 @@ function enforce_2fa_gate(): void {
     '/ai_send.php', '/ai_project_save.php',
     '/message_poll.php', '/message_send.php',
   ];
-  if (in_array($path, $allowed, true)) return;
+  if (auth_path_is($allowed, $path)) return;
 
   try {
     if (!empty($_SESSION['pending_2fa_user_id'])) {
@@ -232,8 +256,8 @@ function enforce_phone_gate(): void {
     '/ai_send.php', '/ai_project_save.php',
     '/message_poll.php', '/message_send.php', '/broadcast_post_poll.php', '/broadcast_post_send.php',
   ];
-  if (in_array($path, $allowed, true)) return;
-  if (strpos((string)$path, '/admin/') === 0) return;
+  if (auth_path_is($allowed, $path)) return;
+  if (auth_path_starts_with('/admin/', $path)) return;
 
   try {
     $stmt = db()->prepare('SELECT phone FROM users WHERE id = ?');
