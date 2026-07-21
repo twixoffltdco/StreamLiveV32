@@ -33,22 +33,30 @@ function ensure_auth_schema(): void {
 }
 ensure_auth_schema();
 
+function normalize_auth_redirect_target($next, string $fallback = '/dashboard.php'): string {
+  if (!is_string($next)) return $fallback;
+  $next = trim($next);
+  if ($next === '' || $next[0] !== '/' || strpos($next, '//') === 0 || preg_match('/[\r\n]/', $next)) return $fallback;
+
+  $nextPath = parse_url($next, PHP_URL_PATH) ?: '/';
+  $blockedExact = [
+    '/auth/login.php', '/auth/register.php', '/auth/2fa_setup.php', '/auth/2fa_verify.php',
+    '/auth/oauth_start.php', '/auth/oauth_callback.php', '/auth/logout.php',
+  ];
+  if (in_array($nextPath, $blockedExact, true) || strpos($nextPath, '/admin/') === 0) return $fallback;
+
+  return $next;
+}
+
 function safe_login_redirect(): string {
-  $path = $_SERVER['REQUEST_URI'] ?? '/';
-  $current = parse_url($path, PHP_URL_PATH) ?: '/';
-  if (strpos($current, '/auth/') === 0 || strpos($current, '/admin/') === 0) {
-    return '/auth/login.php';
-  }
+  $path = normalize_auth_redirect_target($_SERVER['REQUEST_URI'] ?? '/', '/dashboard.php');
+  $_SESSION['login_next'] = $path;
   return '/auth/login.php?next=' . rawurlencode($path);
 }
 
 function safe_after_login_redirect(): string {
-  $next = $_POST['next'] ?? $_GET['next'] ?? '';
-  if (is_string($next) && $next !== '' && strpos($next, '/') === 0 && strpos($next, '//') !== 0) {
-    $nextPath = parse_url($next, PHP_URL_PATH) ?: '/';
-    if (strpos($nextPath, '/auth/') !== 0) return $next;
-  }
-  return '/dashboard.php';
+  $fallback = normalize_auth_redirect_target($_SESSION['login_next'] ?? '', '/dashboard.php');
+  return normalize_auth_redirect_target($_POST['next'] ?? $_GET['next'] ?? '', $fallback);
 }
 
 function current_user(): ?array {

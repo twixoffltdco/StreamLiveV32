@@ -2,6 +2,10 @@
 $pageTitle = 'Вход';
 require_once __DIR__ . '/../includes/header.php';
 
+if (isset($_GET['next'])) {
+  $_SESSION['login_next'] = normalize_auth_redirect_target($_GET['next'], '/dashboard.php');
+}
+
 if ($__user) redirect(safe_after_login_redirect());
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
