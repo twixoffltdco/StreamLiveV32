@@ -507,3 +507,14 @@ img, video, iframe, embed, object { max-width: 100%; }
   .topAdPad, #movie_video, #stliveBanner, .stlive-banner { max-width: 100vw; overflow: hidden; }
   body > iframe:not([title]), body > div[id*="ad" i], body > div[class*="ad" i] { max-width: 100vw !important; }
 }
+
+/* Железная страховка мобильной вёрстки: сторонние скрипты/виджеты и длинный контент
+   не должны расширять viewport и ломать горизонталь на телефонах. */
+html, body { max-width: 100%; }
+img, video, iframe, canvas, svg { max-width: 100%; }
+@media (max-width: 600px) {
+  .container { width: 100%; padding-left: 14px; padding-right: 14px; }
+  .form-card { width: calc(100% - 28px); margin: 28px auto; padding: 22px; }
+  .oauth-btn { width: 100%; justify-content: center; }
+  input, textarea, select, button { max-width: 100%; }
+}
