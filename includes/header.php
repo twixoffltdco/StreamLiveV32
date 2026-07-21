@@ -278,7 +278,6 @@ if (month === 12 || month === 1 || month === 2) { // Winter
     <a href="/videos">Видео</a>
     <a href="/resources">Ресурсы</a>
     <a href="/rating">Рейтинг</a>
-    <a href="/online">Онлайн</a>
     <?php if ($__user): ?>
       <a href="/favorites">Избранное</a>
       <a href="/dashboard">Мои каналы</a>
