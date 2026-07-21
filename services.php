@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/service_helpers.php';
 $__user = current_user();
 
 $stmt = db()->query(
@@ -9,11 +10,12 @@ $stmt = db()->query(
 );
 $oauthServices = $stmt->fetchAll();
 
+deployed_services_ensure_schema();
 $stmt = db()->query(
-  "SELECT ds.*, u.username FROM deployed_services ds JOIN users u ON u.id = ds.user_id
+  "SELECT ds.*, u.username, u.is_verified, u.last_active_date FROM deployed_services ds JOIN users u ON u.id = ds.user_id
    WHERE ds.is_public = 1 AND ds.status = 'live' ORDER BY ds.id DESC"
 );
-$deployedServices = $stmt->fetchAll();
+$deployedServices = array_map('deployed_service_autostop', $stmt->fetchAll());
 
 $pageTitle = 'Сервисы';
 $seoDescription = 'Приложения и мини-сервисы, созданные сообществом ' . SITE_NAME;
@@ -41,10 +43,12 @@ require_once __DIR__ . '/includes/header.php';
     <?php endforeach; ?>
 
     <?php foreach ($deployedServices as $s): ?>
-      <div class="profile-grid-item" style="cursor:pointer" onclick="launchDeployedService('<?= e(addslashes($s['name'])) ?>', '<?= e(addslashes($s['description'] ?? '')) ?>', '<?= e($s['slug']) ?>')">
+      <div class="profile-grid-item service-card <?= !empty($s['suspended']) ? 'service-card-suspended' : '' ?>" style="cursor:pointer" <?php if (empty($s['suspended'])): ?>onclick="launchDeployedService('<?= e(addslashes($s['name'])) ?>', '<?= e(addslashes($s['description'] ?? '')) ?>', '<?= e($s['slug']) ?>')"<?php endif; ?>>
+        <div class="service-preview"><iframe src="<?= e(deployed_service_preview_url($s['slug'])) ?>" loading="lazy" sandbox="allow-scripts allow-forms"></iframe></div>
         <div class="profile-grid-caption">
           <b><?= e($s['name']) ?></b>
           <span style="font-size:11px;color:var(--text-dim)">от <?= e($s['username']) ?> · <?= e($s['repo_full_name']) ?></span>
+          <?php if (!empty($s['suspended'])): ?><span class="status-pill status-rejected">услуга окончена</span><small><?= e($s['suspended_reason'] ?: 'Продлите подписку') ?></small><?php endif; ?>
         </div>
       </div>
     <?php endforeach; ?>

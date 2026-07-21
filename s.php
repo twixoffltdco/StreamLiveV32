@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/service_helpers.php';
 
 $slug = trim((string)($_GET['slug'] ?? ''));
 $stmt = db()->prepare("SELECT s.*, u.username AS owner_name, u.is_verified AS owner_verified, u.last_active_date FROM deployed_services s JOIN users u ON u.id = s.user_id WHERE s.slug = ? AND s.status = 'live'");
@@ -15,11 +16,8 @@ if ($service) {
     ? (strtotime($service['last_active_date']) < strtotime('-30 days'))
     : true; // ни разу не заходил вообще — тоже считаем неактивным
 
-  if (!$service['owner_verified'] && $ownerInactive && !$service['suspended']) {
-    db()->prepare("UPDATE deployed_services SET suspended = 1, suspended_reason = 'Автостоп: владелец не заходил на платформу 30+ дней' WHERE id = ?")
-      ->execute([$service['id']]);
-    $service['suspended'] = 1;
-    $service['suspended_reason'] = 'Автостоп: владелец не заходил на платформу 30+ дней';
+  if ($ownerInactive) {
+    $service = deployed_service_autostop($service);
   }
 
   if ($service['suspended']) {
@@ -42,7 +40,7 @@ if (!$service) { http_response_code(404); die('Сервис не найден и
 // но перепроверяем формат на всякий случай перед тем, как строить путь к файлам.
 if (!preg_match('/^[a-z0-9-]+$/', $slug)) { http_response_code(400); die('Некорректный slug'); }
 
-$frameSrc = '/services_data/' . $slug . '/index.html';
+$frameSrc = deployed_service_preview_url($slug);
 
 $pageTitle = e($service['name']);
 require_once __DIR__ . '/includes/header.php';

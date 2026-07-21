@@ -14,6 +14,7 @@ require_admin();
     <a href="/admin/sources.php">Источники</a>
     <a href="/admin/oauth.php">Соц. авторизация</a>
     <a href="/admin/themes.php">Themes</a>
+    <a href="/admin/services.php">Деплой-сервисы</a>
     <a href="/admin/users.php">Пользователи</a>
     <a href="/admin/update.php">Обновление БД</a>
       <a href="/admin/import.php">Импорт</a>
