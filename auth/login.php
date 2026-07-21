@@ -2,7 +2,7 @@
 $pageTitle = 'Вход';
 require_once __DIR__ . '/../includes/header.php';
 
-if ($__user) redirect('/dashboard.php');
+if ($__user) redirect(safe_after_login_redirect());
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   csrf_verify();
@@ -50,6 +50,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('/auth/login.php');
   }
 
+  $_SESSION['login_next'] = safe_after_login_redirect();
+
   if (get_setting('force_2fa_enabled', '0') === '1') {
     $_SESSION['pending_2fa_user_id'] = (int)$user['id'];
     $token = make_2fa_token((int)$user['id']);
@@ -57,7 +59,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 
   login_user((int)$user['id']);
-  redirect('/dashboard.php');
+  $next = safe_after_login_redirect();
+  unset($_SESSION['login_next']);
+  redirect($next);
 }
 
 $providers = db()->query('SELECT name, display_name, icon_url FROM oauth_providers WHERE enabled = 1')->fetchAll();
@@ -67,6 +71,7 @@ $providers = db()->query('SELECT name, display_name, icon_url FROM oauth_provide
     <h2>Вход в аккаунт</h2>
     <form method="POST" action="/auth/login.php">
       <?= csrf_field() ?>
+      <input type="hidden" name="next" value="<?= e($_GET['next'] ?? '') ?>">
       <label>Email или номер телефона</label>
       <input type="text" name="email" required placeholder="you@mail.com или +79991234567">
       <label>Пароль</label>

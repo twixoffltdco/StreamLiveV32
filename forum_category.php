@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/service_helpers.php';
 $__user = current_user();
 
 $categoryId = (int)($_GET['id'] ?? 0);
@@ -47,6 +48,7 @@ $threads = $stmt->fetchAll();
           <a href="/forum_thread.php?id=<?= (int)$t['id'] ?>" class="forum-thread-title"><?= e($t['title']) ?></a>
           <div style="color:var(--text-dim);font-size:12px;display:flex;align-items:center;gap:6px;margin-top:2px">
             <?= render_user_badge($t, 18) ?> · <?= e($t['created_at']) ?>
+            <?= banned_user_notice($t) ?>
           </div>
         </div>
         <div class="forum-thread-stats">

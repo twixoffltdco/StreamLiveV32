@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/service_helpers.php';
 require_once __DIR__ . '/includes/bbcode.php';
 $__user = current_user();
 
@@ -93,6 +94,7 @@ require_once __DIR__ . '/includes/header.php';
             <a href="/messages?with=<?= (int)$p['user_id'] ?>" style="color:var(--accent-2);font-size:12px;margin-left:4px">написать</a>
           <?php endif; ?>
         </div>
+        <?= banned_user_notice($p) ?>
         <div class="forum-post-body"><?= bbcode_to_html($p['message']) ?></div>
         <?php if ($isForumModerator): ?>
           <form method="POST" onsubmit="return confirm('Удалить сообщение?')" style="margin-top:6px">

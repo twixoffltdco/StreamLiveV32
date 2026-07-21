@@ -38,7 +38,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       unset($_SESSION['pending_2fa_user_id']);
       login_user((int)$userId);
       flash_set('success', 'Двухфакторная аутентификация включена');
-      redirect('/dashboard.php');
+      $next = $_SESSION['login_next'] ?? '/dashboard.php';
+      unset($_SESSION['login_next']);
+      redirect($next);
     }
     $error = 'Неверный код. Проверьте точное время на телефоне (автоматическая синхронизация времени) и попробуйте снова.';
   }

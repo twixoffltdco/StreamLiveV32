@@ -77,6 +77,8 @@ $stmt = $pdo->prepare('SELECT totp_enabled FROM users WHERE id = ?');
 $stmt->execute([$userId]);
 $totpEnabled = (bool)$stmt->fetchColumn();
 
+$_SESSION['login_next'] = $_SESSION['login_next'] ?? '/dashboard.php';
+
 if (get_setting('force_2fa_enabled', '0') === '1') {
   $_SESSION['pending_2fa_user_id'] = $userId;
   $token = make_2fa_token($userId);
@@ -84,4 +86,6 @@ if (get_setting('force_2fa_enabled', '0') === '1') {
 }
 
 login_user($userId);
-redirect('/dashboard.php');
+$next = $_SESSION['login_next'] ?? '/dashboard.php';
+unset($_SESSION['login_next']);
+redirect($next);

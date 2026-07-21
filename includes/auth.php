@@ -1,6 +1,56 @@
 <?php
 require_once __DIR__ . '/functions.php';
 
+function ensure_auth_schema(): void {
+  static $done = false;
+  if ($done) return;
+  $done = true;
+
+  try {
+    $pdo = db();
+    $dbName = $pdo->query('SELECT DATABASE()')->fetchColumn();
+    if (!$dbName) return;
+
+    $stmt = $pdo->prepare("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'users' AND COLUMN_NAME IN ('totp_secret','totp_enabled','must_change_password','phone')");
+    $stmt->execute([$dbName]);
+    $existing = $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
+
+    if (!in_array('totp_secret', $existing, true)) {
+      $pdo->exec('ALTER TABLE users ADD COLUMN totp_secret VARCHAR(64) DEFAULT NULL');
+    }
+    if (!in_array('totp_enabled', $existing, true)) {
+      $pdo->exec('ALTER TABLE users ADD COLUMN totp_enabled TINYINT(1) DEFAULT 0');
+    }
+    if (!in_array('must_change_password', $existing, true)) {
+      $pdo->exec('ALTER TABLE users ADD COLUMN must_change_password TINYINT(1) DEFAULT 0');
+    }
+    if (!in_array('phone', $existing, true)) {
+      $pdo->exec('ALTER TABLE users ADD COLUMN phone VARCHAR(32) DEFAULT NULL');
+    }
+  } catch (\Throwable $e) {
+    error_log('[auth schema] ' . $e->getMessage());
+  }
+}
+ensure_auth_schema();
+
+function safe_login_redirect(): string {
+  $path = $_SERVER['REQUEST_URI'] ?? '/';
+  $current = parse_url($path, PHP_URL_PATH) ?: '/';
+  if (strpos($current, '/auth/') === 0 || strpos($current, '/admin/') === 0) {
+    return '/auth/login.php';
+  }
+  return '/auth/login.php?next=' . rawurlencode($path);
+}
+
+function safe_after_login_redirect(): string {
+  $next = $_POST['next'] ?? $_GET['next'] ?? '';
+  if (is_string($next) && $next !== '' && strpos($next, '/') === 0 && strpos($next, '//') !== 0) {
+    $nextPath = parse_url($next, PHP_URL_PATH) ?: '/';
+    if (strpos($nextPath, '/auth/') !== 0) return $next;
+  }
+  return '/dashboard.php';
+}
+
 function current_user(): ?array {
   static $user = null;
   static $loaded = false;
@@ -30,7 +80,7 @@ function require_login(): array {
   $user = current_user();
   if (!$user) {
     flash_set('error', 'Нужно войти в аккаунт');
-    redirect('/auth/login.php');
+    redirect(safe_login_redirect());
   }
   $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
   $allowedWhilePending = ['/auth/force_password_change.php', '/auth/logout.php'];
@@ -151,7 +201,8 @@ function enforce_2fa_gate(): void {
     error_log('[2FA gate] ' . $e->getMessage());
     $_SESSION = [];
     session_destroy();
-    flash_set('error', 'Ошибка проверки 2FA (возможно, не применена миграция БД — sql/migrations/003_add_features.sql). Вход временно недоступен, обратитесь к администратору.');
+    session_start();
+    flash_set('error', 'Ошибка проверки 2FA. Схема БД проверена автоматически; попробуйте войти ещё раз.');
     redirect('/auth/login.php');
   }
 }

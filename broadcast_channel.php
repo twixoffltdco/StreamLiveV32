@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/service_helpers.php';
 $__user = require_login();
 
 $slug = $_GET['slug'] ?? '';
@@ -129,6 +130,7 @@ require_once __DIR__ . '/includes/header.php';
       <div class="msg-bubble-row" data-id="<?= (int)$p['id'] ?>">
         <div class="msg-bubble" style="max-width:80%">
           <div style="margin-bottom:4px"><?= render_user_badge($p, 22) ?></div>
+          <?= banned_user_notice($p) ?>
           <?= render_with_stickers($p['body']) ?>
           <div style="font-size:10.5px;color:var(--text-dim);margin-top:4px;display:flex;gap:10px;align-items:center">
             <span><?= e($p['created_at']) ?></span>

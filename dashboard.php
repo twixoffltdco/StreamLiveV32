@@ -16,7 +16,8 @@ $statusLabels = ['pending' => 'На модерации', 'approved' => 'Одоб
 <div class="container">
   <div style="display:flex;align-items:center;margin-top:24px">
     <h2 style="margin:0">Мои каналы</h2>
-    <a href="/new_channel.php" class="btn btn-primary btn-sm" style="margin-left:auto">+ Новый канал</a>
+    <a href="/auth/change_password.php" class="btn btn-outline btn-sm" style="margin-left:auto">Сменить пароль</a>
+    <a href="/new_channel.php" class="btn btn-primary btn-sm">+ Новый канал</a>
   </div>
 
   <?php if (empty($channels)): ?>
