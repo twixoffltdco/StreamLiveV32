@@ -28,6 +28,19 @@ $error = null;
 
 define('SERVICES_DIR', __DIR__ . '/services_data');
 
+// Лимит на количество сервисов: 1 без галочки "доверенный" (is_verified), безлимит с ней.
+// Считаем только НЕ приостановленные модератором сервисы — заблокированный слот не должен
+// мешать задеплоить новый.
+$__stmt = db()->prepare("SELECT COUNT(*) FROM deployed_services WHERE user_id = ? AND status = 'live' AND suspended = 0");
+$__stmt->execute([$__user['id']]);
+$__activeServicesCount = (int)$__stmt->fetchColumn();
+$__maxServices = !empty($__user['is_verified']) ? PHP_INT_MAX : 1;
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'deploy' && $__activeServicesCount >= $__maxServices) {
+  flash_set('error', 'Лимит: 1 активный сервис на аккаунт без галочки "доверенный". Удалите текущий или запросите верификацию у модератора для безлимита.');
+  redirect('/github_deploy.php');
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'deploy') {
   csrf_verify();
   $repoFullName = trim($_POST['repo'] ?? '');

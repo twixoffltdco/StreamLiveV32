@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/resources.php';
 require_once __DIR__ . '/includes/bbcode.php';
+require_once __DIR__ . '/includes/auth.php';
 $r = resource_find((string)($_GET['slug'] ?? ''), true);
 $u = current_user();
 if (!$r || ($r['status'] !== 'published' && !resource_can_moderate($u))) { http_response_code(404); die('Ресурс не найден'); }

@@ -3,9 +3,39 @@ require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
 
 $slug = trim((string)($_GET['slug'] ?? ''));
-$stmt = db()->prepare("SELECT s.*, u.username AS owner_name FROM deployed_services s JOIN users u ON u.id = s.user_id WHERE s.slug = ? AND s.status = 'live'");
-$stmt->execute([$slug]);
+$stmt = db()->prepare("SELECT s.*, u.username AS owner_name, u.is_verified AS owner_verified, u.last_active_date FROM deployed_services s JOIN users u ON u.id = s.user_id WHERE s.slug = ? AND s.status = 'live'");
+$stmt->execute([(string)($_GET['slug'] ?? '')]);
 $service = $stmt->fetch();
+
+if ($service) {
+  // Автостоп: без галочки "доверенный" у владельца сервис останавливается, если
+  // сам владелец не заходил на платформу 30+ дней (не про то, посещают ли сервис —
+  // именно про активность самого владельца аккаунта).
+  $ownerInactive = $service['last_active_date']
+    ? (strtotime($service['last_active_date']) < strtotime('-30 days'))
+    : true; // ни разу не заходил вообще — тоже считаем неактивным
+
+  if (!$service['owner_verified'] && $ownerInactive && !$service['suspended']) {
+    db()->prepare("UPDATE deployed_services SET suspended = 1, suspended_reason = 'Автостоп: владелец не заходил на платформу 30+ дней' WHERE id = ?")
+      ->execute([$service['id']]);
+    $service['suspended'] = 1;
+    $service['suspended_reason'] = 'Автостоп: владелец не заходил на платформу 30+ дней';
+  }
+
+  if ($service['suspended']) {
+    require_once __DIR__ . '/includes/header.php';
+    ?>
+    <div class="container" style="max-width:500px;margin-top:40px;text-align:center">
+      <h1>⏸️ Сервис приостановлен</h1>
+      <p style="color:var(--text-dim)"><?= e($service['suspended_reason'] ?: 'Услуга временно недоступна.') ?></p>
+      <p style="color:var(--text-dim);font-size:13px">Если это ваш сервис — зайдите на платформу под своим аккаунтом, чтобы возобновить работу, либо запросите верификацию у модератора для безлимитного размещения без автостопа.</p>
+    </div>
+    <?php
+    require_once __DIR__ . '/includes/footer.php';
+    exit;
+  }
+}
+
 if (!$service) { http_response_code(404); die('Сервис не найден или ещё не задеплоен'); }
 
 // Защита от path traversal — slug генерируется только нашим кодом при деплое,

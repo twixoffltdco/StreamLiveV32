@@ -3,7 +3,6 @@ require_once __DIR__ . '/includes/header.php';
 require_login();
 
 $id = (int)($_GET['id'] ?? 0);
-ensure_channel_avatar_columns();
 $stmt = db()->prepare('SELECT * FROM channels WHERE id = ? AND owner_id = ?');
 $stmt->execute([$id, $__user['id']]);
 $channel = $stmt->fetch();
@@ -26,14 +25,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     flash_set('success', $newState ? 'Трансляция остановлена. Зрители увидят «эфир завершён», пока вы её не включите обратно.' : 'Трансляция включена — эфир снова идёт по расписанию.');
     redirect('/channel_manage.php?id=' . $id);
   } elseif ($action === 'update_settings') {
-    ensure_channel_avatar_columns();
     $stmt = db()->prepare(
-      'UPDATE channels SET title=?, description=?, logo_url=?, gravatar_email=?, cover_url=?, default_source_id=?, seo_title=?, seo_description=?, seo_keywords=?, is_public=?
+      'UPDATE channels SET title=?, description=?, logo_url=?, default_source_id=?, seo_title=?, seo_description=?, seo_keywords=?, is_public=?
        WHERE id = ? AND owner_id = ?'
     );
     $stmt->execute([
       trim($_POST['title']), trim($_POST['description']), trim($_POST['logo_url']) ?: null,
-      trim($_POST['gravatar_email'] ?? '') ?: null, trim($_POST['cover_url'] ?? '') ?: null,
       $_POST['default_source_id'] !== '' ? (int)$_POST['default_source_id'] : null,
       trim($_POST['seo_title']), trim($_POST['seo_description']), trim($_POST['seo_keywords']),
       !empty($_POST['is_public']) ? 1 : 0,
@@ -44,16 +41,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   } elseif ($action === 'add_source') {
     require_once __DIR__ . '/includes/embed_helper.php';
 
-    // Галочка (is_verified, выдаётся в /moderator/users.php или /admin/users.php) снимает
-    // проверку "похоже ли это на видеоплеер" — верифицированным доверяем любую ссылку как есть,
-    // без эвристик по хосту/пути. Без галочки — обычная строгая проверка, как раньше.
-    if (!empty($__user['is_verified'])) {
-      $rawUrl = trim($_POST['url']);
-      if ($rawUrl === '' || !filter_var($rawUrl, FILTER_VALIDATE_URL) || stripos($rawUrl, 'https://') !== 0) {
-        flash_set('error', 'Ссылка должна быть корректным https:// адресом');
+    $rawUrl = trim($_POST['url'] ?? '');
+    $type = (string)($_POST['type'] ?? '');
+
+    // Галочка (is_verified) снимает строгую проверку ТОЛЬКО для прямых потоков
+    // (m3u8/mp4/file://) — доверенный человек может вставить что угодно похожее на
+    // прямую ссылку на видео, вплоть до file://, ЭТО НИКОГДА НЕ ИДЁТ НА СЕРВЕР (curl/
+    // file_get_contents и т.п.) — только напрямую в <video src> у зрителя в браузере,
+    // так что чтение файлов сервера через эту лазейку невозможно даже теоретически.
+    // Заодно: file:// физически не загрузится в браузере на https-странице — это
+    // ограничение самого браузера (mixed content), не моё — так что это скорее задел
+    // на локальное тестирование самим доверенным человеком, чем реальный рабочий кейс
+    // для обычных зрителей.
+    //
+    // Для type === 'iframe' (встраиваемые чужие плееры) галочка НИЧЕГО не снимает —
+    // там всегда полная проверка через validate_player_url(), потому что iframe может
+    // выполнять чужой JS в контексте страницы, а это совсем другой уровень риска,
+    // чем видеопоток в <video>.
+    $isDirectStreamType = in_array($type, ['direct', 'm3u8', 'mp4'], true);
+
+    if (!empty($__user['is_verified']) && $isDirectStreamType) {
+      if ($rawUrl === '') {
+        flash_set('error', 'Вставьте ссылку');
         redirect('/channel_manage.php?id=' . $id);
       }
-      $result = normalize_embed_url($_POST['type'], $rawUrl);
+      $isFileUrl = stripos($rawUrl, 'file://') === 0;
+      $isHttpsUrl = stripos($rawUrl, 'https://') === 0 && filter_var($rawUrl, FILTER_VALIDATE_URL);
+      if (!$isFileUrl && !$isHttpsUrl) {
+        flash_set('error', 'Доверенным доступна ссылка https:// (любая) или file:// (для локального теста) — это не похоже ни на одну из них');
+        redirect('/channel_manage.php?id=' . $id);
+      }
+      $result = $isFileUrl ? $rawUrl : normalize_embed_url($type, $rawUrl); // file:// не нормализуем — незачем гонять через regex под чужие видеохостинги
     } else {
       [$isValid, $result] = validate_player_url($_POST['type'], trim($_POST['url']));
       if (!$isValid) {
@@ -198,12 +216,8 @@ try {
       <input type="text" name="title" value="<?= e($channel['title']) ?>" required>
       <label>Описание</label>
       <textarea name="description"><?= e($channel['description']) ?></textarea>
-      <label>Логотип (прямая ссылка на картинку)</label>
-      <input type="url" name="logo_url" value="<?= e($channel['logo_url']) ?>" placeholder="https://.../logo.png">
-      <label>Или Gravatar — логотип подтянется по e-mail (как на gravatar.com), если задан — берём его вместо ссылки выше</label>
-      <input type="email" name="gravatar_email" value="<?= e($channel['gravatar_email'] ?? '') ?>" placeholder="channel@example.com">
-      <label>Обложка канала (баннер вверху страницы канала)</label>
-      <input type="url" name="cover_url" value="<?= e($channel['cover_url'] ?? '') ?>" placeholder="https://.../cover.jpg">
+      <label>Логотип</label>
+      <input type="url" name="logo_url" value="<?= e($channel['logo_url']) ?>">
       <label>Источник по умолчанию</label>
       <select name="default_source_id">
         <option value="">— нет —</option>
