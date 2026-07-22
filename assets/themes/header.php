@@ -39,8 +39,8 @@ $__canonical = SITE_URL . ($_SERVER['REQUEST_URI'] ?? '/');
   <meta property="og:url" content="<?= e($__canonical) ?>">
   <?php if ($seoImage): ?><meta property="og:image" content="<?= e($seoImage) ?>"><meta name="twitter:card" content="summary_large_image"><?php endif; ?>
   <meta name="robots" content="index, follow">
-  <?php $__cssPath = __DIR__ . '/../assets/themes/flexdev.css'; $__cssVer = file_exists($__cssPath) ? filemtime($__cssPath) : time(); ?>
-  <link rel="stylesheet" href="/assets/css/themes/flexdev.css?v=<?= $__cssVer ?>">
+  <?php $__cssPath = __DIR__ . '/flexdev.css'; $__cssVer = file_exists($__cssPath) ? filemtime($__cssPath) : time(); ?>
+  <link rel="stylesheet" href="/assets/themes/flexdev.css?v=<?= $__cssVer ?>">
   <?php require_once __DIR__ . '/themes.php'; $__activeTheme = themes_active(); if ($__activeTheme): ?><link rel="stylesheet" href="<?= e($__activeTheme['css']) ?>?v=<?= time() ?>"><?php endif; ?>
   <?php if (!empty($extraHead)) echo $extraHead; ?>
 </head>

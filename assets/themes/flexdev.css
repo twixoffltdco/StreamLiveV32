@@ -473,3 +473,215 @@ table.admin-table td { padding: 12px 14px; border-top: 1px solid var(--border); 
     max-width: 100%;
     border: 0;
 }
+/* GitGoida — точно как на скриншоте */
+body {
+  background: #0a0a12 !important;
+  color: #e0e0ff !important;
+}
+
+/* Шапка как на скриншоте */
+header, nav, .top-bar, .navbar {
+  background: rgba(10,10,18,0.97) !important;
+  border-bottom: 1px solid #00d4ff33 !important;
+  padding: 12px 20px !important;
+}
+
+/* Карточки репозиториев / тем */
+.card, .panel, .block, .repo-card, .video-card, .thread-item, .channel-item {
+  background: #16161f !important;
+  border: 1px solid #2a2a3a !important;
+  border-radius: 12px !important;
+  padding: 16px !important;
+  margin-bottom: 16px !important;
+}
+
+.card:hover {
+  border-color: #00d4ff !important;
+  box-shadow: 0 4px 15px rgba(0,212,255,0.1) !important;
+}
+
+/* Кнопки */
+.btn-primary, .button-primary {
+  background: linear-gradient(90deg, #00d4ff, #7b2fff) !important;
+  color: white !important;
+  border-radius: 8px !important;
+}
+
+/* Ссылки */
+a { color: #00d4ff !important; }
+a:hover { color: #7b2fff !important; }
+
+/* Топ баннер */
+#cf-top-banner {
+  background: linear-gradient(135deg, rgba(0,10,30,0.98), rgba(10,5,40,0.98)) !important;
+}
+
+/* Сетка карточек */
+.video-grid, .repo-grid, .list {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
+  gap: 16px !important;
+} body {
+  background: #0a0a12 !important;
+  color: #e0e0ff !important;
+}
+
+header, nav, .top-bar {
+  background: rgba(10,10,18,0.97) !important;
+  border-bottom: 1px solid #00d4ff33 !important;
+}
+
+.card, .panel, .block, .repo-card, .video-card, .channel-card {
+  background: #16161f !important;
+  border: 1px solid #2a2a3a !important;
+  border-radius: 12px !important;
+}
+
+.card:hover, .repo-card:hover {
+  border-color: #00d4ff !important;
+}
+
+.btn-primary, .button-primary, button.primary {
+  background: linear-gradient(90deg, #00d4ff, #7b2fff) !important;
+  color: white !important;
+}
+
+a { color: #00d4ff !important; }
+a:hover { color: #7b2fff !important; }
+
+#cf-top-banner {
+  background: linear-gradient(135deg, rgba(0,10,30,0.98), rgba(10,5,40,0.98)) !important;
+}
+body {
+  background: #0a0a12 !important;
+  color: #e0e0ff !important;
+}
+
+header, nav {
+  background: rgba(10,10,18,0.97) !important;
+  border-bottom: 1px solid #00d4ff33 !important;
+}
+
+/* Карточки + анимация как на скриншоте */
+.card, .panel, .block, .repo-card, .video-card, .channel-card {
+  background: #16161f !important;
+  border: 1px solid #2a2a3a !important;
+  border-radius: 12px !important;
+  padding: 16px !important;
+  transition: all 0.25s ease !important;
+}
+
+.card:hover, .repo-card:hover, .video-card:hover {
+  border-color: #00d4ff !important;
+  transform: translateY(-6px) !important;
+  box-shadow: 0 10px 25px rgba(0, 212, 255, 0.15) !important;
+}
+
+/* Кнопки */
+.btn-primary, .button-primary {
+  background: linear-gradient(90deg, #00d4ff, #7b2fff) !important;
+  color: white !important;
+  transition: all 0.2s ease !important;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(0,212,255,0.4) !important;
+}
+
+/* Ссылки */
+a { color: #00d4ff !important; }
+a:hover { color: #7b2fff !important; }
+
+/* Топ баннер */
+#cf-top-banner {
+  background: linear-gradient(135deg, rgba(0,10,30,0.98), rgba(10,5,40,0.98)) !important;
+}
+
+/* Сетка */
+.video-grid, .repo-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
+  gap: 20px !important;
+}body {
+  background: #0a0a12 !important;
+  color: #e0e0ff !important;
+}
+
+/* Hover shine эффект */
+.card, .panel, .block, .repo-card, .video-card {
+  background: #16161f !important;
+  border: 1px solid #2a2a3a !important;
+  border-radius: 12px !important;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease !important;
+}
+
+.card:hover, .repo-card:hover, .video-card:hover {
+  border-color: #00d4ff !important;
+  transform: translateY(-8px) !important;
+  box-shadow: 0 15px 30px rgba(0,212,255,0.2) !important;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -100%;
+  width: 50%;
+  height: 200%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+  transition: 0.7s;
+  pointer-events: none;
+}
+
+.card:hover::before {
+  left: 200%;
+}
+
+/* Кнопки с анимацией */
+.btn-primary, .button-primary {
+  background: linear-gradient(90deg, #00d4ff, #7b2fff) !important;
+  color: white !important;
+  transition: all 0.25s ease !important;
+}
+
+.btn-primary:hover {
+  transform: translateY(-3px) scale(1.03) !important;
+  box-shadow: 0 8px 20px rgba(123,47,255,0.4) !important;
+}
+
+/* Шапка */
+header, nav {
+  background: rgba(10,10,18,0.97) !important;
+  border-bottom: 1px solid rgba(0,212,255,0.25) !important;
+}
+
+/* Топ баннер */
+#cf-top-banner {
+  background: linear-gradient(135deg, rgba(0,10,30,0.98), rgba(10,5,40,0.98)) !important;
+} /* GitGoida — максимальное свечение и анимация */
+.card, .panel, .block, .repo-card, .video-card, .channel-card {
+  background: #16161f !important;
+  border: 1px solid #2a2a3a !important;
+  border-radius: 12px !important;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.card:hover, .repo-card:hover, .video-card:hover {
+  border-color: #00d4ff !important;
+  transform: translateY(-10px) !important;
+  box-shadow: 0 20px 40px rgba(0, 212, 255, 0.25) !important;
+}
+
+/* Дополнительное свечение */
+.card:hover {
+  filter: brightness(1.08) !important;
+}
+
+/* Кнопки */
+.btn-primary:hover {
+  transform: translateY(-4px) scale(1.05) !important;
+  box-shadow: 0 10px 25px rgba(0,212,255,0.5) !important;
+}
