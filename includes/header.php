@@ -99,7 +99,7 @@ if (month === 12 || month === 1 || month === 2) { // Winter
 </style>
 <body>
 <?php $__themesList = themes_all(); if ($__themesList): ?><div class="theme-switcher"><select onchange="document.cookie='site_theme='+this.value+'; path=/; max-age=31536000'; location.reload()"><option value="">Themes</option><?php foreach ($__themesList as $t): ?><option value="<?= e($t['slug']) ?>" <?= (!empty($__activeTheme) && $__activeTheme['slug']===$t['slug'])?'selected':'' ?>><?= e($t['name']) ?></option><?php endforeach; ?></select></div><?php endif; ?>
-<?php if (!empty($__activeTheme['header']) && is_file(themes_dir() . '/' . $__activeTheme['header'])) include themes_dir() . '/' . $__activeTheme['header']; ?>
+<?php if (!empty($__activeTheme['header'])) theme_safe_include(themes_dir() . '/' . $__activeTheme['header']); ?>
     <style>
       
 

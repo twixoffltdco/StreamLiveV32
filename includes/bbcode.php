@@ -10,7 +10,45 @@
 // Тег с параметром вида [tag=значение]текст[/tag] или что-то сложнее (само-закрывающийся,
 // с проверкой значений и т.д.) — добавь функцию в $BBCODE_CALLBACK_TAGS ниже, по образцу
 // уже существующих (bbcode_render_youtube, bbcode_render_font и т.д.)
+//
+// Третий способ — совсем без кода: /admin/bbcode_tags.php добавляет простой парный тег
+// [tag]текст[/tag] через веб-форму, хранится в таблице bbcode_custom_tags. Подходит для
+// несложных тегов-обёрток (свои цвета, значки, блоки) — то, что в XenForo называется
+// "Custom BB Codes" в Admin CP.
 // ===================================
+
+function bbcode_ensure_custom_tags_table(): void {
+  try {
+    db()->exec(
+      'CREATE TABLE IF NOT EXISTS bbcode_custom_tags (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        tag_name VARCHAR(32) NOT NULL UNIQUE,
+        replacement TEXT NOT NULL,
+        example VARCHAR(255) DEFAULT NULL,
+        is_active TINYINT(1) NOT NULL DEFAULT 1,
+        created_by INT DEFAULT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+    );
+  } catch (\Throwable $e) { /* нет прав CREATE — залей sql/migrations/025_bbcode_custom_tags.sql руками */ }
+}
+
+// Кеш на один HTTP-запрос — bbcode_to_html() может вызываться десятки раз на одной странице
+// (список постов форума, комментарии и т.д.), незачем бить в БД на каждый вызов.
+function bbcode_custom_tags(): array {
+  static $cache = null;
+  if ($cache !== null) return $cache;
+  bbcode_ensure_custom_tags_table();
+  try {
+    $rows = db()->query("SELECT tag_name, replacement FROM bbcode_custom_tags WHERE is_active = 1")->fetchAll();
+    $cache = [];
+    foreach ($rows as $row) { $cache[$row['tag_name']] = $row['replacement']; }
+  } catch (\Throwable $e) {
+    $cache = []; // таблицы ещё нет — просто нет пользовательских тегов в этот раз
+  }
+  return $cache;
+}
 
 function bbcode_render_youtube(array $m): string {
   // [youtube]ID_или_ссылка[/youtube]
@@ -132,6 +170,14 @@ function bbcode_to_html(string $text): string {
   global $BBCODE_SIMPLE_TAGS;
   foreach ($BBCODE_SIMPLE_TAGS as $tag => $template) {
     $html = preg_replace('/\[' . $tag . '\](.*?)\[\/' . $tag . '\]/is', $template, $html);
+  }
+
+  // Пользовательские теги из /admin/bbcode_tags.php — как в XenForo, где новый BB-код
+  // добавляется через Admin CP без единой строчки кода. Работают по тому же принципу, что
+  // и BBCODE_SIMPLE_TAGS выше (шаблон с $1 на месте содержимого тега), просто источник — БД,
+  // а не массив в коде.
+  foreach (bbcode_custom_tags() as $tagName => $template) {
+    $html = preg_replace('/\[' . preg_quote($tagName, '/') . '\](.*?)\[\/' . preg_quote($tagName, '/') . '\]/is', $template, $html);
   }
 
   // Теги с параметрами/проверками — тоже из реестра

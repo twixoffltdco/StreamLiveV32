@@ -131,6 +131,6 @@ document.addEventListener('click', function (e) {
         }
     </script>
  <!-- Клавиатура для тв -->
-<?php if (function_exists('themes_active')) { $__activeTheme = themes_active(); if (!empty($__activeTheme['footer']) && is_file(themes_dir() . '/' . $__activeTheme['footer'])) include themes_dir() . '/' . $__activeTheme['footer']; } ?>
+<?php if (function_exists('themes_active')) { $__activeTheme = themes_active(); if (!empty($__activeTheme['footer'])) theme_safe_include(themes_dir() . '/' . $__activeTheme['footer']); } ?>
 </body>
 </html>

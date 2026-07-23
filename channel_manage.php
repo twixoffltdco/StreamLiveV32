@@ -40,6 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     flash_set('success', 'Настройки сохранены');
   } elseif ($action === 'add_source') {
     require_once __DIR__ . '/includes/embed_helper.php';
+    ensure_sources_direct_type();
 
     $rawUrl = trim($_POST['url'] ?? '');
     $type = (string)($_POST['type'] ?? '');
@@ -252,14 +253,23 @@ try {
       <div><label>Название</label><input type="text" name="name" required></div>
       <div><label>Тип</label>
         <select name="type">
+          <?php if (!empty($__user['is_verified'])): ?><option value="direct">Прямая ссылка (доверенным, любая https:// или file://)</option><?php endif; ?>
           <option value="mp4">MP4</option><option value="m3u8">M3U8 (HLS)</option>
           <option value="youtube">YouTube</option><option value="vk">VK Видео</option>
           <option value="rutube">Rutube</option><option value="iframe">Другое (iframe)</option>
         </select>
       </div>
-      <div style="flex:1"><label>URL</label><input type="url" name="url" required></div>
+      <div style="flex:1"><label>URL</label><input type="text" name="url" required placeholder="https://... или file:///путь (только доверенным)"></div>
       <button class="btn btn-primary" type="submit">Добавить</button>
     </form>
+    <?php if (!empty($__user['is_verified'])): ?>
+      <p style="font-size:11.5px;color:var(--text-dim);margin-top:6px">
+        ⚠️ file:// сохранится, но современные браузеры (Chrome/Edge) блокируют ЗАГРУЗКУ file://
+        на https-странице как небезопасный контент — это ограничение самого браузера при просмотре,
+        а не при сохранении ссылки. Подходит для локального теста в собственном браузере с
+        отключённой этой защитой, не для обычных зрителей.
+      </p>
+    <?php endif; ?>
     <table class="admin-table" style="margin-top:16px">
       <thead><tr><th>Название</th><th>Тип</th><th>URL</th></tr></thead>
       <tbody>

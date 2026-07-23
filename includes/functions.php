@@ -380,6 +380,20 @@ function ensure_user_gravatar_column(): void {
 // То же самое, что ensure_user_gravatar_column(), но для ТВ/радио каналов — Gravatar и
 // обложка/баннер канала (sql/migrations/027_channel_gravatar_cover.sql). Пробуем максимум
 // раз за время жизни процесса — не гонять ALTER на каждый заход на страницу канала.
+function ensure_sources_direct_type(): void {
+  static $checked = false;
+  if ($checked) return;
+  $checked = true;
+  try {
+    if (get_setting('sources_direct_type_v1') === '1') return;
+    db()->exec("ALTER TABLE sources MODIFY COLUMN type ENUM('mp4','m3u8','youtube','vk','rutube','iframe','direct') NOT NULL");
+    set_setting('sources_direct_type_v1', '1');
+  } catch (\Throwable $e) { /* нет прав ALTER — залей sql/migrations/031_sources_direct_type.sql руками через phpMyAdmin */ }
+}
+
+// То же самое, что ensure_user_gravatar_column(), но для ТВ/радио каналов — Gravatar и
+// обложка/баннер канала (sql/migrations/027_channel_gravatar_cover.sql). Пробуем максимум
+// раз за время жизни процесса — не гонять ALTER на каждый заход на страницу канала.
 function ensure_channel_avatar_columns(): void {
   static $checked = false;
   if ($checked) return;
