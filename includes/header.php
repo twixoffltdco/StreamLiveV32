@@ -380,6 +380,511 @@ if ($__showAd): ?>
             <a href="/profile?username=admin" class="btn-write"; return false;">Написать</a>
     </nav>
 </div>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Шрифт Inter (современный гротеск) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        /* Основной контейнер баннера */
+        .banner {
+            position: relative;
+            max-width: 1200px;
+            width: 100%;
+            aspect-ratio: 16 / 7; /* пропорции для баннера */
+            background: linear-gradient(135deg, #0055FF 0%, #9B51E0 100%);
+            border-radius: 32px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 40px 60px;
+            box-shadow: 0 30px 60px rgba(0, 85, 255, 0.3);
+            transition: transform 0.3s ease;
+        }
+
+        .banner:hover {
+            transform: scale(1.01);
+        }
+
+        /* Декоративные элементы (облачка) */
+        .banner::before,
+        .banner::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.05);
+            pointer-events: none;
+        }
+
+        .banner::before {
+            width: 300px;
+            height: 300px;
+            top: -80px;
+            right: -80px;
+        }
+
+        .banner::after {
+            width: 200px;
+            height: 200px;
+            bottom: -60px;
+            left: -60px;
+        }
+
+        /* Левая часть – текстовый блок */
+        .banner-content {
+            position: relative;
+            z-index: 2;
+            max-width: 60%;
+            color: white;
+        }
+
+        .badge {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(4px);
+            padding: 8px 20px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .banner-content h1 {
+            font-size: clamp(2rem, 5vw, 4.2rem);
+            font-weight: 900;
+            line-height: 1.1;
+            margin-bottom: 12px;
+        }
+
+        .banner-content h1 span {
+            background: linear-gradient(to right, #ffffff, #e0e7ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .banner-content .subtitle {
+            font-size: clamp(1rem, 1.5vw, 1.5rem);
+            font-weight: 400;
+            opacity: 0.9;
+            margin-bottom: 30px;
+            line-height: 1.5;
+            max-width: 500px;
+        }
+
+        .cta-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            background: white;
+            color: #0055FF;
+            padding: 16px 40px;
+            border-radius: 60px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+            border: none;
+            cursor: pointer;
+        }
+
+        .cta-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+            background: #f0f4ff;
+        }
+
+        .cta-button svg {
+            width: 22px;
+            height: 22px;
+            fill: currentColor;
+            transition: transform 0.2s ease;
+        }
+
+        .cta-button:hover svg {
+            transform: translateX(5px);
+        }
+
+        /* Правая часть – логотип MAX */
+        .banner-logo {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            flex-shrink: 0;
+        }
+
+        .banner-logo img {
+            width: clamp(100px, 15vw, 200px);
+            height: auto;
+            filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.2));
+            transition: transform 0.3s ease;
+        }
+
+        .banner-logo img:hover {
+            transform: scale(1.05) rotate(-2deg);
+        }
+
+        .banner-logo .logo-text {
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 600;
+            font-size: 0.9rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-top: 10px;
+            text-align: right;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            padding-top: 10px;
+        }
+
+        /* Адаптив для маленьких экранов */
+        @media (max-width: 768px) {
+            .banner {
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                text-align: center;
+                padding: 30px 25px;
+                aspect-ratio: auto;
+                min-height: 500px;
+                border-radius: 24px;
+            }
+
+            .banner-content {
+                max-width: 100%;
+                margin-bottom: 30px;
+            }
+
+            .banner-content .subtitle {
+                max-width: 100%;
+            }
+
+            .banner-logo {
+                align-items: center;
+            }
+
+            .banner-logo .logo-text {
+                text-align: center;
+            }
+
+            .cta-button {
+                padding: 14px 30px;
+                font-size: 1rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .banner {
+                padding: 20px 15px;
+                min-height: 420px;
+                border-radius: 16px;
+            }
+
+            .badge {
+                font-size: 0.7rem;
+                padding: 6px 14px;
+            }
+
+            .banner-content h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="banner">
+
+        <!-- Текстовая часть -->
+        <div class="banner-content">
+            <div class="badge">🌟 Новое</div>
+            <h1>
+                StreamLive<br>
+                <span>теперь в MAX</span>
+            </h1>
+            <p class="subtitle">
+                Присоединяйтесь к нашему каналу в мессенджере MAX — общайтесь, смотрите стримы и будьте в курсе событий!
+            </p>
+            <a href="https://max.ru/channel_StreamLive" class="cta-button">
+                Перейти в канал
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                    <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/>
+                </svg>
+            </a>
+        </div>
+
+        <!-- Правая часть – логотип MAX -->
+        <div class="banner-logo">
+            <!-- Используем официальный логотип MAX с сайта -->
+            <img src="https://max.ru/s/img/big-logo.png" alt="Логотип MAX" loading="lazy">
+            <div class="logo-text">Мессенджер MAX</div>
+        </div>
+
+    </div>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+
+        .banner {
+            max-width: 1100px;
+            width: 100%;
+            background: linear-gradient(145deg, #0088cc, #005f8a);
+            border-radius: 32px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 45px 55px;
+            box-shadow: 0 25px 50px rgba(0, 136, 204, 0.4);
+            transition: transform 0.25s ease;
+            position: relative;
+        }
+
+        .banner:hover {
+            transform: scale(1.01);
+        }
+
+        /* Декоративный фон */
+        .banner::before {
+            content: '';
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(255,255,255,0.07) 0%, transparent 70%);
+            top: -120px;
+            right: -80px;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        .banner::after {
+            content: '';
+            position: absolute;
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%);
+            bottom: -100px;
+            left: -60px;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        /* Левая часть */
+        .banner-content {
+            position: relative;
+            z-index: 2;
+            color: white;
+            max-width: 58%;
+        }
+
+        .badge {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(4px);
+            padding: 6px 18px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            margin-bottom: 16px;
+        }
+
+        .banner-content h1 {
+            font-size: clamp(2rem, 4.5vw, 3.8rem);
+            font-weight: 900;
+            line-height: 1.15;
+            margin-bottom: 10px;
+        }
+
+        .banner-content h1 .highlight {
+            background: linear-gradient(to right, #ffffff, #d4edff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .banner-content .subtitle {
+            font-size: clamp(0.95rem, 1.4vw, 1.3rem);
+            opacity: 0.92;
+            margin-bottom: 28px;
+            line-height: 1.6;
+            max-width: 480px;
+        }
+
+        .cta-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            background: white;
+            color: #0088cc;
+            padding: 16px 38px;
+            border-radius: 60px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+            border: none;
+            cursor: pointer;
+        }
+
+        .cta-button:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 14px 30px rgba(0, 0, 0, 0.3);
+            background: #f5faff;
+        }
+
+        .cta-button svg {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+            transition: transform 0.2s;
+        }
+
+        .cta-button:hover svg {
+            transform: translateX(5px);
+        }
+
+        /* Правая часть – логотип Telegram + название */
+        .banner-logo {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            flex-shrink: 0;
+        }
+
+        .banner-logo .tg-icon {
+            width: clamp(90px, 13vw, 160px);
+            height: auto;
+            filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.2));
+            transition: transform 0.3s ease;
+        }
+
+        .banner-logo .tg-icon:hover {
+            transform: scale(1.06) rotate(-3deg);
+        }
+
+        .banner-logo .channel-name {
+            margin-top: 12px;
+            font-weight: 700;
+            font-size: 1.2rem;
+            letter-spacing: 0.5px;
+            background: rgba(255, 255, 255, 0.15);
+            padding: 6px 18px;
+            border-radius: 40px;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+        }
+
+        .banner-logo .channel-name a {
+            color: white;
+            text-decoration: none;
+        }
+
+        .banner-logo .channel-name a:hover {
+            text-decoration: underline;
+        }
+
+        /* Адаптив */
+        @media (max-width: 768px) {
+            .banner {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+                padding: 30px 25px;
+                min-height: 480px;
+                border-radius: 24px;
+            }
+
+            .banner-content {
+                max-width: 100%;
+                margin-bottom: 25px;
+            }
+
+            .banner-content .subtitle {
+                max-width: 100%;
+            }
+
+            .banner-logo {
+                align-items: center;
+            }
+
+            .banner-logo .channel-name {
+                font-size: 1rem;
+                padding: 5px 14px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .banner {
+                padding: 20px 15px;
+                min-height: 400px;
+                border-radius: 16px;
+            }
+
+            .badge {
+                font-size: 0.7rem;
+                padding: 4px 12px;
+            }
+
+            .banner-content h1 {
+                font-size: 1.8rem;
+            }
+
+            .cta-button {
+                padding: 12px 24px;
+                font-size: 0.95rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="banner">
+
+        <!-- Текстовый блок -->
+        <div class="banner-content">
+            <div class="badge">НОВОЕ</div>
+            <h1>
+                <span class="highlight">StreamLive</span><br>
+                в Telegram
+            </h1>
+            <p class="subtitle">
+                Подписывайтесь на наш канал — эксклюзивные стримы, новости и общение с сообществом. Будьте всегда на связи!
+            </p>
+            <a href="https://t.me/streamliveru" target="_blank" class="cta-button">
+                Подписаться
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                    <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/>
+                </svg>
+            </a>
+        </div>
+
+        <!-- Логотип Telegram и название канала -->
+        <div class="banner-logo">
+            <!-- Иконка Telegram (SVG) -->
+            <svg class="tg-icon" viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="240" height="240" rx="60" fill="white"/>
+                <path d="M180.5 80.5L163.5 165.5C162.5 170.5 159.5 172 155 169.5L118.5 143.5L101 160.5C99.5 162 98 163.5 95.5 163.5L97.5 126.5L151.5 78.5C153.5 76.5 152 75 149.5 77L82.5 120.5L46.5 109.5C41.5 108 41 104.5 47 102L175.5 68C180.5 66.5 184.5 70 180.5 80.5Z" fill="#0088cc"/>
+            </svg>
+            <div class="channel-name">
+                <a href="https://t.me/streamliveru" target="_blank">@streamliveru</a>
+            </div>
+        </div>
+
+    </div>
  <script src= "https://player.twitch.tv/js/embed/v1.js?version=3.1.1"></script>
  <meta name="yandex-verification" content="ebe89f0ca4c9912c" />
 <!-- Adlook fly -->
