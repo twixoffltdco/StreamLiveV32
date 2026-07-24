@@ -451,6 +451,43 @@ function verify_badge(bool $isVerified): string {
   return $isVerified ? ' <span class="verify-badge" title="Подтверждённый аккаунт"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.4 16.7 4.9 12.2l1.8-1.8 2.7 2.7 7.9-7.9 1.8 1.8z"/></svg></span>' : '';
 }
 
+// Список известных краулеров/ИИ-агентов — используется антидудосом/антиботом ниже (чтобы не
+// показывать им JS-проверку/капчу/страницу перегрузки, которую они физически не могут пройти),
+// и модулем "кто сейчас на сайте". Объявлено здесь, а не в stats.php, потому что stats.php
+// подключается значительно позже antibot.php/ddos_shield.php — этой функции нужна уже на
+// первом запросе.
+//
+// ВАЖНО: DeepSeek принципиально НЕ публикует свой User-Agent — его запросы неотличимы от
+// обычного браузера в логах. Список ниже НЕ решает видимость для DeepSeek по самому User-Agent
+// — для него единственный надёжный способ не блокировать — не показывать ни JS-проверку,
+// ни "занято" ЛЮБОМУ читающему GET-запросу без крайней необходимости (см. ddos_concurrency_guard()
+// и ddos_under_attack_mode_enabled() ниже).
+function crawler_ua_map(): array {
+  return [
+    'Googlebot' => 'googlebot', 'YandexBot' => 'yandexbot', 'Bingbot' => 'bingbot',
+    'DuckDuckBot' => 'duckduckbot', 'Baiduspider' => 'baiduspider', 'AhrefsBot' => 'ahrefsbot',
+    'SemrushBot' => 'semrushbot', 'MJ12bot' => 'mj12bot', 'Bytespider' => 'bytespider',
+    'PetalBot' => 'petalbot', 'Applebot' => 'applebot', 'DotBot' => 'dotbot', 'Mail.Ru' => 'mail.ru',
+    'SputnikBot' => 'sputnikbot', 'proximic' => 'proximic',
+    'GPTBot' => 'GPTBot', 'ChatGPT-User' => 'ChatGPT-User', 'OAI-SearchBot' => 'OAI-SearchBot',
+    'ClaudeBot' => 'ClaudeBot', 'Claude-User' => 'Claude-User', 'Claude-SearchBot' => 'Claude-SearchBot',
+    'PerplexityBot' => 'PerplexityBot', 'Perplexity-User' => 'Perplexity-User',
+    'MistralAI-User' => 'MistralAI-User', 'Google-Extended' => 'Google-Extended',
+    'Applebot-Extended' => 'Applebot-Extended', 'Meta-ExternalAgent' => 'Meta-ExternalAgent',
+    'facebookexternalhit' => 'facebookexternalhit', 'TelegramBot' => 'TelegramBot',
+    'YouBot' => 'YouBot', 'Amazonbot' => 'Amazonbot',
+    'curl' => 'curl/', 'python-requests' => 'python-requests', 'Wget' => 'Wget/',
+  ];
+}
+
+function is_known_crawler_ua(string $userAgent): bool {
+  if ($userAgent === '') return false;
+  foreach (crawler_ua_map() as $needle) {
+    if (stripos($userAgent, $needle) !== false) return true;
+  }
+  return false;
+}
+
 // Второй слой защиты — от перегрузки БД при всплеске одновременных запросов и от
 // злоупотребления дорогими операциями (импорт видео, деплой). Стоит ПЕРЕД антиботом
 // специально: если сайт уже перегружен, даже запрос антибота к БД может быть лишним.

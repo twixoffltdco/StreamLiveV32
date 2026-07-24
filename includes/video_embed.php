@@ -430,3 +430,48 @@ function guess_video_tags(string $title, string $description): string {
   $words = array_diff(array_unique($m[0] ?? []), $stopwords);
   return implode(', ', array_slice($words, 0, 8));
 }
+
+// Общий рендер плеера — используется и на самой странице просмотра (video.php), и в
+// предпросмотре ПЕРЕД публикацией (video_import.php, channel_manage.php). Одна функция,
+// а не две похожие копии в разных местах — иначе предпросмотр рано или поздно разойдётся
+// с тем, что реально видят зрители, и перестанет быть надёжным способом отсеивать
+// мусорные/битые ссылки до публикации.
+function render_player_embed(string $platform, string $embedUrl, string $sourceUrl, string $domId = 'previewPlayer'): void {
+  ?>
+  <div class="player-wrap" style="position:relative;padding-top:56.25%;background:#000;border-radius:10px;overflow:hidden">
+    <?php if ($platform === 'mp4'): ?>
+      <video src="<?= e($embedUrl) ?>" controls style="position:absolute;top:0;left:0;width:100%;height:100%"></video>
+    <?php elseif ($platform === 'm3u8'): ?>
+      <video id="<?= e($domId) ?>" controls style="position:absolute;top:0;left:0;width:100%;height:100%"></video>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.15/hls.min.js"></script>
+      <script>
+        (function () {
+          var src = <?= json_encode($embedUrl) ?>;
+          var v = document.getElementById(<?= json_encode($domId) ?>);
+          if (window.Hls && Hls.isSupported()) { var hls = new Hls(); hls.loadSource(src); hls.attachMedia(v); }
+          else { v.src = src; }
+        })();
+      </script>
+    <?php elseif ($platform === 'tiktok'):
+      $tiktokVideoId = null;
+      if (preg_match('#/video/(\d+)#', $sourceUrl, $tm)) { $tiktokVideoId = $tm[1]; }
+    ?>
+      <blockquote class="tiktok-embed" cite="<?= e($sourceUrl) ?>"<?= $tiktokVideoId ? ' data-video-id="' . e($tiktokVideoId) . '"' : '' ?> style="max-width:100%">
+        <a href="<?= e($sourceUrl) ?>">TikTok video</a>
+      </blockquote>
+      <script async src="https://www.tiktok.com/embed.js"></script>
+    <?php elseif ($platform === 'twitter'): ?>
+      <blockquote class="twitter-tweet"><a href="<?= e($sourceUrl) ?>"></a></blockquote>
+      <script async src="https://platform.twitter.com/widgets.js"></script>
+    <?php elseif ($platform === 'reddit'): ?>
+      <blockquote class="reddit-embed-bq" style="height:100%">
+        <a href="<?= e($sourceUrl) ?>">Reddit post</a>
+      </blockquote>
+      <script async src="https://embed.reddit.com/widgets.js"></script>
+    <?php else: ?>
+      <iframe src="<?= e($embedUrl) ?>" allowfullscreen loading="lazy"
+        style="position:absolute;top:0;left:0;width:100%;height:100%;border:0"></iframe>
+    <?php endif; ?>
+  </div>
+  <?php
+}

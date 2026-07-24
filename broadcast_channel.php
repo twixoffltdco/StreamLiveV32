@@ -260,6 +260,14 @@ require_once __DIR__ . '/includes/header.php';
 
   function escAttr(s) { return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;'); }
 
+  // Тот же самый синий бейдж, что уже рисует serverside-функция verify_badge() на форуме
+  // (см. includes/functions.php) — раньше здесь был голый символ ✓ вместо него.
+  function verifyBadgeHtml(isVerified) {
+    return isVerified
+      ? ' <span class="verify-badge" title="Подтверждённый аккаунт"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.4 16.7 4.9 12.2l1.8-1.8 2.7 2.7 7.9-7.9 1.8 1.8z"/></svg></span>'
+      : '';
+  }
+
   function renderComments(panel, postId, comments) {
     var html = '';
     if (!comments.length) {
@@ -270,7 +278,7 @@ require_once __DIR__ . '/includes/header.php';
         html += '<div style="margin-bottom:8px;font-size:12.5px;display:flex;gap:6px;align-items:flex-start">' +
           '<img src="' + escAttr(avatarSrc) + '" alt="" style="width:20px;height:20px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.style.display=\'none\'">' +
           '<span><b style="color:var(--accent-2)">' + esc(c.username) + '</b>' +
-          (c.is_verified ? ' \u2713' : '') +
+          verifyBadgeHtml(c.is_verified) +
           ': ' + esc(c.body) + '</span>' +
         '</div>';
       });
@@ -325,7 +333,7 @@ require_once __DIR__ . '/includes/header.php';
       newLine.style.cssText = 'margin-bottom:8px;font-size:12.5px;display:flex;gap:6px;align-items:flex-start';
       var avatarSrc = data.avatar || '/assets/img/avatar-placeholder.png';
       newLine.innerHTML = '<img src="' + escAttr(avatarSrc) + '" alt="" style="width:20px;height:20px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.style.display=\'none\'">' +
-        '<span><b style="color:var(--accent-2)">' + esc(data.username) + '</b>' + (data.is_verified ? ' \u2713' : '') + ': ' + esc(text) + '</span>';
+        '<span><b style="color:var(--accent-2)">' + esc(data.username) + '</b>' + verifyBadgeHtml(data.is_verified) + ': ' + esc(text) + '</span>';
       panel.insertBefore(newLine, form);
     }).catch(function () { input.disabled = false; });
   });

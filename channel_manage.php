@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/includes/video_embed.php';
 require_login();
 
 $id = (int)($_GET['id'] ?? 0);
@@ -270,12 +271,21 @@ try {
         отключённой этой защитой, не для обычных зрителей.
       </p>
     <?php endif; ?>
-    <table class="admin-table" style="margin-top:16px">
-      <thead><tr><th>Название</th><th>Тип</th><th>URL</th></tr></thead>
-      <tbody>
-        <?php foreach ($sources as $s): ?><tr><td><?= e($s['name']) ?></td><td><?= e($s['type']) ?></td><td style="max-width:300px;overflow:hidden;text-overflow:ellipsis"><?= e($s['url']) ?></td></tr><?php endforeach; ?>
-      </tbody>
-    </table>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-top:16px">
+      <?php foreach ($sources as $s):
+        $__previewPlatform = in_array($s['type'], ['mp4', 'm3u8'], true) ? $s['type'] : (detect_video_platform($s['url']) ?? 'iframe');
+      ?>
+        <div style="border:1px solid var(--border);border-radius:10px;padding:10px;background:var(--bg-elevated)">
+          <b style="font-size:13px;display:block;margin-bottom:2px"><?= e($s['name']) ?></b>
+          <span style="font-size:11px;color:var(--text-dim)"><?= e($s['type']) ?></span>
+          <div style="margin-top:8px;transform:scale(1);border-radius:8px;overflow:hidden">
+            <?php render_player_embed($__previewPlatform, $s['url'], $s['url'], 'sourcePreview' . (int)$s['id']); ?>
+          </div>
+          <p style="font-size:10.5px;color:var(--text-dim);margin-top:6px">Если тут не воспроизводится — не будет работать и у зрителей. Проверьте ссылку или удалите источник.</p>
+        </div>
+      <?php endforeach; ?>
+    </div>
+    <?php if (!$sources): ?><p style="color:var(--text-dim);font-size:13px;margin-top:10px">Источников пока нет.</p><?php endif; ?>
   </div>
 
   <div class="form-card form-wide" style="margin:24px 0">

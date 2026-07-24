@@ -245,6 +245,16 @@ function antibot_guard(): void {
   // анонимного трафика, но без лишних барьеров для уже вошедших людей.
   if (!empty($_SESSION['user_id']) || !empty($_SESSION['pending_2fa_user_id'])) return;
 
+  // Известные краулеры/ИИ-агенты (GPTBot, ChatGPT-User, PerplexityBot и т.д.) — отдельная,
+  // более щедрая ветка: НИКОГДА не показываем им SVG-капчу (картинка принципиально нерешаема
+  // для бота) и НЕ применяем многодневную эскалирующую блокировку — та придумана для настоящих
+  // флуд-ботов, а не для легитимного поискового/ИИ-трафика.
+  $__ua = (string)($_SERVER['HTTP_USER_AGENT'] ?? '');
+  if (is_known_crawler_ua($__ua)) {
+    antibot_crawler_guard(antibot_client_ip());
+    return;
+  }
+
   try {
     antibot_ensure_table();
     antibot_ensure_global_table();
@@ -300,6 +310,42 @@ function antibot_guard(): void {
     // Если таблицы/БД временно недоступны — не роняем весь сайт из-за антибота,
     // просто пропускаем проверку на этот запрос.
     return;
+  }
+}
+
+const ANTIBOT_CRAWLER_LIMIT = 20; // в разы щедрее ANTIBOT_LIMIT (5) — обычный поисковый/ИИ-трафик не флудит
+
+function antibot_crawler_guard(string $ip): void {
+  try {
+    antibot_ensure_table();
+    $pdo = db();
+    $nowStr = date('Y-m-d H:i:s');
+    $key = 'crawler:' . $ip; // отдельный "виртуальный IP" в той же таблице, не путаем со счётчиком обычных гостей с этого же IP
+    $stmt = $pdo->prepare('SELECT * FROM antibot_ip_log WHERE ip = ?');
+    $stmt->execute([$key]);
+    $row = $stmt->fetch() ?: null;
+
+    if (!$row) {
+      $pdo->prepare('INSERT INTO antibot_ip_log (ip, request_count, window_start) VALUES (?, 1, ?)')->execute([$key, $nowStr]);
+      return;
+    }
+
+    $windowAge = time() - strtotime($row['window_start']);
+    if ($windowAge > ANTIBOT_WINDOW_SEC) {
+      $pdo->prepare('UPDATE antibot_ip_log SET request_count = 1, window_start = ? WHERE ip = ?')->execute([$nowStr, $key]);
+      return;
+    }
+
+    $newCount = (int)$row['request_count'] + 1;
+    if ($newCount > ANTIBOT_CRAWLER_LIMIT) {
+      // Короткий Retry-After, БЕЗ капчи и БЕЗ многодневного бана.
+      http_response_code(429);
+      header('Retry-After: 5');
+      exit;
+    }
+    $pdo->prepare('UPDATE antibot_ip_log SET request_count = ? WHERE ip = ?')->execute([$newCount, $key]);
+  } catch (\Throwable $e) {
+    return; // БД недоступна — пропускаем, не блокируем краулера из-за нашей временной проблемы
   }
 }
 

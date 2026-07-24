@@ -88,4 +88,48 @@ $ddosMode = get_setting('ddos_under_attack_mode', '0') === '1';
     </button>
   </form>
 </div>
+
+<h2 style="margin-top:30px">Живая диагностика — почему мог быть 503</h2>
+<div class="form-card form-wide">
+  <?php
+  // Диагностика слоя 1 (файловый circuit breaker, includes/ddos_shield.php) — считаем
+  // сколько .lock-файлов сейчас реально лежит на диске, как это делает сам ddos_concurrency_guard().
+  $__lockCount = 0;
+  if (is_dir(DDOS_LOCK_DIR)) { $__lockCount = count(glob(DDOS_LOCK_DIR . '/*.lock') ?: []); }
+
+  // Диагностика слоя 2 (общесайтовый автотриггер ВНУТРИ antibot.php — НЕЗАВИСИМ от тумблера
+  // выше! Включается сам при всплеске трафика, см. antibot_register_global_request()).
+  $__autoAttackUntil = null;
+  try {
+    $__row = db()->query('SELECT attack_until FROM antibot_global_window WHERE id = 1')->fetch();
+    $__autoAttackUntil = $__row['attack_until'] ?? null;
+  } catch (\Throwable $e) { }
+  $__autoAttackActive = $__autoAttackUntil && strtotime($__autoAttackUntil) > time();
+  ?>
+  <p style="font-size:13px;color:var(--text-dim);max-width:600px">
+    503 может прийти от ТРЁХ независимых мест — тумблер выше выключает только одно из них.
+    Если гости (включая ИИ-краулеров) всё ещё видят 503 при выключенном тумблере — смотри сюда:
+  </p>
+  <table class="admin-table" style="width:100%;max-width:640px">
+    <tr>
+      <td>Слой 1: "сайт перегружен" (файловый лимит одновременных запросов)</td>
+      <td><b style="color:<?= $__lockCount >= DDOS_MAX_CONCURRENT ? 'var(--danger)' : 'var(--ok)' ?>"><?= $__lockCount ?> / <?= DDOS_MAX_CONCURRENT ?></b></td>
+    </tr>
+    <tr>
+      <td>Слой 2: тумблер выше (ручной режим "под атакой")</td>
+      <td><b style="color:<?= $ddosMode ? 'var(--danger)' : 'var(--ok)' ?>"><?= $ddosMode ? 'включён' : 'выключен' ?></b></td>
+    </tr>
+    <tr>
+      <td>Слой 3: автотриггер общесайтового JS-челленджа <span style="color:var(--text-dim);font-size:11px">(independent, includes/antibot.php)</span></td>
+      <td><b style="color:<?= $__autoAttackActive ? 'var(--danger)' : 'var(--ok)' ?>"><?= $__autoAttackActive ? ('включён до ' . e($__autoAttackUntil)) : 'выключен' ?></b></td>
+    </tr>
+  </table>
+  <p style="font-size:12px;color:var(--text-dim);margin-top:10px">
+    Известные краулеры/ИИ-агенты (GPTBot, ChatGPT-User, PerplexityBot, ClaudeBot и т.д.) теперь
+    пропускают Слои 2 и 3 всегда — им никогда не показывается JS-проверка. DeepSeek не публикует
+    свой User-Agent, поэтому под него никакое точечное исключение не сработает — единственная
+    защита для него (и для любого другого нераспознанного автоматического клиента) — держать
+    оба режима выключенными, кроме случаев реальной атаки.
+  </p>
+</div>
 <?php require_once __DIR__ . '/_layout_end.php'; ?>

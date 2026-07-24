@@ -92,7 +92,10 @@ require_once __DIR__ . '/includes/header.php';
         автозаполнение:
         <b><?= $preview['meta_source'] === 'none' ? 'не удалось, заполните вручную' : $preview['meta_source'] ?></b>
       </p>
-      <?php if (!empty($preview['thumbnail'])): ?><img src="<?= e($preview['thumbnail']) ?>" style="max-width:100%;border-radius:8px;display:block;margin:8px 0"><?php endif; ?>
+
+      <p style="color:var(--text-dim);font-size:12.5px;margin-bottom:4px">Предпросмотр — так это увидят зрители. Если видео не воспроизводится здесь, скорее всего оно не будет работать и после публикации.</p>
+      <?php render_player_embed($preview['platform'], $preview['embed_url'] ?? $preview['source_url'], $preview['source_url'], 'importPreviewPlayer'); ?>
+
       <input type="hidden" name="thumbnail" value="<?= e($preview['thumbnail']) ?>">
 
       <label>Название</label>
