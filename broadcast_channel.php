@@ -275,11 +275,14 @@ require_once __DIR__ . '/includes/header.php';
     } else {
       comments.forEach(function (c) {
         var avatarSrc = c.avatar || '/assets/img/avatar-placeholder.png';
+        var bannedNotice = c.is_banned
+          ? '<div style="margin-top:3px;font-size:11px;color:var(--danger);background:rgba(255,71,87,0.12);border:1px solid var(--danger);border-radius:6px;padding:2px 6px;display:inline-block">⛔ Аккаунт заблокирован на платформе</div>'
+          : '';
         html += '<div style="margin-bottom:8px;font-size:12.5px;display:flex;gap:6px;align-items:flex-start">' +
-          '<img src="' + escAttr(avatarSrc) + '" alt="" style="width:20px;height:20px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.style.display=\'none\'">' +
+          '<img src="' + escAttr(avatarSrc) + '" alt="" style="width:20px;height:20px;border-radius:50%;object-fit:cover;flex-shrink:0' + (c.is_banned ? ';filter:grayscale(1);opacity:.6' : '') + '" onerror="this.style.display=\'none\'">' +
           '<span><b style="color:var(--accent-2)">' + esc(c.username) + '</b>' +
           verifyBadgeHtml(c.is_verified) +
-          ': ' + esc(c.body) + '</span>' +
+          ': ' + esc(c.body) + bannedNotice + '</span>' +
         '</div>';
       });
     }

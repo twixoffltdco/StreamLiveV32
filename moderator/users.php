@@ -26,6 +26,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   } elseif ($_POST['action'] === 'unverify') {
     db()->prepare('UPDATE users SET is_verified = 0 WHERE id = ?')->execute([$id]);
     flash_set('success', 'Галочка снята — пользователь снова ограничен стандартными источниками и проверенными embed-ссылками');
+  } elseif ($_POST['action'] === 'ban') {
+    db()->prepare('UPDATE users SET is_banned = 1 WHERE id = ?')->execute([$id]);
+    flash_set('success', 'Пользователь заблокирован — предупреждение теперь видно в профиле, на форуме, в сообщениях и в каналах-рассылках');
+  } elseif ($_POST['action'] === 'unban') {
+    db()->prepare('UPDATE users SET is_banned = 0 WHERE id = ?')->execute([$id]);
+    flash_set('success', 'Блокировка снята');
   }
   redirect('/moderator/users.php');
 }
@@ -91,7 +97,24 @@ $users = $stmt->fetchAll();
         </form>
         <?php endif; ?>
       </td>
-      <td><?= $u['is_banned'] ? '<span class="status-pill status-rejected">забанен</span>' : '<span class="status-pill status-approved">активен</span>' ?></td>
+      <td>
+        <?php if ($u['role'] === 'admin'): ?>
+          <span class="status-pill status-approved">активен</span>
+        <?php else: ?>
+        <span class="status-pill status-<?= $u['is_banned'] ? 'rejected' : 'approved' ?>"><?= $u['is_banned'] ? 'забанен' : 'активен' ?></span>
+        <form method="POST" style="display:inline-block;margin-left:6px">
+          <?= csrf_field() ?>
+          <input type="hidden" name="user_id" value="<?= (int)$u['id'] ?>">
+          <?php if ($u['is_banned']): ?>
+            <input type="hidden" name="action" value="unban">
+            <button class="btn btn-outline btn-sm" type="submit">Разбанить</button>
+          <?php else: ?>
+            <input type="hidden" name="action" value="ban">
+            <button class="btn btn-danger btn-sm" type="submit" onclick="return confirm('Заблокировать <?= e(addslashes($u['username'])) ?>? Предупреждение будет видно везде на платформе.')">Забанить</button>
+          <?php endif; ?>
+        </form>
+        <?php endif; ?>
+      </td>
     </tr>
     <?php endforeach; ?>
   </tbody>

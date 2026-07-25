@@ -38,7 +38,7 @@ $peerIds = array_column($conversations, 'peer_id');
 $peers = [];
 if ($peerIds) {
   $in = implode(',', array_fill(0, count($peerIds), '?'));
-  $stmt = db()->prepare("SELECT id, username, avatar, gravatar_email FROM users WHERE id IN ($in)");
+  $stmt = db()->prepare("SELECT id, username, avatar, gravatar_email, is_banned FROM users WHERE id IN ($in)");
   $stmt->execute($peerIds);
   foreach ($stmt->fetchAll() as $p) { $peers[$p['id']] = $p; }
 }
@@ -49,7 +49,7 @@ if ($activeConvId && !in_array($activeConvId, array_column($conversations, 'conv
   $stmt->execute([$__user['id'], $activeConvId]);
   $pid = $stmt->fetchColumn();
   if ($pid && !isset($peers[$pid])) {
-    $stmt = db()->prepare('SELECT id, username, avatar, gravatar_email FROM users WHERE id = ?');
+    $stmt = db()->prepare('SELECT id, username, avatar, gravatar_email, is_banned FROM users WHERE id = ?');
     $stmt->execute([$pid]);
     if ($row = $stmt->fetch()) { $peers[$pid] = $row; }
   }
@@ -170,8 +170,11 @@ require_once __DIR__ . '/includes/header.php';
       <?php else: $peer = $peers[$conversations[array_search($activeConvId, array_column($conversations, 'conv_id'))]['peer_id']] ?? null; ?>
         <div class="msg-chat-header">
           <?php if ($peer): ?>
-            <img src="<?= e(user_avatar_url($peer, 48)) ?>" alt="" onerror="this.style.display='none'">
+            <img src="<?= e(user_avatar_url($peer, 48)) ?>" alt="" onerror="this.style.display='none'" style="<?= !empty($peer['is_banned']) ? 'filter:grayscale(1);opacity:.6' : '' ?>">
             <b><?= e($peer['username']) ?></b>
+            <?php if (!empty($peer['is_banned'])): ?>
+              <div style="margin-top:3px;font-size:11.5px;color:var(--danger);background:rgba(255,71,87,0.12);border:1px solid var(--danger);border-radius:6px;padding:2px 8px;display:inline-block">⛔ Этот аккаунт заблокирован на платформе. Мы не несём ответственности за действия пользователя вне платформы.</div>
+            <?php endif; ?>
           <?php endif; ?>
         </div>
         <div class="msg-thread" id="msg-thread" data-conv="<?= (int)$activeConvId ?>" data-my-id="<?= (int)$__user['id'] ?>" data-after="<?= $activeMessages ? (int)end($activeMessages)['id'] : 0 ?>">

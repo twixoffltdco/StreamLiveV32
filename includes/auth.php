@@ -99,6 +99,16 @@ function current_user(): ?array {
 function login_user(int $userId): void {
   session_regenerate_id(true);
   $_SESSION['user_id'] = $userId;
+
+  // Снимаем автостоп задеплоенных сервисов (30 дней неактивности) — раньше такой функции
+  // не было вообще, и услуга оставалась "приостановлена" навсегда, даже если владелец
+  // возвращался и активно пользовался платформой. Не трогает сервисы, заблокированные
+  // модератором вручную за нарушение (см. deployed_services_resume_for_user()).
+  try {
+    require_once __DIR__ . '/service_helpers.php';
+    deployed_services_resume_for_user($userId);
+  } catch (\Throwable $e) { }
+
   require_once __DIR__ . '/gamification.php';
   register_daily_activity($userId);
 }

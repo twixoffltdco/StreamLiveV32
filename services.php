@@ -41,7 +41,9 @@ require_once __DIR__ . '/includes/header.php';
         </div>
       </div>
     <?php endforeach; ?>
+  </div>
 
+  <div class="services-grid" style="margin-top:16px">
     <?php foreach ($deployedServices as $s): ?>
       <div class="profile-grid-item service-card <?= !empty($s['suspended']) ? 'service-card-suspended' : '' ?>" style="cursor:pointer" <?php if (empty($s['suspended'])): ?>onclick="launchDeployedService('<?= e(addslashes($s['name'])) ?>', '<?= e(addslashes($s['description'] ?? '')) ?>', '<?= e($s['slug']) ?>')"<?php endif; ?>>
         <div class="service-preview"><iframe src="<?= e(deployed_service_preview_url($s['slug'])) ?>" loading="lazy" sandbox="allow-scripts allow-forms"></iframe></div>
@@ -52,7 +54,7 @@ require_once __DIR__ . '/includes/header.php';
         </div>
       </div>
     <?php endforeach; ?>
-
+  </div>
     <?php if (!$oauthServices && !$deployedServices): ?>
       <p style="color:var(--text-dim)">Пока нет опубликованных сервисов — <a href="/github_connect.php" style="color:var(--accent-2)">выложите первый из GitHub</a>.</p>
     <?php endif; ?>

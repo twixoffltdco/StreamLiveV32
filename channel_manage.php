@@ -73,6 +73,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         flash_set('error', 'Доверенным доступна ссылка https:// (любая) или file:// (для локального теста) — это не похоже ни на одну из них');
         redirect('/channel_manage.php?id=' . $id);
       }
+      // Поддержка ?file= — некоторые ссылки приходят обёрнутыми в чужую плеер-страницу вида
+      // .../embed?file=https://cdn.../video.m3u8. Если находим такой параметр — используем
+      // РЕАЛЬНУЮ ссылку на поток из него, а не саму страницу-обёртку (та не воспроизведётся
+      // как <video src>, это HTML, а не поток).
+      $extractedFileUrl = $isHttpsUrl ? extract_file_param_url($rawUrl) : null;
+      if ($extractedFileUrl) $rawUrl = $extractedFileUrl;
       $result = $isFileUrl ? $rawUrl : normalize_embed_url($type, $rawUrl); // file:// не нормализуем — незачем гонять через regex под чужие видеохостинги
     } else {
       [$isValid, $result] = validate_player_url($_POST['type'], trim($_POST['url']));

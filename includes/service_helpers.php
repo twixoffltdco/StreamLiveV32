@@ -32,6 +32,7 @@ function deployed_services_ensure_schema(): void {
     'is_public' => 'ALTER TABLE deployed_services ADD COLUMN is_public TINYINT(1) NOT NULL DEFAULT 1',
     'suspended' => 'ALTER TABLE deployed_services ADD COLUMN suspended TINYINT(1) NOT NULL DEFAULT 0',
     'suspended_reason' => 'ALTER TABLE deployed_services ADD COLUMN suspended_reason VARCHAR(255) DEFAULT NULL',
+    'suspended_by' => "ALTER TABLE deployed_services ADD COLUMN suspended_by ENUM('system','moderator') DEFAULT NULL",
   ] as $column => $sql) {
     try { if (!table_column_exists('deployed_services', $column)) db()->exec($sql); } catch (\Throwable $e) {}
   }
@@ -58,10 +59,28 @@ function deployed_service_autostop(array $service): array {
   if ($lastActive && strtotime((string)$lastActive) >= strtotime('-30 days')) return $service;
 
   $reason = 'Автостоп: владелец не заходил на платформу 30+ дней. Продлите услугу входом на платформу.';
-  db()->prepare('UPDATE deployed_services SET suspended = 1, suspended_reason = ? WHERE id = ?')->execute([$reason, (int)$service['id']]);
+  db()->prepare("UPDATE deployed_services SET suspended = 1, suspended_reason = ?, suspended_by = 'system' WHERE id = ?")->execute([$reason, (int)$service['id']]);
   $service['suspended'] = 1;
   $service['suspended_reason'] = $reason;
+  $service['suspended_by'] = 'system';
   return $service;
+}
+
+// Пара к deployed_service_autostop() — раньше отсутствовала вообще: сервис, один раз
+// остановленный за неактивность, оставался остановленным навсегда, даже если владелец
+// возвращался и активно пользовался платформой ("услуга блокируется, хотя я захожу на
+// сайт, а она не восстанавливается"). Снимает ТОЛЬКО автостоп (suspended_by='system') —
+// ручную блокировку модератором за нарушение (suspended_by='moderator') это НЕ трогает,
+// иначе просто заход владельца на сайт случайно разморозил бы то, что заблокировали за дело.
+// Вызывается при каждом входе (login_user() в includes/auth.php).
+function deployed_services_resume_for_user(int $userId): void {
+  deployed_services_ensure_schema();
+  try {
+    db()->prepare(
+      "UPDATE deployed_services SET suspended = 0, suspended_reason = NULL, suspended_by = NULL
+       WHERE user_id = ? AND suspended = 1 AND suspended_by = 'system'"
+    )->execute([$userId]);
+  } catch (\Throwable $e) { /* не критично — просто не восстановится в этот заход, попробуем при следующем логине */ }
 }
 
 function banned_user_notice(array $user): string {

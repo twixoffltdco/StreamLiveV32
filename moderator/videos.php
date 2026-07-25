@@ -8,17 +8,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $video = $stmt->fetch();
 
   if ($video) {
+    $isAdmin = $__user['role'] === 'admin';
     if ($_POST['action'] === 'reject') {
       $reason = trim($_POST['reason'] ?? '') ?: 'Нарушение правил платформы';
-      db()->prepare("UPDATE videos SET status='rejected', reject_reason=?, moderated_by=?, moderated_at=NOW() WHERE id=?")
-        ->execute([$reason, $__user['id'], $id]);
+      db()->prepare("UPDATE videos SET status='rejected', reject_reason=?, moderated_by=?, moderated_at=NOW(), locked_by_admin=? WHERE id=?")
+        ->execute([$reason, $__user['id'], $isAdmin ? 1 : 0, $id]);
       try {
         db()->prepare('INSERT INTO notifications (user_id, channel_id, type, message) VALUES (?, ?, "video_rejected", ?)')
           ->execute([$video['user_id'], $video['channel_id'], "Видео «{$video['title']}» отклонено модератором: {$reason}"]);
       } catch (\Throwable $e) { /* таблица notifications может отличаться — модерация всё равно применилась */ }
       flash_set('success', 'Видео отклонено и скрыто с сайта');
     } elseif ($_POST['action'] === 'restore') {
-      db()->prepare("UPDATE videos SET status='published', reject_reason=NULL, moderated_by=?, moderated_at=NOW() WHERE id=?")
+      if (!empty($video['locked_by_admin']) && !$isAdmin) {
+        flash_set('error', 'Это видео ранее отклонено администратором — только администратор может изменить решение.');
+        redirect('/moderator/videos.php');
+      }
+      db()->prepare("UPDATE videos SET status='published', reject_reason=NULL, moderated_by=?, moderated_at=NOW(), locked_by_admin=0 WHERE id=?")
         ->execute([$__user['id'], $id]);
       try {
         db()->prepare('INSERT INTO notifications (user_id, channel_id, type, message) VALUES (?, ?, "video_restored", ?)')
