@@ -344,6 +344,27 @@ function table_column_exists(string $table, string $column): bool {
   return (bool)$stmt->fetchColumn();
 }
 
+// Место в общем рейтинге по XP (та же метрика, что и в rating.php). Используется для баннера
+// "твоё место в рейтинге" в профиле и мессенджере.
+function user_rank(int $userId): ?int {
+  $stmt = db()->prepare('SELECT xp FROM users WHERE id = ?');
+  $stmt->execute([$userId]);
+  $xp = $stmt->fetchColumn();
+  if ($xp === false) return null;
+  $stmt2 = db()->prepare('SELECT COUNT(*) + 1 FROM users WHERE xp > ? AND is_banned = 0');
+  $stmt2->execute([$xp]);
+  return (int)$stmt2->fetchColumn();
+}
+
+function rating_place_banner(int $userId): string {
+  try {
+    $place = user_rank($userId);
+  } catch (\Throwable $e) { return ''; }
+  if (!$place) return '';
+  return '<div class="rating-place-banner" style="display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,rgba(255,193,7,.18),rgba(255,152,0,.10));border:1px solid rgba(255,193,7,.4);border-radius:10px;padding:6px 12px;font-size:13px;margin:8px 0">'
+    . '🏆 Ваше место в рейтинге: <b><a href="/rating" style="color:inherit">#' . (int)$place . '</a></b></div>';
+}
+
 function user_avatar_url(array $user, int $size = 96): string {
   $email = trim((string)($user['gravatar_email'] ?? ''));
   if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -359,16 +380,22 @@ function render_user_badge(array $user, int $size = 28, bool $link = true): stri
   $avatar = user_avatar_url($user, $size * 2); // берём с запасом на retina-экраны
   $name = e($user['username'] ?? 'Гость');
   $verified = !empty($user['is_verified']) ? verify_badge(true) : '';
-  $banned = !empty($user['is_banned'])
-    ? ' <span class="user-banned-badge" title="Аккаунт заблокирован на платформе" style="color:var(--danger);font-size:11px;border:1px solid var(--danger);border-radius:8px;padding:0 5px">заблокирован</span>'
-    : '';
-  $img = '<img src="' . e($avatar) . '" alt="" style="width:' . $size . 'px;height:' . $size . 'px;border-radius:50%;object-fit:cover;flex-shrink:0" loading="lazy">';
-  $inner = $img . '<span style="font-weight:600">' . $name . '</span>' . $verified . $banned;
+  $img = '<img src="' . e($avatar) . '" alt="" style="width:' . $size . 'px;height:' . $size . 'px;border-radius:50%;object-fit:cover;flex-shrink:0' . (!empty($user['is_banned']) ? ';filter:grayscale(1);opacity:.6' : '') . '" loading="lazy">';
+  $inner = $img . '<span style="font-weight:600">' . $name . '</span>' . $verified;
   $style = 'display:inline-flex;align-items:center;gap:8px;text-decoration:none;color:inherit';
-  if ($link && !empty($user['username'])) {
-    return '<a href="/profile.php?username=' . urlencode($user['username']) . '" style="' . $style . '">' . $inner . '</a>';
-  }
-  return '<span style="' . $style . '">' . $inner . '</span>';
+  $row = $link && !empty($user['username'])
+    ? '<a href="/profile?username=' . urlencode($user['username']) . '" style="' . $style . '">' . $inner . '</a>'
+    : '<span style="' . $style . '">' . $inner . '</span>';
+
+  if (empty($user['is_banned'])) return $row;
+
+  // Настоящий заметный баннер, а не мелкая подпись — раньше здесь была едва заметная пилюля
+  // рядом с ником, которую легко не увидеть. Теперь везде (форум, комментарии видео, посты
+  // каналов-рассылок) одинаково явно, как уже было в профиле и в личных сообщениях.
+  return '<div>' . $row .
+    '<div class="banned-user-notice" style="margin-top:4px;display:flex;align-items:center;gap:6px;background:rgba(255,71,87,0.12);border:1px solid var(--danger);border-radius:8px;padding:4px 10px;font-size:12px;color:var(--danger)">' .
+    '⛔ Этот аккаунт заблокирован на платформе. Мы не несём ответственности за действия пользователя вне платформы.' .
+    '</div></div>';
 }
 
 function ensure_user_gravatar_column(): void {

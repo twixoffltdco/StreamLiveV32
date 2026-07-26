@@ -98,6 +98,7 @@ require_once __DIR__ . '/includes/header.php';
   <div class="msg-shell">
     <aside class="msg-sidebar">
       <h2 style="margin:0 0 14px">Сообщения</h2>
+      <?= rating_place_banner((int)$__user['id']) ?>
 
       <div class="msg-search-box">
         <input type="text" id="msg-user-search" placeholder="Найти человека по нику…" autocomplete="off">

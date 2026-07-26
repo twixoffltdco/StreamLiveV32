@@ -30,12 +30,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   } elseif (isset($_POST['ddos_mode'])) {
     set_setting('ddos_under_attack_mode', $_POST['ddos_mode'] === '1' ? '1' : '0');
     flash_set('success', $_POST['ddos_mode'] === '1' ? 'Режим "под атакой" включён — все гости проходят JS-проверку браузера' : 'Режим "под атакой" выключен');
+  } elseif (isset($_POST['save_moderation_limits'])) {
+    set_setting('no_self_moderation_enabled', !empty($_POST['no_self_moderation_enabled']) ? '1' : '0');
+    set_setting('moderation_cooldown_hours', (string)max(0, (int)($_POST['moderation_cooldown_hours'] ?? 24)));
+    set_setting('role_change_cooldown_hours', (string)max(0, (int)($_POST['role_change_cooldown_hours'] ?? 100)));
+    flash_set('success', 'Лимиты модерации сохранены');
   }
   redirect('/admin/security.php');
 }
 $enabled = get_setting('force_2fa_enabled', '0') === '1';
 $geoEnabled = get_setting('geo_restrict_enabled', '0') === '1';
 $ddosMode = get_setting('ddos_under_attack_mode', '0') === '1';
+$noSelfModeration = get_setting('no_self_moderation_enabled', '1') === '1';
+$moderationCooldownHours = (int)get_setting('moderation_cooldown_hours', '24');
+$roleChangeCooldownHours = (int)get_setting('role_change_cooldown_hours', '100');
 ?>
 <h2>Безопасность — 2FA</h2>
 <div class="form-card form-wide">
@@ -131,5 +139,22 @@ $ddosMode = get_setting('ddos_under_attack_mode', '0') === '1';
     защита для него (и для любого другого нераспознанного автоматического клиента) — держать
     оба режима выключенными, кроме случаев реальной атаки.
   </p>
+</div>
+<h2 style="margin-top:30px">Лимиты модерации</h2>
+<div class="form-card form-wide">
+  <form method="POST">
+    <?= csrf_field() ?>
+    <input type="hidden" name="save_moderation_limits" value="1">
+    <label style="display:flex;align-items:center;gap:8px">
+      <input type="checkbox" name="no_self_moderation_enabled" value="1" <?= $noSelfModeration ? 'checked' : '' ?>>
+      Запретить модератору одобрять/отклонять свой же канал или видео
+    </label>
+    <label style="margin-top:10px">Кулдаун модерации на модератора (часов на 1 действие с каналами/видео каждого типа отдельно)</label>
+    <input type="number" name="moderation_cooldown_hours" value="<?= (int)$moderationCooldownHours ?>" min="0" style="max-width:120px">
+    <label style="margin-top:10px">Кулдаун смены роли модератора (часов между сменами роли ОДНОГО пользователя)</label>
+    <input type="number" name="role_change_cooldown_hours" value="<?= (int)$roleChangeCooldownHours ?>" min="0" style="max-width:120px">
+    <p style="font-size:11.5px;color:var(--text-dim);margin-top:6px">0 в любом из полей — лимит выключен. Администраторов кулдаун на модерацию не касается — только простых модераторов.</p>
+    <button class="btn btn-primary" type="submit" style="margin-top:10px">Сохранить</button>
+  </form>
 </div>
 <?php require_once __DIR__ . '/_layout_end.php'; ?>

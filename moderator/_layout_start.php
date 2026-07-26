@@ -6,6 +6,7 @@ require_moderator();
 <div class="admin-shell">
   <div class="admin-sidebar">
     <a href="/moderator/index">Очередь на модерацию</a>
+    <a href="/moderator/mod_requests">Запросы на подтверждение</a>
     <a href="/moderator/flagged">Скрыть/восстановить канал</a>
     <a href="/moderator/videos">Модерация видео</a>
     <a href="/moderator/users">Пользователи</a>

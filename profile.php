@@ -5,7 +5,7 @@ $__user = current_user();
 try { ensure_user_gravatar_column(); } catch (Throwable $e) {}
 
 $username = $_GET['username'] ?? '';
-$stmt = db()->prepare('SELECT id, username, avatar, gravatar_email, role, created_at, is_verified FROM users WHERE username = ?');
+$stmt = db()->prepare('SELECT id, username, avatar, gravatar_email, role, created_at, is_verified, is_banned FROM users WHERE username = ?');
 $stmt->execute([$username]);
 $profileUser = $stmt->fetch();
 
@@ -51,6 +51,9 @@ require_once __DIR__ . '/includes/header.php';
           🚫 Этот аккаунт заблокирован на платформе. Мы не несём ответственности за действия
           пользователя вне платформы.
         </div>
+      <?php endif; ?>
+      <?php if ($__user && (int)$__user['id'] === (int)$profileUser['id']): ?>
+        <?= rating_place_banner((int)$profileUser['id']) ?>
       <?php endif; ?>
       <div class="profile-stats">
         <span><b><?= count($channels) ?></b> каналов</span>
