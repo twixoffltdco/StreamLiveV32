@@ -1,11 +1,13 @@
 <?php
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/gamification.php'; // для get_rank_for_xp()
+
 $__user = current_user();
 try { ensure_user_gravatar_column(); } catch (Throwable $e) {}
 
 $username = $_GET['username'] ?? '';
-$stmt = db()->prepare('SELECT id, username, avatar, gravatar_email, role, created_at, is_verified, is_banned FROM users WHERE username = ?');
+$stmt = db()->prepare('SELECT id, username, avatar, gravatar_email, role, created_at, is_verified, is_banned, xp FROM users WHERE username = ?');
 $stmt->execute([$username]);
 $profileUser = $stmt->fetch();
 
@@ -18,11 +20,13 @@ if (!$profileUser) {
   exit;
 }
 
+// Ранг пользователя
+$rank = get_rank_for_xp((int)$profileUser['xp']);
+
 $isOwnProfile = $__user && (int)$__user['id'] === (int)$profileUser['id'];
 if ($isOwnProfile && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gravatar_email'])) { csrf_verify(); $email = trim($_POST['gravatar_email']); if ($email === '' || filter_var($email, FILTER_VALIDATE_EMAIL)) { db()->prepare('UPDATE users SET gravatar_email = ? WHERE id = ?')->execute([$email ?: null, $__user['id']]); redirect('/profile.php?username=' . urlencode($profileUser['username'])); } else { flash_set('error', 'Укажите корректную почту Gravatar.'); } }
 
-// Публичные каналы видны всем; приватные — только самому владельцу (сам решает,
-// показывать канал в профиле или нет — переключатель в настройках канала).
+// Публичные каналы видны всем; приватные — только самому владельцу
 if ($isOwnProfile) {
   $stmt = db()->prepare("SELECT * FROM channels WHERE owner_id = ? AND status = 'approved' ORDER BY id DESC");
 } else {
@@ -45,7 +49,11 @@ require_once __DIR__ . '/includes/header.php';
   <div class="profile-header">
     <img src="<?= e(user_avatar_url($profileUser, 192)) ?>" alt="" class="profile-avatar" onerror="this.style.display='none'">
     <div class="profile-info">
-      <h1>@<?= e($profileUser['username']) ?><?= verify_badge((bool)$profileUser['is_verified']) ?></h1>
+      <h1>
+        <span class="rank-prefix">[<?= e($rank['title']) ?>]</span>
+        @<?= e($profileUser['username']) ?>
+        <?= verify_badge((bool)$profileUser['is_verified']) ?>
+      </h1>
       <?php if (!empty($profileUser['is_banned'])): ?>
         <div class="alert alert-error" style="margin:10px 0 4px">
           🚫 Этот аккаунт заблокирован на платформе. Мы не несём ответственности за действия
@@ -64,7 +72,8 @@ require_once __DIR__ . '/includes/header.php';
       <?php if ($__user && !$isOwnProfile): ?>
         <a href="/messages.php?with=<?= (int)$profileUser['id'] ?>" class="btn btn-primary btn-sm" style="margin-top:10px;display:inline-block;text-decoration:none">Написать</a>
       <?php elseif ($isOwnProfile): ?>
-        <a href="/dashboard.php" class="btn btn-outline btn-sm" style="margin-top:10px;display:inline-block;text-decoration:none">Управлять каналами</a><form method="post" style="margin-top:12px"><?= csrf_field() ?><label style="display:block;color:var(--text-dim);font-size:12px">Почта Gravatar для аватарки</label><input type="email" name="gravatar_email" value="<?= e($profileUser['gravatar_email'] ?? '') ?>" placeholder="you@example.com" style="padding:8px;max-width:260px;width:100%"><button class="btn btn-primary btn-sm">Сохранить</button></form>
+        <a href="/dashboard.php" class="btn btn-outline btn-sm" style="margin-top:10px;display:inline-block;text-decoration:none">Управлять каналами</a>
+        <form method="post" style="margin-top:12px"><?= csrf_field() ?><label style="display:block;color:var(--text-dim);font-size:12px">Почта Gravatar для аватарки</label><input type="email" name="gravatar_email" value="<?= e($profileUser['gravatar_email'] ?? '') ?>" placeholder="you@example.com" style="padding:8px;max-width:260px;width:100%"><button class="btn btn-primary btn-sm">Сохранить</button></form>
       <?php endif; ?>
     </div>
   </div>
