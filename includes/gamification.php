@@ -44,7 +44,11 @@ function get_rank_for_xp(int $xp): array {
 // была активна). Начисляет XP не чаще раза в календарные сутки.
 // Возвращает null, если сегодня уже засчитано, либо массив с данными для баннера-приветствия.
 function register_daily_activity(int $userId): ?array {
-  $stmt = db()->prepare('SELECT xp, total_active_days, cycle_number, login_streak_days, last_active_date FROM users WHERE id = ?');
+  if (!table_column_exists('users', 'longest_login_streak')) {
+    try { db()->exec('ALTER TABLE users ADD COLUMN longest_login_streak INT NOT NULL DEFAULT 0'); } catch (\Throwable $e) { }
+  }
+
+  $stmt = db()->prepare('SELECT xp, total_active_days, cycle_number, login_streak_days, longest_login_streak, last_active_date FROM users WHERE id = ?');
   $stmt->execute([$userId]);
   $u = $stmt->fetch();
   if (!$u) return null;
@@ -55,6 +59,10 @@ function register_daily_activity(int $userId): ?array {
   $yesterday = date('Y-m-d', strtotime('-1 day'));
   $streak = ($u['last_active_date'] === $yesterday) ? (int)$u['login_streak_days'] + 1 : 1;
 
+  // Рекорд серии — как на ProHub: текущая серия сбрасывается при пропуске дня, но лучший
+  // результат за всё время НЕ уменьшается, только растёт при новом личном рекорде.
+  $longestStreak = max((int)($u['longest_login_streak'] ?? 0), $streak);
+
   $xpGain = 20 + min($streak, 30) * 2;
 
   $activeDays = (int)$u['total_active_days'] + 1;
@@ -64,10 +72,10 @@ function register_daily_activity(int $userId): ?array {
     $cycle += 1;
   }
 
-  db()->prepare('UPDATE users SET xp = xp + ?, total_active_days = ?, cycle_number = ?, login_streak_days = ?, last_active_date = ? WHERE id = ?')
-    ->execute([$xpGain, $activeDays, $cycle, $streak, $today, $userId]);
+  db()->prepare('UPDATE users SET xp = xp + ?, total_active_days = ?, cycle_number = ?, login_streak_days = ?, longest_login_streak = ?, last_active_date = ? WHERE id = ?')
+    ->execute([$xpGain, $activeDays, $cycle, $streak, $longestStreak, $today, $userId]);
 
-  return ['xp_gained' => $xpGain, 'streak' => $streak, 'new_place' => get_user_rating_place($userId)];
+  return ['xp_gained' => $xpGain, 'streak' => $streak, 'longest_streak' => $longestStreak, 'new_place' => get_user_rating_place($userId)];
 }
 
 function get_user_gamification(int $userId): ?array {

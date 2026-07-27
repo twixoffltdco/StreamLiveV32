@@ -54,6 +54,7 @@ require_once __DIR__ . '/includes/header.php';
       <?php endif; ?>
       <?php if ($__user && (int)$__user['id'] === (int)$profileUser['id']): ?>
         <?= rating_place_banner((int)$profileUser['id']) ?>
+        <div style="margin:6px 0"><a href="/account_settings.php" class="btn btn-outline btn-sm">⚙️ Настройки аккаунта</a></div>
       <?php endif; ?>
       <div class="profile-stats">
         <span><b><?= count($channels) ?></b> каналов</span>

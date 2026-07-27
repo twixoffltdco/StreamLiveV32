@@ -520,3 +520,24 @@ img, video, iframe, canvas, svg { max-width: 100%; }
   .oauth-btn { width: 100%; justify-content: center; }
   input, textarea, select, button { max-width: 100%; }
 }
+
+.streak-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.65); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.streak-modal { background: var(--bg-elevated); border-radius: 18px; padding: 32px 28px; max-width: 380px; width: 100%; text-align: center; position: relative; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+.streak-modal-close { position: absolute; top: 12px; right: 14px; background: none; border: 0; color: var(--text-dim); font-size: 18px; cursor: pointer; }
+.streak-modal-icon { width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg,#ff9800,#ff5722); display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 14px; }
+.streak-modal-title { font-size: 22px; margin: 0 0 12px; }
+.streak-modal-streak { font-size: 15px; margin: 0 0 6px; }
+.streak-modal-streak b { color: var(--accent-2); }
+.streak-modal-record { font-size: 12.5px; color: var(--text-dim); margin: 0 0 14px; }
+.streak-modal-hint { font-size: 13px; color: var(--text-dim); margin: 0 0 16px; }
+.streak-modal-days { display: flex; gap: 6px; justify-content: center; margin-bottom: 16px; }
+.streak-day { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
+.streak-day-done { background: rgba(76,175,80,.18); color: #4caf50; border: 2px solid #4caf50; }
+.streak-day-today { background: var(--accent-2); color: #fff; border: 2px solid var(--accent-2); }
+.streak-day-future { background: rgba(255,255,255,.05); color: var(--text-dim); border: 2px solid var(--border); }
+.streak-modal-xp { font-size: 12.5px; color: var(--text-dim); margin: 0 0 18px; }
+.streak-modal-ok { width: 100%; }
+
+.streak-toast { position: fixed; bottom: 20px; right: 20px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; max-width: 300px; font-size: 13px; box-shadow: 0 10px 30px rgba(0,0,0,.4); z-index: 9998; transition: opacity .4s, transform .4s; }
+.streak-toast-hide { opacity: 0; transform: translateY(10px); pointer-events: none; }
+@media (max-width: 480px) { .streak-toast { left: 16px; right: 16px; max-width: none; } }

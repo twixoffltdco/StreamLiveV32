@@ -344,12 +344,37 @@ if (month === 12 || month === 1 || month === 2) { // Winter
   <div class="container"><div class="alert alert-<?= e($type) ?>"><?= e($msg) ?></div></div>
 <?php endforeach; ?>
 <?php if ($__gamification_today): ?>
-  <div class="container">
-    <div class="alert alert-success" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <span>👋 С возвращением, <b><?= e($__user['username']) ?></b>! За сегодняшний вход +<?= (int)$__gamification_today['xp_gained'] ?> XP<?= $__gamification_today['streak'] > 1 ? ' (серия: ' . (int)$__gamification_today['streak'] . ' дн.)' : '' ?>.</span>
-      <a href="/rating" style="color:inherit;text-decoration:underline">Твоё место в рейтинге: #<?= (int)$__gamification_today['new_place'] ?> →</a>
+  <div id="streakModal" class="streak-modal-overlay">
+    <div class="streak-modal">
+      <button type="button" class="streak-modal-close" onclick="document.getElementById('streakModal').remove()">✕</button>
+      <div class="streak-modal-icon">🔥</div>
+      <h2 class="streak-modal-title">Ежедневный вход!</h2>
+      <p class="streak-modal-streak">Ваша серия: <b><?= (int)$__gamification_today['streak'] ?> дн.</b></p>
+      <?php if ((int)$__gamification_today['longest_streak'] > (int)$__gamification_today['streak']): ?>
+        <p class="streak-modal-record">🏅 Ваш рекорд: <?= (int)$__gamification_today['longest_streak'] ?> дн. — серия сбрасывается при пропуске дня, но рекорд сохраняется навсегда.</p>
+      <?php else: ?>
+        <p class="streak-modal-record">🏅 Это ваш личный рекорд!</p>
+      <?php endif; ?>
+      <p class="streak-modal-hint">Продолжайте заходить каждый день, чтобы получать бонусы опыта!</p>
+      <div class="streak-modal-days">
+        <?php
+          $__dayInWeek = ((int)$__gamification_today['streak'] - 1) % 7; // 0..6, где сегодня
+          for ($__d = 0; $__d < 7; $__d++):
+            $__cls = $__d < $__dayInWeek ? 'streak-day-done' : ($__d === $__dayInWeek ? 'streak-day-today' : 'streak-day-future');
+        ?>
+          <span class="streak-day <?= $__cls ?>"><?= $__d < $__dayInWeek ? '★' : ($__d + 1) ?></span>
+        <?php endfor; ?>
+      </div>
+      <p class="streak-modal-xp">+<?= (int)$__gamification_today['xp_gained'] ?> XP за сегодня · <a href="/rating" style="color:inherit">твоё место: #<?= (int)$__gamification_today['new_place'] ?></a></p>
+      <button type="button" class="btn btn-primary streak-modal-ok" onclick="document.getElementById('streakModal').remove()">Отлично!</button>
     </div>
   </div>
+  <div id="streakToast" class="streak-toast">
+    🔥 Серия <?= (int)$__gamification_today['streak'] ?> дней! Вы заходите на платформу <?= (int)$__gamification_today['streak'] ?> дн. подряд!
+  </div>
+  <script>
+    setTimeout(function () { var t = document.getElementById('streakToast'); if (t) t.classList.add('streak-toast-hide'); }, 5000);
+  </script>
 <?php endif; ?>
 <?php
 // Реклама не грузится на страницах входа/регистрации/2FA и в админке — она не нужна там
