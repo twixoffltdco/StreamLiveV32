@@ -12,7 +12,7 @@ $channels = $stmt->fetchAll();
 
 $items = array_map(function ($c) use ($base, $siteName) {
     // Формируем описание по шаблону
-    $template = "Смотрим в хорошем качестве HD Без VPN В России с провайдера Ростелеком и др - {$c['title']} (HD) Смотреть в {$siteName}";
+    $template = "Смотрим в хорошем качестве HD Без VPN В России - {$c['title']} (HD) Смотреть в {$siteName}";
     
     // Обрезаем до 100 символов (с учётом многобайтовости)
     if (mb_strlen($template) > 100) {
@@ -23,7 +23,7 @@ $items = array_map(function ($c) use ($base, $siteName) {
 
     return [
         'title'     => $c['title'],
-        'link'      => $base . '/channel-pc.php?slug=' . urlencode($c['slug']),
+        'link'      => $base . '/channel.php?slug=' . urlencode($c['slug']),
         'description' => $description,
         'pub_date'  => $c['created_at'],
     ];
