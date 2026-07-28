@@ -102,7 +102,7 @@ $BBCODE_SIMPLE_TAGS = [
 ];
 
 // Теги, которым нужна проверка/обработка параметров — регэксп => обработчик
-function bbcode_callback_tags(): array {
+function bbcode_callback_tags(?int $postId = null): array {
   return [
     '/\[youtube\](.*?)\[\/youtube\]/is'                 => 'bbcode_render_youtube',
     '/\[font=(.*?)\](.*?)\[\/font\]/is'                  => 'bbcode_render_font',
@@ -132,13 +132,29 @@ function bbcode_callback_tags(): array {
       $embed = normalize_video_embed($m[1], html_entity_decode($m[2], ENT_QUOTES));
       return '<div class="bb-video-wrap" style="position:relative;padding-top:56.25%;max-width:720px"><iframe src="' . htmlspecialchars($embed, ENT_QUOTES) . '" loading="lazy" allowfullscreen style="position:absolute;inset:0;width:100%;height:100%;border:0"></iframe></div>';
     },
-    '/\[attach\](https?:\/\/[^\]\s]+)\[\/attach\]/is' => function ($m) {
-      return '<a class="btn btn-outline btn-sm" href="' . htmlspecialchars($m[1], ENT_QUOTES) . '" target="_blank" rel="noopener nofollow">📎 Вложение/скачивание</a>';
+    '/\[attach\](https?:\/\/[^\]\s]+)\[\/attach\]/is' => function ($m) use ($postId) {
+      $url = $m[1];
+      $filename = basename(parse_url($url, PHP_URL_PATH) ?: '') ?: 'файл';
+
+      if ($postId === null) {
+        // Рендер вне контекста конкретного поста (например, предпросмотр перед отправкой) —
+        // считать клики некуда привязать, честно показываем обычную ссылку без счётчика.
+        return '<a class="btn btn-outline btn-sm" href="' . htmlspecialchars($url, ENT_QUOTES) . '" target="_blank" rel="noopener nofollow">📎 ' . htmlspecialchars($filename, ENT_QUOTES) . '</a>';
+      }
+
+      require_once __DIR__ . '/forum_attachments.php';
+      $attachId = forum_attachment_get_or_create($postId, $url, $filename);
+      $viewsCount = forum_attachment_views_count($attachId);
+
+      return '<a class="bb-attachment" href="/forum_attachment_click.php?id=' . $attachId . '" target="_blank" rel="noopener nofollow" '
+        . 'style="display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:10px;padding:8px 12px;text-decoration:none;color:inherit;background:var(--card)">'
+        . '<span style="font-size:20px">📎</span><span><b style="display:block;font-size:13px">' . htmlspecialchars($filename, ENT_QUOTES) . '</b>'
+        . '<span style="font-size:11px;color:var(--text-dim)">' . $viewsCount . ' ' . forum_attachment_views_word($viewsCount) . '</span></span></a>';
     },
   ];
 }
 
-function bbcode_to_html(string $text): string {
+function bbcode_to_html(string $text, ?int $postId = null): string {
   $html = e($text);
 
   // [code]...[/code] — сохраняем как есть (без вложенных тегов внутри), с кнопкой "Копировать".
@@ -181,7 +197,7 @@ function bbcode_to_html(string $text): string {
   }
 
   // Теги с параметрами/проверками — тоже из реестра
-  foreach (bbcode_callback_tags() as $pattern => $callback) {
+  foreach (bbcode_callback_tags($postId) as $pattern => $callback) {
     $html = preg_replace_callback($pattern, $callback, $html);
   }
 

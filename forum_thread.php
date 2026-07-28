@@ -95,7 +95,7 @@ require_once __DIR__ . '/includes/header.php';
           <?php endif; ?>
         </div>
         <?= banned_user_notice($p) ?>
-        <div class="forum-post-body"><?= bbcode_to_html($p['message']) ?></div>
+        <div class="forum-post-body"><?= bbcode_to_html($p['message'], (int)$p['id']) ?></div>
         <?php if ($isForumModerator): ?>
           <form method="POST" onsubmit="return confirm('Удалить сообщение?')" style="margin-top:6px">
             <?= csrf_field() ?>
