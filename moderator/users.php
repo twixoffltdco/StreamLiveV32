@@ -1,5 +1,6 @@
-<?php require_once __DIR__ . '/_layout_start.php'; ?>
 <?php
+require_once __DIR__ . '/../includes/moderator_auth.php';
+$__user = require_moderator();
 require_once __DIR__ . '/../includes/moderation_limits.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -52,11 +53,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     db()->prepare('UPDATE users SET is_banned = 1 WHERE id = ?')->execute([$id]);
     flash_set('success', 'Пользователь заблокирован — предупреждение теперь видно в профиле, на форуме, в сообщениях и в каналах-рассылках');
   } elseif ($_POST['action'] === 'unban') {
-    db()->prepare('UPDATE users SET is_banned = 0 WHERE id = ?')->execute([$id]);
-    flash_set('success', 'Блокировка снята');
+    require_once __DIR__ . '/../includes/moderation_limits.php';
+    moderation_ensure_schema();
+    // Разбан теперь идёт через запрос на подтверждение другим модератором — та же
+    // логика самомодерации, что уже есть для выдачи/снятия роли модератора: тот, кто
+    // инициировал разбан, не может сам же его подтвердить.
+    $existing = db()->prepare("SELECT id FROM moderation_requests WHERE action_type='unban' AND target_user_id=? AND status='pending'");
+    $existing->execute([$id]);
+    if ($existing->fetch()) {
+      flash_set('error', 'Запрос на разбан этого пользователя уже создан и ждёт подтверждения');
+    } else {
+      db()->prepare("INSERT INTO moderation_requests (action_type, target_user_id, requested_by) VALUES ('unban', ?, ?)")
+        ->execute([$id, $__user['id']]);
+      flash_set('success', 'Запрос на разбан создан — нужно подтверждение другого модератора на странице /moderator/mod_requests.php');
+    }
   }
   redirect('/moderator/users.php');
 }
+
+require_once __DIR__ . '/_layout_start.php';
 
 $search = trim((string)($_GET['q'] ?? ''));
 if ($search !== '') {

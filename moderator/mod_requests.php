@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmtT->execute([$req['target_user_id']]);
     $targetUser = $stmtT->fetch();
 
-    if ($targetUser) {
+    if ($targetUser && in_array($req['action_type'], ['grant_moderator', 'revoke_moderator'], true)) {
       $__cooldownLeft = role_change_cooldown_remaining_hours($targetUser);
       if ($__cooldownLeft !== null) {
         flash_set('error', "Роль этого пользователя менялась недавно — подтвердить можно через {$__cooldownLeft} ч.");
@@ -35,6 +35,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       }
       $newRole = $req['action_type'] === 'grant_moderator' ? 'moderator' : 'user';
       db()->prepare('UPDATE users SET role = ?, role_changed_at = NOW() WHERE id = ?')->execute([$newRole, $req['target_user_id']]);
+    } elseif ($targetUser && $req['action_type'] === 'unban') {
+      db()->prepare('UPDATE users SET is_banned = 0 WHERE id = ?')->execute([$req['target_user_id']]);
     }
     db()->prepare("UPDATE moderation_requests SET status='approved', reviewed_by=?, reviewed_at=NOW() WHERE id=?")
       ->execute([$__user['id'], $reqId]);
