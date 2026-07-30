@@ -39,7 +39,7 @@ $__cur = in_array($__scriptName, ['index.php', 'catalog.php', 'channel.php', 'ch
 
 <footer class="site-footer">
   <div class="container site-footer-inner">
-    <span>© <?= date('Y') ?> <?= e(SITE_NAME) ?></span>
+    <span>© <?= date('Y') ?> <?= e(SITE_NAME) ?> · сделано с <span style="color:#e53935">❤</span> — <a href="https://oinktechltd.tatnet.app" target="_blank" rel="noopener" style="color:inherit">ТОО OinkTech Ltd Co and Twixoff</a></span>
     <nav class="site-footer-links">
       <a href="/docs">Документация</a>
       <a href="/legal/terms">Условия использования</a>

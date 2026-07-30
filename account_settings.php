@@ -129,6 +129,28 @@ require_once __DIR__ . '/includes/header.php';
         </ul>
       </div>
     <?php endif; ?>
+  <div class="form-card form-wide" style="margin-top:20px">
+    <h3 style="margin-top:0">API-ключ</h3>
+    <p style="font-size:12.5px;color:var(--text-dim)">
+      С ключом ваши запросы к API идут без троттлинга по нагрузке и не блокируются даже во
+      время защиты от атаки. Без ключа доступ зависит от текущей нагрузки сайта. Ключ сам
+      обновляется раз в 30 дней — просто зайдите на эту страницу ещё раз после истечения.
+    </p>
+    <?php
+    require_once __DIR__ . '/includes/api_auth.php';
+    $apiKey = api_key_get_or_rotate((int)$__user['id']);
+    $daysLeft = api_key_days_until_rotation((int)$__user['id']);
+    ?>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="text" readonly value="<?= e($apiKey) ?>" style="flex:1;min-width:260px;font-family:monospace;font-size:12.5px" onclick="this.select()">
+      <button type="button" class="btn btn-outline btn-sm" onclick="navigator.clipboard.writeText('<?= e($apiKey) ?>');this.textContent='Скопировано!'">Скопировать</button>
+    </div>
+    <p style="font-size:11.5px;color:var(--text-dim);margin-top:6px">
+      До автоматической ротации: <?= $daysLeft !== null ? (int)$daysLeft . ' дн.' : '—' ?>.
+      Никому не показывайте этот ключ и не публикуйте его в открытом репозитории — если он
+      попадёт в открытый доступ, мы это заметим (по количеству разных адресов, с которых он
+      используется) и предупредим при следующем запросе.
+    </p>
   </div>
 </div>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

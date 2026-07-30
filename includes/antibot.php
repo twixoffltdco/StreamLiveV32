@@ -42,6 +42,7 @@ function antibot_exempt_paths(): array {
     '/rss_forum.php', '/rss_channels.php',
     '/channel_like.php', '/channel_favorite.php', '/short_like.php',
     '/comment_add.php', '/comment_delete.php', '/video_comment_add.php',
+    '/api_videos.php',
     '/broadcast_post_comments.php', '/broadcast_post_comment_add.php', '/broadcast_post_react.php',
     '/video_like.php', '/video_favorite.php', '/video_progress_get.php', '/video_progress_save.php',
     '/watch_room_poll.php', '/watch_room_action.php', '/watch_room_chat_poll.php', '/watch_room_chat_send.php',
