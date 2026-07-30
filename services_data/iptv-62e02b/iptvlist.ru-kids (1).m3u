@@ -1,0 +1,162 @@
+#EXTM3U
+#EXTINF:-1,Ани
+http://31.40.149.157:9981/stream/channelid/153126086?ticket=526004120471236EA98BBA4637C985AB96D53646&profile=pass
+#EXTINF:-1,Карусель
+http://31.40.149.157:9981/stream/channelid/962642100?ticket=5A3B19C349BB6E56EEFF4C98FB5C46C86EFA790D&profile=pass
+#EXTINF:-1,Мульт HD
+http://31.40.149.157:9981/stream/channelid/211382224?ticket=6BF2065E5041BD4F4ABB5122E27F30FB01926A38&profile=pass
+#EXTINF:-1,Мультиландия
+http://31.40.149.157:9981/stream/channelid/1848309290?ticket=4BCEACF87200B3E57511C6C757E3A36E48A7EFD6&profile=pass
+#EXTINF:-1,СТС Kids
+http://31.40.149.157:9981/stream/channelid/1041884886?ticket=7F1F0E8C575DACCF18D30E894BFEBC2A47A968C1&profile=pass
+#EXTINF:-1,Солнце
+http://31.40.149.157:9981/stream/channelid/1754655428?ticket=FFDEC0DC27C847D146F602313CCC1D9ED5278C46&profile=pass
+#EXTINF:-1,В гостях у сказки
+http://31.40.149.157:9981/stream/channelid/15694878?ticket=AE4AB29F0426E7837429E51F0BCFF3C8C1FCAB6D&profile=pass
+#EXTINF:-1 group-title=\\\"Детские\\\" tvg-logo=\\\"http://epg.it999.ru/img2/2011.png\\\",Ani
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv3/101156/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/929.png\\\",Boomerang
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/100784/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"https://picon.ml/boomerang.png\\\",Boomerang HD
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv2/103614/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/601.png\\\",Cartoon Network
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/100737/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/2486.png\\\",Cartoon Network HD
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/101214/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://play.wisp.cat/logos/1671.png\\\",Cine + Kids HD
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv2/101511/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"https://picon.ml/disney-jr.png\\\",DISNEY JUNIOR
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv3/102027/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/810.png\\\",Gulli Girl
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/100724/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/494.png\\\",JimJam
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/100791/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"https://picon.ml/kidzone.png\\\",KidZone TV
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/102028/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"https://picon.ml/kidzone.png\\\",Kidzone+ HD [LT]
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/101066/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/917.png\\\",Nick Jr
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/100364/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"https://picon.ml/nick-jr.png\\\",Nick Jr HD
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/103483/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/567.png\\\",Nickelodeon
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/100853/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/423.png\\\",Nickelodeon HD
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/100678/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/2994.png\\\",Nicktoons
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/100868/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/3334.png\\\",Niki Junior HD
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv2/100973/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/3333.png\\\",Niki Kids HD
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv2/100972/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/555.png\\\",TiJi
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/100682/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/2027.png\\\",В гостях у сказки
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/101089/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://imboom.ru/images/iptv/iptvp.png\\\",Весёлая Карусель
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/101477/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/923.png\\\",Детский мир
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/100744/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"https://picon.ml/detsky-mir.png\\\",Детский мир HD
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv3/103615/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://imboom.ru/images/iptv/iptvp.png\\\",Димград 24 HD
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/102936/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/2438.png\\\",Капитан Фантастика HD
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/100871/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"https://picon.ml/karapuz-tv.png\\\",Карапуз ТВ HD
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/101356/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/740.png\\\",Карусель
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv3/100578/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/2033.png\\\" tvg-shift=\\\"2\\\",Карусель (+2)
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv3/100927/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"https://picon.ml/karusel.png\\\" tvg-shift=\\\"8\\\",Карусель (+8)
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv3/100929/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://imboom.ru/images/iptv/iptvp.png\\\",Карусель HD
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv3/103512/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://imboom.ru/images/iptv/iptvp.png\\\",Лёва HD
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv3/103535/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/618.png\\\",Мама
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/100368/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/1332.png\\\",Мульт
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv3/100709/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/1332.png\\\",Мульт HD
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv3/100818/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://imboom.ru/images/iptv/iptvp.png\\\",МультStream HD
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/101522/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/2757.png\\\",Мультиландия
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv3/100708/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/284.png\\\",Мультимузыка
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv3/100406/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/1757.png\\\",О!
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/100692/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/2287.png\\\",Радость Моя
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/101448/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/2437.png\\\",Рыжий
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/100728/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"https://www.cableman.ru/sites/default/files/skazki_zayki.png\\\",Сказки Зайки
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/100412/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/2442.png\\\",Смайлик ТВ HD
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/100776/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/150.png\\\",Солнце
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv3/100700/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/150.png\\\" tvg-shift=\\\"4\\\",Солнце (+4)
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv3/101179/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/2481.png\\\",СТС Kids
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/101077/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/2481.png\\\",СТС Kids HD
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/101080/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/2239.png\\\",Супергерои
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/101162/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://epg.it999.ru/img2/66.png\\\",Уникум HD
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/100769/mpegts?token=B3CBF9RKLQWP
+#EXTINF:-1 tvg-logo=\\\"http://imboom.ru/images/iptv/iptvp.png\\\",Чижик
+#EXTGRP:Детские
+http://194.87.237.169:8888/srv1/103159/mpegts?token=B3CBF9RKLQWP
