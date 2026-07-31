@@ -10,6 +10,38 @@ $pdo = pl_pdo();
 $site = pl_site_web();
 $items = [];
 
+// cookie-история каналов (даже без логина) — поднимаем в начало ленты
+$viewed = [];
+if (!empty($_COOKIE['viewed_channels'])) {
+    foreach (preg_split('/[,\s]+/', (string)$_COOKIE['viewed_channels']) as $p) {
+        $n = (int)$p; if ($n > 0) $viewed[] = $n;
+    }
+    $viewed = array_values(array_unique($viewed));
+}
+if ($pdo && $viewed && empty($items)) {
+    $chTable0 = pl_find_table($pdo, ['channels']);
+    if ($chTable0) {
+        $cc0 = pl_columns($pdo, $chTable0);
+        $id0 = pl_pick_col($cc0, ['id']);
+        $st0c = pl_pick_col($cc0, ['status']);
+        if ($id0) {
+            try {
+                $ph = implode(',', array_fill(0, count($viewed), '?'));
+                $w = "`$id0` IN ($ph)";
+                if ($st0c) $w .= " AND (`$st0c`='approved' OR `$st0c`='active' OR `$st0c`='published')";
+                $st = $pdo->prepare("SELECT * FROM `$chTable0` WHERE $w LIMIT " . (int)$limit);
+                $st->execute($viewed);
+                $by = [];
+                while ($row = $st->fetch(PDO::FETCH_ASSOC)) { $by[(int)$row[$id0]] = $row; }
+                foreach ($viewed as $vid) {
+                    if (isset($by[$vid])) $items[] = pl_normalize_channel($by[$vid], $cc0, $site);
+                }
+            } catch (Throwable $e) {}
+        }
+    }
+}
+
+
 if ($pdo) {
     $chTable = pl_find_table($pdo, ['channels', 'broadcast_channels']);
     $likeTable = pl_find_table($pdo, ['channel_likes', 'favorites']);
@@ -83,6 +115,8 @@ if ($pdo) {
         $order = $orderParts ? implode(', ', $orderParts) : 'id DESC';
         $where = '1=1';
         if ($publicCol) $where .= " AND (`$publicCol` = 1 OR `$publicCol` = '1' OR `$publicCol` IS NULL)";
+        $statusCol2 = pl_pick_col($cols, ['status']);
+        if ($statusCol2) $where .= " AND (`$statusCol2` = 'approved' OR `$statusCol2` = 'active' OR `$statusCol2` = 'published' OR `$statusCol2` IS NULL)";
         try {
             $st = $pdo->query("SELECT * FROM `$chTable` WHERE $where ORDER BY $order LIMIT " . (int)$limit);
             $seen = [];

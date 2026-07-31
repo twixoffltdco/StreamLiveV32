@@ -46,7 +46,6 @@ $__canonical = SITE_URL . ($_SERVER['REQUEST_URI'] ?? '/');
 ?>
 <?php @include __DIR__ . '/platforma/header_switcher.php'; ?>
 <?php @include dirname(__DIR__) . '/platforma/header_switcher.php'; ?>
-<?php @include __DIR__ . '/platforma/recommendations_block.php'; ?>
 <!DOCTYPE html>
 <html lang="ru" class="<?= ($_COOKIE['site_color_mode'] ?? 'dark') === 'light' ? 'light-mode' : '' ?>">
 <head>
@@ -113,6 +112,12 @@ if (month === 12 || month === 1 || month === 2) { // Winter
 }
 </style>
 <body>
+<?php
+// «Для вас» только в режиме Платформа, после открытия body (не в head)
+if (($_COOKIE['pl_ui_mode'] ?? $_SESSION['pl_ui_mode'] ?? '') === 'platforma') {
+  @include dirname(__DIR__) . '/platforma/recommendations_block.php';
+}
+?>
 <?php $__themesList = themes_all(); if ($__themesList): ?><div class="theme-switcher"><select onchange="document.cookie='site_theme='+this.value+'; path=/; max-age=31536000'; location.reload()"><option value="">Themes</option><?php foreach ($__themesList as $t): ?><option value="<?= e($t['slug']) ?>" <?= (!empty($__activeTheme) && $__activeTheme['slug']===$t['slug'])?'selected':'' ?>><?= e($t['name']) ?></option><?php endforeach; ?></select></div><?php endif; ?>
 <?php if (!empty($__activeTheme['header'])) theme_safe_include(themes_dir() . '/' . $__activeTheme['header']); ?>
     <style>

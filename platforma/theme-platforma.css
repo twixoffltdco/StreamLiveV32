@@ -17,8 +17,8 @@ body.pl-theme-platforma {
 }
 body.pl-theme-platforma.pl-yt-drawer-open { overflow: hidden; }
 
-/* === Альфа badge === */
-.pl-alpha-badge {
+/* === Бета badge === */
+.pl-alpha-badge, .pl-beta-badge {
   display: inline-block !important;
   margin-left: 6px;
   padding: 1px 6px;

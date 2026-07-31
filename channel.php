@@ -37,18 +37,38 @@ if (isset($_GET['action']) && $_GET['action'] === 'info' && isset($_GET['channel
 }
 
 // ===== ОСНОВНАЯ ЛОГИКА СТРАНИЦЫ =====
-$slug = $_GET['slug'] ?? '';
-if (!$slug) {
-    header('Location: /catalog.php');
-    exit;
-}
+// Принимаем slug (красивый URL), а также id / c — их отдаёт оболочка Платформа.
+$slug = trim((string)($_GET['slug'] ?? ''));
+$byId = (int)($_GET['id'] ?? 0);
+$byC  = trim((string)($_GET['c'] ?? ''));
 
 $__user = current_user();
 
-// Получаем текущий канал
-$stmt = db()->prepare('SELECT * FROM channels WHERE slug = ?');
-$stmt->execute([$slug]);
-$channel = $stmt->fetch();
+$channel = null;
+if ($slug !== '') {
+    $stmt = db()->prepare('SELECT * FROM channels WHERE slug = ?');
+    $stmt->execute([$slug]);
+    $channel = $stmt->fetch();
+} elseif ($byId > 0) {
+    $stmt = db()->prepare('SELECT * FROM channels WHERE id = ?');
+    $stmt->execute([$byId]);
+    $channel = $stmt->fetch();
+} elseif ($byC !== '') {
+    // c= может быть и slug, и числовой id
+    if (ctype_digit($byC)) {
+        $stmt = db()->prepare('SELECT * FROM channels WHERE id = ?');
+        $stmt->execute([(int)$byC]);
+    } else {
+        $stmt = db()->prepare('SELECT * FROM channels WHERE slug = ?');
+        $stmt->execute([$byC]);
+    }
+    $channel = $stmt->fetch();
+}
+
+if (!$slug && !$byId && $byC === '') {
+    header('Location: /catalog.php');
+    exit;
+}
 
 if (!$channel) {
     http_response_code(404);
@@ -59,11 +79,14 @@ if (!$channel) {
     exit;
 }
 
-if ($channel['status'] !== 'approved') {
+// Не-approved: владелец, модератор и админ могут смотреть; остальные — 403.
+$isOwner = $__user && (int)$__user['id'] === (int)$channel['owner_id'];
+$isStaff = $__user && in_array($__user['role'] ?? '', ['admin', 'moderator'], true);
+if ($channel['status'] !== 'approved' && !$isOwner && !$isStaff) {
     http_response_code(403);
     $pageTitle = 'Канал недоступен';
     require_once __DIR__ . '/includes/header.php';
-    $msg = $channel['status'] === 'pending' ? 'Канал ещё проходит модерацию и пока не допущен в каталог' : 'Канал не был допущен в каталог' . ($channel['reject_reason'] ? ': ' . e($channel['reject_reason']) : '');
+    $msg = $channel['status'] === 'pending' ? 'Канал ещё проходит модерацию и пока не допущен в каталог' : 'Канал не был допущен в каталог' . (!empty($channel['reject_reason']) ? ': ' . e($channel['reject_reason']) : '');
     echo '<div class="container"><div class="empty-state"><h2>Канал недоступен</h2><p>' . $msg . '</p><a href="/catalog.php" class="btn btn-primary" style="margin-top:14px">В каталог</a></div></div>';
     require_once __DIR__ . '/includes/footer.php';
     exit;

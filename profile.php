@@ -24,6 +24,18 @@ if (!$profileUser) {
 $rank = get_rank_for_xp((int)$profileUser['xp']);
 
 $isOwnProfile = $__user && (int)$__user['id'] === (int)$profileUser['id'];
+
+// История ников (как в XenForo) — публично видна в профиле
+$usernameHistory = [];
+try {
+  $hStmt = db()->prepare(
+    'SELECT old_username, new_username, changed_at FROM username_history
+     WHERE user_id = ? ORDER BY id DESC LIMIT 30'
+  );
+  $hStmt->execute([(int)$profileUser['id']]);
+  $usernameHistory = $hStmt->fetchAll();
+} catch (\Throwable $e) { /* таблицы ещё нет — миграция 034 */ }
+
 if ($isOwnProfile && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gravatar_email'])) { csrf_verify(); $email = trim($_POST['gravatar_email']); if ($email === '' || filter_var($email, FILTER_VALIDATE_EMAIL)) { db()->prepare('UPDATE users SET gravatar_email = ? WHERE id = ?')->execute([$email ?: null, $__user['id']]); redirect('/profile.php?username=' . urlencode($profileUser['username'])); } else { flash_set('error', 'Укажите корректную почту Gravatar.'); } }
 
 // Публичные каналы видны всем; приватные — только самому владельцу
@@ -69,6 +81,52 @@ require_once __DIR__ . '/includes/header.php';
         <span><b><?= count($bcChannels) ?></b> публикаций-каналов</span>
         <span>на сайте с <?= e(date('m.Y', strtotime($profileUser['created_at']))) ?></span>
       </div>
+      <?php if ($usernameHistory): ?>
+        <div class="username-history-wrap" style="margin-top:10px;position:relative;display:inline-block">
+          <button type="button" id="uh-toggle" class="btn btn-outline btn-sm" aria-expanded="false" aria-controls="uh-popup"
+            style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px"
+            title="История ников">
+            <span aria-hidden="true">🕘</span> История ников
+            <span style="opacity:.7;font-size:11px">(<?= count($usernameHistory) ?>)</span>
+          </button>
+          <div id="uh-popup" role="dialog" aria-label="История ников" hidden
+            style="position:absolute;left:0;top:calc(100% + 8px);z-index:40;min-width:260px;max-width:min(360px,90vw);
+                   background:var(--card,#1a1a1a);border:1px solid var(--border,rgba(255,255,255,.12));
+                   border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.45);padding:12px 14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <b style="font-size:13px">История ников</b>
+              <button type="button" id="uh-close" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:16px;line-height:1" aria-label="Закрыть">×</button>
+            </div>
+            <ul style="margin:0;padding-left:18px;font-size:12.5px;color:var(--text-dim);line-height:1.6;max-height:240px;overflow:auto">
+              <?php foreach ($usernameHistory as $h): ?>
+                <li>
+                  <span style="text-decoration:line-through;opacity:.75"><?= e($h['old_username']) ?></span>
+                  → <b style="color:var(--text)"><?= e($h['new_username']) ?></b>
+                  <span style="opacity:.7"> · <?= e(date('d.m.Y H:i', strtotime($h['changed_at']))) ?></span>
+                </li>
+              <?php endforeach; ?>
+            </ul>
+          </div>
+        </div>
+        <script>
+        (function(){
+          var btn = document.getElementById('uh-toggle');
+          var pop = document.getElementById('uh-popup');
+          var closeBtn = document.getElementById('uh-close');
+          if (!btn || !pop) return;
+          function open(){ pop.hidden = false; btn.setAttribute('aria-expanded','true'); }
+          function close(){ pop.hidden = true; btn.setAttribute('aria-expanded','false'); }
+          function toggle(e){ e.stopPropagation(); if (pop.hidden) open(); else close(); }
+          btn.addEventListener('click', toggle);
+          if (closeBtn) closeBtn.addEventListener('click', function(e){ e.stopPropagation(); close(); });
+          document.addEventListener('click', function(e){
+            if (pop.hidden) return;
+            if (!pop.contains(e.target) && e.target !== btn && !btn.contains(e.target)) close();
+          });
+          document.addEventListener('keydown', function(e){ if (e.key === 'Escape') close(); });
+        })();
+        </script>
+      <?php endif; ?>
       <?php if ($__user && !$isOwnProfile): ?>
         <a href="/messages.php?with=<?= (int)$profileUser['id'] ?>" class="btn btn-primary btn-sm" style="margin-top:10px;display:inline-block;text-decoration:none">Написать</a>
       <?php elseif ($isOwnProfile): ?>

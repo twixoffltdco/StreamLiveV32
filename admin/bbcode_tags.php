@@ -8,8 +8,10 @@ bbcode_ensure_custom_tags_table();
 // (см. $BBCODE_SIMPLE_TAGS и bbcode_callback_tags() в includes/bbcode.php), плюс table/tr/td/th
 // и code, у которых своя отдельная обработка выше по цепочке в bbcode_to_html().
 const BBCODE_RESERVED_NAMES = [
-  'b','i','u','s','center','left','right','sup','sub','indent','spoiler','icode','kbd','mark','h2','h3',
-  'youtube','font','email','list','table','tr','td','th','code','hr','url','img','quote','color',
+  'b','i','u','s','center','left','right','justify','sup','sub','indent','spoiler','hide',
+  'icode','kbd','mark','h1','h2','h3','h4','plain','youtube','font','email','list',
+  'table','tr','td','th','code','hr','url','img','quote','color','size','user','php',
+  'html','align','media','attach',
 ];
 
 // ВАЖНО: вся обработка POST (и любой redirect()) должна происходить ДО require_once

@@ -84,7 +84,7 @@ textarea.f{min-height:100px;resize:vertical}
   <a href="/platforma/studio/" class="st-logo">
     <span class="icon">▶</span>
     <span>Студия канала</span>
-    <span class="badge">Альфа</span>
+    <span class="badge">Бета</span>
   </a>
   <div class="st-top-right">
     <span><?= htmlspecialchars($user_name) ?></span>

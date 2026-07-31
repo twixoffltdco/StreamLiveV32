@@ -233,19 +233,28 @@ function pl_normalize_channel(array $row, array $cols, string $site): array {
     if ($viewers > 0) $meta .= ' · ' . number_format($viewers);
 
     $key = $slug !== '' ? $slug : (string)$id;
-    // Надёжно: channel.php?id= — полная страница StreamLife
-    if ($id !== '') {
+    // StreamLife channel.php принимает slug (предпочтительно), id и c.
+    // Красивый URL /channel/{slug} через .htaccess; фолбэки — query-параметры.
+    if ($slug !== '') {
+        $embed = $site . '/channel/' . rawurlencode($slug);
+    } elseif ($id !== '') {
         $embed = $site . '/channel.php?id=' . rawurlencode((string)$id);
-    } elseif ($slug !== '') {
-        $embed = $site . '/channel.php?c=' . rawurlencode($slug);
     } else {
         $embed = $site . '/';
     }
-    $embed_alt = [
-        $site . '/channel.php?id=' . rawurlencode((string)$id),
-        $site . '/channel.php?c=' . rawurlencode($key),
-        $site . '/embed.php?channel=' . rawurlencode($key),
-    ];
+    $embed_alt = [];
+    if ($slug !== '') {
+        $embed_alt[] = $site . '/channel.php?slug=' . rawurlencode($slug);
+        $embed_alt[] = $site . '/channel/' . rawurlencode($slug);
+    }
+    if ($id !== '') {
+        $embed_alt[] = $site . '/channel.php?id=' . rawurlencode((string)$id);
+    }
+    if ($key !== '') {
+        $embed_alt[] = $site . '/embed.php?slug=' . rawurlencode($key);
+        $embed_alt[] = $site . '/embed.php?channel=' . rawurlencode($key);
+    }
+    $embed_alt = array_values(array_unique($embed_alt));
 
     if ($thumb !== '' && strpos($thumb, 'http') !== 0 && isset($thumb[0]) && $thumb[0] !== '/') {
         $thumb = $site . '/' . ltrim($thumb, '/');

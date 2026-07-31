@@ -47,8 +47,8 @@
     return '<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="' + d + '"/></svg>';
   }
 
-  function addAlphaBadge() {
-    if (document.getElementById('pl-alpha-badge')) return;
+  function addBetaBadge() {
+    if (document.getElementById('pl-beta-badge')) return;
     // ищем логотип / название
     var candidates = document.querySelectorAll(
       'header a, .header a, .navbar a, .logo, .site-logo, a.brand, .brand a'
@@ -68,10 +68,10 @@
     }
     if (!target) return;
     var badge = document.createElement('span');
-    badge.id = 'pl-alpha-badge';
-    badge.className = 'pl-alpha-badge';
-    badge.textContent = 'Альфа';
-    badge.title = 'Режим оболочки Платформа (Альфа)';
+    badge.id = 'pl-beta-badge';
+    badge.className = 'pl-beta-badge pl-alpha-badge';
+    badge.textContent = 'Бета';
+    badge.title = 'Режим оболочки Платформа (Бета)';
     // после текста лого
     if (target.lastChild && target.lastChild.nodeType === 3) {
       target.appendChild(document.createTextNode(' '));
@@ -188,7 +188,7 @@
     }
 
     hideDecor();
-    addAlphaBadge();
+    addBetaBadge();
   }
 
   function hideDecor() {

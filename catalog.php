@@ -12,6 +12,10 @@ $stmt = db()->prepare($sql);
 $stmt->execute($params);
 $channels = $stmt->fetchAll();
 ?>
+<?php
+// Блок «Для вас» на каталоге (и в StreamLife, и в Платформе)
+@include __DIR__ . '/platforma/recommendations_block.php';
+?>
 <div class="container">
   <div class="type-tabs">
     <a href="/catalog.php?type=tv" class="<?= $type === 'tv' ? 'active' : '' ?>">Телеканалы</a>

@@ -27,7 +27,8 @@ if ($pdo) {
         if ($publicCol) $where[] = "(`$publicCol` = 1 OR `$publicCol` = '1' OR `$publicCol` IS NULL)";
         // status: approved / active / published — не режем жёстко, только не rejected если есть
         if ($statusCol) {
-            $where[] = "(`$statusCol` IS NULL OR `$statusCol` NOT IN ('rejected','banned','hidden','deleted'))";
+            // Только опубликованные — иначе channel.php отдаёт 403 гостю
+            $where[] = "(`$statusCol` = 'approved' OR `$statusCol` = 'active' OR `$statusCol` = 'published' OR `$statusCol` IS NULL)";
         }
         if ($type === 'tv' && $typeCol) $where[] = "LOWER(`$typeCol`) LIKE '%tv%'";
         if ($type === 'radio' && $typeCol) $where[] = "LOWER(`$typeCol`) LIKE '%radio%'";

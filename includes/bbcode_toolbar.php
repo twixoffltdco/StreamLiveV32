@@ -1,16 +1,22 @@
 <div class="bb-toolbar">
-  <button type="button" onclick="bbWrap('[b]','[/b]')"><b>B</b></button>
-  <button type="button" onclick="bbWrap('[i]','[/i]')"><i>I</i></button>
-  <button type="button" onclick="bbWrap('[u]','[/u]')"><u>U</u></button>
-  <button type="button" onclick="bbWrap('[s]','[/s]')"><s>S</s></button>
-  <button type="button" onclick="bbWrap('[url=https://]','[/url]')">Ссылка</button>
-  <button type="button" onclick="bbWrap('[img]','[/img]')">Картинка</button>
-  <button type="button" onclick="bbWrap('[quote]','[/quote]')">Цитата</button>
-  <button type="button" onclick="bbWrap('[code]','[/code]')">Код</button>
-  <button type="button" onclick="bbWrap('[spoiler]','[/spoiler]')">Спойлер</button>
-  <button type="button" onclick="bbWrap('[list]\n[*]','\n[/list]')">Список</button>
-  <button type="button" onclick="bbWrap('[color=red]','[/color]')">Цвет</button>
-  <button type="button" onclick="bbInsertTableTemplate()">Таблица</button>
+  <button type="button" onclick="bbWrap('[b]','[/b]')" title="Жирный"><b>B</b></button>
+  <button type="button" onclick="bbWrap('[i]','[/i]')" title="Курсив"><i>I</i></button>
+  <button type="button" onclick="bbWrap('[u]','[/u]')" title="Подчёркнутый"><u>U</u></button>
+  <button type="button" onclick="bbWrap('[s]','[/s]')" title="Зачёркнутый"><s>S</s></button>
+  <button type="button" onclick="bbWrap('[url=https://]','[/url]')" title="Ссылка">Ссылка</button>
+  <button type="button" onclick="bbWrap('[img]','[/img]')" title="Картинка">Картинка</button>
+  <button type="button" onclick="bbWrap('[quote]','[/quote]')" title="Цитата">Цитата</button>
+  <button type="button" onclick="bbWrap('[code]','[/code]')" title="Код">Код</button>
+  <button type="button" onclick="bbWrap('[php]','[/php]')" title="PHP-код">PHP</button>
+  <button type="button" onclick="bbWrap('[spoiler]','[/spoiler]')" title="Спойлер">Спойлер</button>
+  <button type="button" onclick="bbWrap('[hide]','[/hide]')" title="Скрытый текст">Hide</button>
+  <button type="button" onclick="bbWrap('[list]\n[*]','\n[/list]')" title="Список">Список</button>
+  <button type="button" onclick="bbWrap('[color=red]','[/color]')" title="Цвет">Цвет</button>
+  <button type="button" onclick="bbWrap('[size=3]','[/size]')" title="Размер">Размер</button>
+  <button type="button" onclick="bbWrap('[center]','[/center]')" title="По центру">Центр</button>
+  <button type="button" onclick="bbWrap('[user]','[/user]')" title="Упоминание пользователя">@user</button>
+  <button type="button" onclick="bbWrap('[youtube]','[/youtube]')" title="YouTube">YouTube</button>
+  <button type="button" onclick="bbInsertTableTemplate()" title="Таблица">Таблица</button>
 </div>
 <script>
   function bbWrap(open, close) {

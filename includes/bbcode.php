@@ -90,15 +90,20 @@ $BBCODE_SIMPLE_TAGS = [
   'center' => '<div style="text-align:center">$1</div>',
   'left'   => '<div style="text-align:left">$1</div>',
   'right'  => '<div style="text-align:right">$1</div>',
+  'justify'=> '<div style="text-align:justify">$1</div>',
   'sup'    => '<sup>$1</sup>',
   'sub'    => '<sub>$1</sub>',
   'indent' => '<div style="margin-left:24px">$1</div>',
   'spoiler'=> '<details class="bb-spoiler"><summary>Спойлер (нажмите, чтобы открыть)</summary>$1</details>',
+  'hide'   => '<details class="bb-hide"><summary>Скрытый текст</summary>$1</details>',
   'icode'  => '<code class="bb-inline-code">$1</code>',
   'kbd'    => '<kbd>$1</kbd>',
   'mark'   => '<mark>$1</mark>',
+  'h1'     => '<h1 class="bb-h1">$1</h1>',
   'h2'     => '<h2>$1</h2>',
   'h3'     => '<h3>$1</h3>',
+  'h4'     => '<h4>$1</h4>',
+  'plain'  => '<span class="bb-plain">$1</span>',
 ];
 
 // Теги, которым нужна проверка/обработка параметров — регэксп => обработчик
@@ -150,6 +155,34 @@ function bbcode_callback_tags(?int $postId = null): array {
         . 'style="display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:10px;padding:8px 12px;text-decoration:none;color:inherit;background:var(--card)">'
         . '<span style="font-size:20px">📎</span><span><b style="display:block;font-size:13px">' . htmlspecialchars($filename, ENT_QUOTES) . '</b>'
         . '<span style="font-size:11px;color:var(--text-dim)">' . $viewsCount . ' ' . forum_attachment_views_word($viewsCount) . '</span></span></a>';
+    },
+
+    '/\[spoiler=([^\]]+)\](.*?)\[\/spoiler\]/is' => function ($m) {
+      $title = htmlspecialchars($m[1], ENT_QUOTES);
+      return '<details class="bb-spoiler"><summary>' . $title . '</summary>' . $m[2] . '</details>';
+    },
+    '/\[hide=([^\]]+)\](.*?)\[\/hide\]/is' => function ($m) {
+      $title = htmlspecialchars($m[1], ENT_QUOTES);
+      return '<details class="bb-hide"><summary>' . $title . '</summary>' . $m[2] . '</details>';
+    },
+    '/\[user\]([a-zA-Z0-9_]{2,32})\[\/user\]/is' => function ($m) {
+      $u = htmlspecialchars($m[1], ENT_QUOTES);
+      return '<a class="bb-user" href="/u/' . $u . '">@' . $u . '</a>';
+    },
+    '/\[user=([a-zA-Z0-9_]{2,32})\](.*?)\[\/user\]/is' => function ($m) {
+      $u = htmlspecialchars($m[1], ENT_QUOTES);
+      return '<a class="bb-user" href="/u/' . $u . '">' . $m[2] . '</a>';
+    },
+    '/\[php\](.*?)\[\/php\]/is' => function ($m) {
+      $id = 'bbcode-' . bin2hex(random_bytes(4));
+      return '<div class="bb-code-block"><button type="button" class="bb-code-copy" data-target="' . $id . '">Копировать</button><pre class="bb-code bb-php" id="' . $id . '">' . $m[1] . '</pre></div>';
+    },
+    '/\[html\](.*?)\[\/html\]/is' => function ($m) {
+      $id = 'bbcode-' . bin2hex(random_bytes(4));
+      return '<div class="bb-code-block"><button type="button" class="bb-code-copy" data-target="' . $id . '">Копировать</button><pre class="bb-code bb-html" id="' . $id . '">' . $m[1] . '</pre></div>';
+    },
+    '/\[align=(left|center|right|justify)\](.*?)\[\/align\]/is' => function ($m) {
+      return '<div style="text-align:' . $m[1] . '">' . $m[2] . '</div>';
     },
   ];
 }
