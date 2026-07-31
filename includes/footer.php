@@ -47,6 +47,7 @@ $__cur = in_array($__scriptName, ['index.php', 'catalog.php', 'channel.php', 'ch
       <a href="/legal/cookies">Cookie</a>
       <a href="/smotrim">Smotrim</a>
       <a href="/streamtok">StreamTok</a>
+      <a href="/platforma/">Платформа</a>
     </nav>
   </div>
 </footer>

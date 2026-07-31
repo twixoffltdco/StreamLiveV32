@@ -44,6 +44,9 @@ $seoKeywords = $seoKeywords ?? '';
 $seoImage = $seoImage ?? null;
 $__canonical = SITE_URL . ($_SERVER['REQUEST_URI'] ?? '/');
 ?>
+<?php @include __DIR__ . '/platforma/header_switcher.php'; ?>
+<?php @include dirname(__DIR__) . '/platforma/header_switcher.php'; ?>
+<?php @include __DIR__ . '/platforma/recommendations_block.php'; ?>
 <!DOCTYPE html>
 <html lang="ru" class="<?= ($_COOKIE['site_color_mode'] ?? 'dark') === 'light' ? 'light-mode' : '' ?>">
 <head>
@@ -387,6 +390,15 @@ if ($__showAd): ?>
 <div class="topAdPad">
 <div id="movie_video"></div>
 <script type="text/javascript" src="https://ad-network.tatnet.app/ad.js?v=03208824bea369b060dba1f2083d6a4c" async></script>
+
+<!--LiveInternet counter--><script>
+new Image().src = "https://counter.yadro.ru/hit;hjqwegbrvfshdfd?r"+
+escape(document.referrer)+((typeof(screen)=="undefined")?"":
+";s"+screen.width+"*"+screen.height+"*"+(screen.colorDepth?
+screen.colorDepth:screen.pixelDepth))+";u"+escape(document.URL)+
+";h"+escape(document.title.substring(0,150))+
+";"+Math.random();</script><!--/LiveInternet-->
+<div id="movie_video"></div><script type="text/javascript" src="https://vak345.com/s.js?v=b391b4a023b1ee94545453355338023cbbf13cf81fa" async></script></div>
  <nav class="site-footer-links">
       <a href="/docs">Документация</a>
       <a href="/legal/terms">Условия использования</a>

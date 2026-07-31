@@ -117,18 +117,12 @@ function stats_summary(int $days = 30): array {
 
 const ONLINE_WINDOW_SEC = 300; // 5 минут — активным считается тот, у кого был просмотр за это время
 
+// crawler_ua_map() / is_known_crawler_ua() объявлены в includes/functions.php (нужны
+// antibot.php/ddos_shield.php, которые подключаются раньше этого файла) — здесь просто
+// тонкая обёртка для уже существующих вызовов online_bot_name().
 function online_bot_name(string $userAgent): ?string {
   if ($userAgent === '') return null;
-  $bots = [
-    'Googlebot' => 'googlebot', 'YandexBot' => 'yandexbot', 'Bingbot' => 'bingbot',
-    'DuckDuckBot' => 'duckduckbot', 'Baiduspider' => 'baiduspider', 'AhrefsBot' => 'ahrefsbot',
-    'SemrushBot' => 'semrushbot', 'MJ12bot' => 'mj12bot', 'Bytespider' => 'bytespider',
-    'PetalBot' => 'petalbot', 'GPTBot' => 'gptbot', 'ClaudeBot' => 'claudebot',
-    'facebookexternalhit' => 'facebookexternalhit', 'TelegramBot' => 'telegrambot',
-    'Applebot' => 'applebot', 'DotBot' => 'dotbot', 'Mail.Ru' => 'mail.ru',
-    'SputnikBot' => 'sputnikbot', 'proximic' => 'proximic', 'curl' => 'curl/', 'python-requests' => 'python-requests',
-  ];
-  foreach ($bots as $label => $needle) {
+  foreach (crawler_ua_map() as $label => $needle) {
     if (stripos($userAgent, $needle) !== false) return $label;
   }
   return null;

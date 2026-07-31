@@ -39,6 +39,9 @@ $__canonical = SITE_URL . ($_SERVER['REQUEST_URI'] ?? '/');
 <?php require_once __DIR__ . '/themes.php'; $__activeTheme = themes_active(); if ($__activeTheme): ?><link rel="stylesheet" href="<?= e($__activeTheme['css']) ?>?v=<?= time() ?>"><?php endif; ?>
 </head>
 <body>
+  <?php @include __DIR__ . '/platforma/header_switcher.php'; ?>
+<?php @include dirname(__DIR__) . '/platforma/header_switcher.php'; ?>
+<?php @include __DIR__ . '/platforma/recommendations_block.php'; ?>
 <?php $__themesList = themes_all(); if ($__themesList): ?><div class="theme-switcher"><select onchange="document.cookie='site_theme='+this.value+'; path=/; max-age=31536000'; location.reload()"><option value="">Themes</option><?php foreach ($__themesList as $t): ?><option value="<?= e($t['slug']) ?>" <?= (!empty($__activeTheme) && $__activeTheme['slug']===$t['slug'])?'selected':'' ?>><?= e($t['name']) ?></option><?php endforeach; ?></select></div><?php endif; ?>
 <nav class="navbar">
   <a href="/" class="brand"><?= e(SITE_NAME) ?></a>
@@ -102,10 +105,6 @@ if ($__showAd): ?>
 <div id="movie_video"></div>
 <script type="text/javascript" src="https://ad-network.tatnet.app/ad.js?v=03208824bea369b060dba1f2083d6a4c" async></script>
  <nav class="site-footer-links">
-      <a href="/docs">Документация</a>
-      <a href="/legal/terms">Условия использования</a>
-      <a href="/legal/privacy">Конфиденциальность</a>
-      <a href="/legal/cookies">Cookie</a>
 </div>
  <script src= "https://player.twitch.tv/js/embed/v1.js?version=3.1.1"></script>
  <meta name="yandex-verification" content="ebe89f0ca4c9912c" />
