@@ -108,13 +108,23 @@ try {
             return;
         }
         $seen[$key] = true;
-        // Нормальная ссылка со slug
+        // Только рабочие query-URL (без /channel/slug → 404 при кривом rewrite)
         if (!empty($n['slug'])) {
-            $n['href'] = '/channel/' . rawurlencode((string)$n['slug']);
+            $n['href'] = '/channel.php?slug=' . rawurlencode((string)$n['slug']);
         } elseif ($key !== '') {
             $n['href'] = '/channel.php?id=' . rawurlencode($key);
+        } elseif (!empty($n['embed']) && is_string($n['embed'])) {
+            // embed может быть абсолютным — вытащим path
+            $emb = (string)$n['embed'];
+            if (preg_match('#/channel\.php\?[^\s"\']+#', $emb, $mm)) {
+                $n['href'] = $mm[0];
+            } elseif (preg_match('#https?://[^/]+(/.*)$#', $emb, $mm)) {
+                $n['href'] = $mm[1];
+            } else {
+                $n['href'] = '/catalog.php';
+            }
         } else {
-            $n['href'] = $n['embed'] ?? '/catalog.php';
+            $n['href'] = '/catalog.php';
         }
         $items[] = $n;
     };
@@ -246,7 +256,23 @@ try {
   <h2 style="font-size:18px;font-weight:600;margin:0 0 12px;color:inherit"><?= htmlspecialchars($heading, ENT_QUOTES, 'UTF-8') ?></h2>
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">
     <?php foreach ($items as $it):
-      $href = $it['href'] ?? ('/channel.php?id=' . rawurlencode((string)($it['id'] ?? '')));
+      $href = (string)($it['href'] ?? '');
+      if ($href === '' && !empty($it['slug'])) {
+          $href = '/channel.php?slug=' . rawurlencode((string)$it['slug']);
+      } elseif ($href === '' && !empty($it['id'])) {
+          $href = '/channel.php?id=' . rawurlencode((string)$it['id']);
+      } elseif ($href === '') {
+          $href = '/catalog.php';
+      }
+      // абсолютный URL с чужим path → оставить path+query
+      if (preg_match('#^https?://#i', $href)) {
+          $parts = parse_url($href);
+          $href = ($parts['path'] ?? '/catalog.php') . (isset($parts['query']) ? '?' . $parts['query'] : '');
+      }
+      // устаревший /channel/slug → channel.php?slug=
+      if (preg_match('#^/channel/([^/?#]+)/?$#', $href, $mm)) {
+          $href = '/channel.php?slug=' . rawurlencode(rawurldecode($mm[1]));
+      }
       $title = $it['title'] ?? '';
       $meta = $it['meta'] ?? '';
       $thumb = $it['thumb'] ?? '';

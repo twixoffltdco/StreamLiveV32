@@ -93,6 +93,7 @@ if ($pdo) {
                         'live' => false,
                         'thumb' => $vThumb ? (string)($row[$vThumb] ?? '') : '',
                         'embed' => $site . '/video.php?id=' . rawurlencode((string)$id),
+                        'href' => '/video.php?id=' . rawurlencode((string)$id),
                         'embed_alt' => [
                             $site . '/embed.php?video=' . rawurlencode((string)$id),
                             $site . '/video.php?id=' . rawurlencode((string)$id),

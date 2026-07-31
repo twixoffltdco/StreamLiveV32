@@ -233,19 +233,19 @@ function pl_normalize_channel(array $row, array $cols, string $site): array {
     if ($viewers > 0) $meta .= ' · ' . number_format($viewers);
 
     $key = $slug !== '' ? $slug : (string)$id;
-    // StreamLife channel.php принимает slug (предпочтительно), id и c.
-    // Красивый URL /channel/{slug} через .htaccess; фолбэки — query-параметры.
+    // ВАЖНО: всегда channel.php?… — не /channel/{slug}.
+    // Красивый URL ломается при кириллице/подчёркивании или без .htaccess → 404.
     if ($slug !== '') {
-        $embed = $site . '/channel/' . rawurlencode($slug);
-    } elseif ($id !== '') {
+        $embed = $site . '/channel.php?slug=' . rawurlencode($slug);
+    } elseif ($id !== '' && $id !== null) {
         $embed = $site . '/channel.php?id=' . rawurlencode((string)$id);
     } else {
-        $embed = $site . '/';
+        $embed = $site . '/catalog.php';
     }
     $embed_alt = [];
     if ($slug !== '') {
         $embed_alt[] = $site . '/channel.php?slug=' . rawurlencode($slug);
-        $embed_alt[] = $site . '/channel/' . rawurlencode($slug);
+        // /channel/{slug} только как запасной alt, не primary
     }
     if ($id !== '') {
         $embed_alt[] = $site . '/channel.php?id=' . rawurlencode((string)$id);

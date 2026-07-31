@@ -193,17 +193,25 @@ function normalize_video_embed(string $platform, string $url): string {
       if (preg_match('#/file/d/([^/]+)#', $url, $m)) return "https://drive.google.com/file/d/{$m[1]}/preview";
       return $url;
 
-    case 'smotrim':
-      // Смотрим (ВГТРК): ссылка вида smotrim.ru/video/2568723 → iframe-плеер по тому же номеру.
-      // Подтверждено поиском (см. issue ytdl-org/youtube-dl #31647): формат плеера именно
-      // /iframe/video/id/<номер>/, а не что-то производное от самой ссылки на страницу.
+        case 'smotrim':
+      // Локальный playersmotrimru.php — короткая ссылка, без ручного ввода длинного URL
+      $local = resolve_local_embed($url, false);
+      if ($local) return $local;
       if (preg_match('#smotrim\.ru/video/(\d+)#i', $url, $m)) {
         return "https://player.smotrim.ru/iframe/video/id/{$m[1]}/";
       }
       return $url;
 
+    case 'iframe':
+      // Неизвестная платформа: сначала узкий локальный хендлер, иначе embedwebsite
+      $local = resolve_local_embed($url, true);
+      return $local ?: $url;
+
     default:
-      return $url; // mp4 / m3u8 / iframe / неизвестное — используем как есть
+      // mp4 / m3u8 — как есть; прочее неизвестное — пробуем локальные провайдеры
+      if (in_array($platform, ['mp4', 'm3u8'], true)) return $url;
+      $local = resolve_local_embed($url, true);
+      return $local ?: $url;
   }
 }
 

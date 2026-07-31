@@ -2,6 +2,7 @@
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/recommendations.php';
+require_once __DIR__ . '/includes/player_ads.php';
 
 $slug = trim((string)($_GET['slug'] ?? ''));
 $stmt = db()->prepare("SELECT v.*, c.title AS channel_title, c.slug AS channel_slug
@@ -65,7 +66,9 @@ require_once __DIR__ . '/includes/header.php'; // теперь через общ
       <iframe src="<?= e($video['embed_url']) ?>" allowfullscreen loading="lazy"
         style="position:absolute;top:0;left:0;width:100%;height:100%;border:0"></iframe>
     <?php endif; ?>
-  </div>
+  
+  <?php if (function_exists('player_ads_render')) player_ads_render('video'); ?>
+</div>
 
   <h1 style="margin:16px 0 6px;font-size:20px"><?= e($video['title']) ?></h1>
   <p style="color:var(--text-dim);font-size:13px">
