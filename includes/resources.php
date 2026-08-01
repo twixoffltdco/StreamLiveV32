@@ -61,22 +61,38 @@ function resource_can_moderate(?array $u): bool { return $u && in_array($u['role
 
 function resources_list(bool $includeHidden = false, int $limit = 50): array {
   resources_ensure_table();
+  $lim = max(1, min(200, $limit));
+  $where = $includeHidden ? '' : " WHERE r.status = 'published'";
+  $sqlFull = "SELECT r.*, u.username, u.id AS author_id, u.is_verified, u.avatar, u.gravatar_email, u.username_css, u.prefix_id, u.custom_prefix_id, u.nick_decor_url, u.nick_decor_pos
+              FROM resources r JOIN users u ON u.id = r.user_id{$where} ORDER BY r.created_at DESC LIMIT {$lim}";
+  $sqlBasic = "SELECT r.*, u.username, u.id AS author_id FROM resources r JOIN users u ON u.id = r.user_id{$where} ORDER BY r.created_at DESC LIMIT {$lim}";
   try {
-    $sql = "SELECT r.*, u.username FROM resources r JOIN users u ON u.id = r.user_id" . ($includeHidden ? '' : " WHERE r.status = 'published'") . " ORDER BY r.created_at DESC LIMIT " . max(1, min(200, $limit));
-    return db()->query($sql)->fetchAll();
+    return db()->query($sqlFull)->fetchAll();
   } catch (Throwable $e) {
-    return []; // таблицы ещё нет и создать не вышло (см. resources_ensure_table) — не роняем страницу
+    try {
+      return db()->query($sqlBasic)->fetchAll();
+    } catch (Throwable $e2) {
+      return [];
+    }
   }
 }
 
 function resource_find(string $slug, bool $includeHidden = false): ?array {
   resources_ensure_table();
+  $extra = $includeHidden ? '' : " AND r.status = 'published'";
+  $sqlFull = "SELECT r.*, u.username, u.id AS author_id, u.is_verified, u.avatar, u.gravatar_email, u.username_css, u.prefix_id, u.custom_prefix_id, u.nick_decor_url, u.nick_decor_pos
+              FROM resources r JOIN users u ON u.id = r.user_id WHERE r.slug = ?{$extra} LIMIT 1";
+  $sqlBasic = "SELECT r.*, u.username, u.id AS author_id FROM resources r JOIN users u ON u.id = r.user_id WHERE r.slug = ?{$extra} LIMIT 1";
   try {
-    $sql = "SELECT r.*, u.username FROM resources r JOIN users u ON u.id = r.user_id WHERE r.slug = ?" . ($includeHidden ? '' : " AND r.status = 'published'") . " LIMIT 1";
-    $stmt = db()->prepare($sql); $stmt->execute([$slug]);
+    $stmt = db()->prepare($sqlFull); $stmt->execute([$slug]);
     return $stmt->fetch() ?: null;
   } catch (Throwable $e) {
-    return null;
+    try {
+      $stmt = db()->prepare($sqlBasic); $stmt->execute([$slug]);
+      return $stmt->fetch() ?: null;
+    } catch (Throwable $e2) {
+      return null;
+    }
   }
 }
 

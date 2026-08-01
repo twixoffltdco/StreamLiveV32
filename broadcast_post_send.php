@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/user_display.php';
 header('Content-Type: application/json; charset=utf-8');
 
 $user = current_user();
@@ -25,8 +26,13 @@ try {
   db()->prepare('INSERT INTO broadcast_posts (channel_id, author_id, body) VALUES (?, ?, ?)')
     ->execute([$channelId, $user['id'], $body]);
   $id = (int)db()->lastInsertId();
-  echo json_encode(['ok' => true, 'id' => $id, 'username' => $user['username']]);
+  echo json_encode([
+    'ok' => true,
+    'id' => $id,
+    'username' => $user['username'],
+    'username_html' => user_badge_html_compact($user, 22),
+  ], JSON_UNESCAPED_UNICODE);
 } catch (\Throwable $e) {
   http_response_code(500);
-  echo json_encode(['ok' => false, 'error' => 'Не удалось опубликовать']);
+  echo json_encode(['ok' => false, 'error' => 'Не удалось сохранить пост']);
 }

@@ -180,3 +180,40 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Рассылки + ресурсы: автор как в мессенджере */
+.bc-author,
+.res-author,
+.res-author-row {
+  display: inline-flex !important;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  line-height: 1.3;
+}
+.bc-author .user-prefix,
+.res-author .user-prefix,
+.res-author-row .user-prefix {
+  font-size: 10px !important;
+  padding: 1px 5px !important;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bc-author .user-nick,
+.res-author .user-nick {
+  font-weight: 600;
+}
+.msg-bubble .bc-author a {
+  text-decoration: none;
+  color: inherit;
+}
+@media (max-width: 640px) {
+  .bc-author .user-prefix,
+  .res-author .user-prefix {
+    font-size: 9px !important;
+    max-width: 34vw !important;
+  }
+}

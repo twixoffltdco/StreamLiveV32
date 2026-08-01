@@ -78,7 +78,7 @@ $__canonical = SITE_URL . ($_SERVER['REQUEST_URI'] ?? '/');
   <?php require_once __DIR__ . '/themes.php'; $__activeTheme = themes_active(); if ($__activeTheme): ?><link rel="stylesheet" href="<?= e($__activeTheme['css']) ?>?v=<?= time() ?>"><?php endif; ?>
   <link rel="stylesheet" href="/assets/css/light-mode.css?v=<?= file_exists(__DIR__ . '/../assets/css/light-mode.css') ? filemtime(__DIR__ . '/../assets/css/light-mode.css') : time() ?>">
   <?php if (!empty($extraHead)) echo $extraHead; ?>
-  <link rel="stylesheet" href="/assets/css/user-display.css?v=20260801everywhere">
+  <link rel="stylesheet" href="/assets/css/user-display.css?v=20260801bc2">
 </head>
 
 <!-- Seasonal effects -->

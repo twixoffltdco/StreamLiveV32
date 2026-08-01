@@ -57,16 +57,59 @@ if ($postIds) {
   foreach ($postIds as $pid) { $viewStmt->execute([$pid, $__user['id']]); }
 }
 
-$stmt = db()->prepare(
-  "SELECT bp.*, u.id AS user_id, u.username, u.is_verified, u.avatar, u.is_banned, u.gravatar_email,
-     u.username_css, u.prefix_id, u.custom_prefix_id, u.nick_decor_url, u.nick_decor_pos,
-     (SELECT COUNT(*) FROM broadcast_post_views v WHERE v.post_id = bp.id) AS views_count,
-     (SELECT COUNT(*) FROM broadcast_post_comments c WHERE c.post_id = bp.id) AS comments_count
-   FROM broadcast_posts bp JOIN users u ON u.id = bp.author_id
-   WHERE bp.channel_id = ? AND bp.is_deleted = 0 ORDER BY bp.id DESC LIMIT 100"
-);
-$stmt->execute([$channel['id']]);
-$posts = $stmt->fetchAll();
+$posts = [];
+try {
+  $stmt = db()->prepare(
+    "SELECT bp.*, bp.id AS post_id, bp.author_id,
+       (SELECT COUNT(*) FROM broadcast_post_views v WHERE v.post_id = bp.id) AS views_count,
+       (SELECT COUNT(*) FROM broadcast_post_comments c WHERE c.post_id = bp.id) AS comments_count
+     FROM broadcast_posts bp
+     WHERE bp.channel_id = ? AND bp.is_deleted = 0 ORDER BY bp.id DESC LIMIT 100"
+  );
+  $stmt->execute([$channel['id']]);
+  $posts = $stmt->fetchAll() ?: [];
+} catch (Throwable $e) {
+  $posts = [];
+}
+
+// Авторы — отдельным запросом (как в мессенджере), все поля ника
+$authorsById = [];
+if ($posts) {
+  $aids = array_values(array_unique(array_filter(array_map(static fn($r) => (int)($r['author_id'] ?? 0), $posts))));
+  if ($aids) {
+    $in = implode(',', array_fill(0, count($aids), '?'));
+    try {
+      $st = db()->prepare(
+        "SELECT id, username, avatar, gravatar_email, is_banned, is_verified,
+                username_css, prefix_id, custom_prefix_id, nick_decor_url, nick_decor_pos, role
+         FROM users WHERE id IN ($in)"
+      );
+      $st->execute($aids);
+      foreach ($st->fetchAll() ?: [] as $u) {
+        $authorsById[(int)$u['id']] = $u;
+      }
+    } catch (Throwable $e) {
+      try {
+        $st = db()->prepare("SELECT id, username, avatar, gravatar_email, is_banned, is_verified FROM users WHERE id IN ($in)");
+        $st->execute($aids);
+        foreach ($st->fetchAll() ?: [] as $u) {
+          $authorsById[(int)$u['id']] = $u;
+        }
+      } catch (Throwable $e2) {}
+    }
+  }
+  foreach ($posts as &$__p) {
+    $aid = (int)($__p['author_id'] ?? 0);
+    if ($aid && isset($authorsById[$aid])) {
+      foreach ($authorsById[$aid] as $k => $v) {
+        if ($k === 'id') continue; // не затирать post id
+        $__p[$k] = $v;
+      }
+      $__p['user_id'] = $aid;
+    }
+  }
+  unset($__p);
+}
 
 // Реакции — одним запросом на все посты сразу (не по одному на пост, чтобы не плодить N+1
 // при списке в 100 постов). BROADCAST_REACTIONS — тот же фиксированный набор, что и в
@@ -131,7 +174,29 @@ require_once __DIR__ . '/includes/header.php';
     <?php foreach (array_reverse($posts) as $p): ?>
       <div class="msg-bubble-row" data-id="<?= (int)$p['id'] ?>">
         <div class="msg-bubble" style="max-width:80%">
-          <div style="margin-bottom:4px"><?php $p['id'] = (int)($p['user_id'] ?? $p['author_id'] ?? $p['id'] ?? 0); echo render_user_badge($p, 22); ?></div>
+          <div class="bc-author" style="margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><?php
+            $author = [
+              'id' => (int)($p['user_id'] ?? $p['author_id'] ?? 0),
+              'username' => $p['username'] ?? '',
+              'avatar' => $p['avatar'] ?? null,
+              'gravatar_email' => $p['gravatar_email'] ?? null,
+              'is_verified' => $p['is_verified'] ?? 0,
+              'is_banned' => $p['is_banned'] ?? 0,
+              'username_css' => $p['username_css'] ?? null,
+              'prefix_id' => $p['prefix_id'] ?? null,
+              'custom_prefix_id' => $p['custom_prefix_id'] ?? null,
+              'nick_decor_url' => $p['nick_decor_url'] ?? null,
+              'nick_decor_pos' => $p['nick_decor_pos'] ?? null,
+            ];
+            if (function_exists('render_user_badge')) {
+              echo render_user_badge($author, 24);
+            } elseif (function_exists('user_render_username_html')) {
+              echo user_render_username_html($author);
+              echo function_exists('verify_badge') ? verify_badge(!empty($author['is_verified'])) : '';
+            } else {
+              echo e($author['username']);
+            }
+          ?></div>
           <?= banned_user_notice($p) ?>
           <?= render_with_stickers($p['body']) ?>
           <div style="font-size:10.5px;color:var(--text-dim);margin-top:4px;display:flex;gap:10px;align-items:center">
@@ -187,8 +252,9 @@ require_once __DIR__ . '/includes/header.php';
     row.dataset.id = p.id;
     var views = p.views_count || 0;
     var comments = p.comments_count || 0;
+    var authorHtml = p.username_html ? p.username_html : ('<b style="color:var(--accent-2);font-size:12px">' + esc(p.username || '') + '</b>');
     row.innerHTML = '<div class="msg-bubble" style="max-width:80%">' +
-      '<b style="color:var(--accent-2);font-size:12px;display:block;margin-bottom:4px">' + esc(p.username) + '</b>' +
+      '<div class="bc-author" style="margin-bottom:6px">' + authorHtml + '</div>' +
       renderBody(p.body) +
       '<div style="font-size:10.5px;color:var(--text-dim);margin-top:4px;display:flex;gap:10px;align-items:center">' +
         '<span>только что</span>' +
@@ -282,9 +348,7 @@ require_once __DIR__ . '/includes/header.php';
           : '';
         html += '<div style="margin-bottom:8px;font-size:12.5px;display:flex;gap:6px;align-items:flex-start">' +
           '<img src="' + escAttr(avatarSrc) + '" alt="" style="width:20px;height:20px;border-radius:50%;object-fit:cover;flex-shrink:0' + (c.is_banned ? ';filter:grayscale(1);opacity:.6' : '') + '" onerror="this.style.display=\'none\'">' +
-          '<span><b style="color:var(--accent-2)">' + esc(c.username) + '</b>' +
-          verifyBadgeHtml(c.is_verified) +
-          ': ' + esc(c.body) + bannedNotice + '</span>' +
+          '<span class="bc-author">' + (c.username_html || ('<b style="color:var(--accent-2)">' + esc(c.username) + '</b>' + verifyBadgeHtml(c.is_verified))) + '</span>: ' + esc(c.body) + bannedNotice +
         '</div>';
       });
     }
@@ -338,7 +402,7 @@ require_once __DIR__ . '/includes/header.php';
       newLine.style.cssText = 'margin-bottom:8px;font-size:12.5px;display:flex;gap:6px;align-items:flex-start';
       var avatarSrc = data.avatar || '/assets/img/avatar-placeholder.png';
       newLine.innerHTML = '<img src="' + escAttr(avatarSrc) + '" alt="" style="width:20px;height:20px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.style.display=\'none\'">' +
-        '<span><b style="color:var(--accent-2)">' + esc(data.username) + '</b>' + verifyBadgeHtml(data.is_verified) + ': ' + esc(text) + '</span>';
+        '<span class="bc-author">' + (data.username_html || ('<b style="color:var(--accent-2)">' + esc(data.username) + '</b>' + verifyBadgeHtml(data.is_verified))) + '</span>: ' + esc(text);
       panel.insertBefore(newLine, form);
     }).catch(function () { input.disabled = false; });
   });
@@ -412,7 +476,7 @@ require_once __DIR__ . '/includes/header.php';
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ channel_id: channelId, body: text })
     }).then(function (r) { return r.json(); }).then(function (data) {
-      if (data.ok) { feed.dataset.after = data.id; addPost({ id: data.id, username: data.username, body: text }); scrollToBottom(); }
+      if (data.ok) { feed.dataset.after = data.id; addPost({ id: data.id, username: data.username, username_html: data.username_html, body: text }); scrollToBottom(); }
     });
   });
   <?php endif; ?>

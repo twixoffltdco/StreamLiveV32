@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/user_display.php';
 header('Content-Type: application/json; charset=utf-8');
 
 $user = current_user();
@@ -20,10 +21,13 @@ try {
     ->execute([$postId, $user['id'], $body]);
   $id = (int)db()->lastInsertId();
   echo json_encode([
-    'ok' => true, 'id' => $id, 'username' => $user['username'],
+    'ok' => true,
+    'id' => $id,
+    'username' => $user['username'],
+    'username_html' => user_badge_html_compact($user, 18),
     'avatar' => $user['avatar'] ?? null,
     'is_verified' => (bool)($user['is_verified'] ?? false),
-  ]);
+  ], JSON_UNESCAPED_UNICODE);
 } catch (\Throwable $e) {
   http_response_code(500);
   echo json_encode(['ok' => false, 'error' => 'Не удалось отправить комментарий']);
