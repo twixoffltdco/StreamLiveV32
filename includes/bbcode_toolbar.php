@@ -16,6 +16,9 @@
   <button type="button" onclick="bbWrap('[center]','[/center]')" title="По центру">Центр</button>
   <button type="button" onclick="bbWrap('[user]','[/user]')" title="Упоминание пользователя">@user</button>
   <button type="button" onclick="bbWrap('[youtube]','[/youtube]')" title="YouTube">YouTube</button>
+  <button type="button" onclick="bbWrap('[imgur]','[/imgur]')" title="Imgur скрин">Imgur</button>
+  <button type="button" onclick="bbWrap('[iframe]','[/iframe]')" title="Встроить iframe">iframe</button>
+  <button type="button" onclick="bbWrap('[embed]','[/embed]')" title="Embed URL">Embed</button>
   <button type="button" onclick="bbInsertTableTemplate()" title="Таблица">Таблица</button>
 </div>
 <script>

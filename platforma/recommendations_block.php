@@ -293,6 +293,22 @@ try {
     <?php endforeach; ?>
   </div>
 </section>
+<?php
+    // --- Доп. блоки: видео, форум, ресурсы (как у YouTube / multi-surface) ---
+    $extraBoot = dirname(__DIR__) . '/includes/recommendations.php';
+    if (is_file($extraBoot)) {
+        require_once $extraBoot;
+        if (function_exists('render_recommendations_section')) {
+            echo '<div style="padding:0 8px">';
+            render_recommendations_section('videos', 8);
+            render_recommendations_section('tv', 6);
+            render_recommendations_section('radio', 6);
+            render_recommendations_section('forum', 6);
+            render_recommendations_section('resources', 6);
+            echo '</div>';
+        }
+    }
+    ?>
     <?php
 } catch (Throwable $e) {
     return;

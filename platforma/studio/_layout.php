@@ -77,6 +77,27 @@ textarea.f{min-height:100px;resize:vertical}
   .st-side.open{transform:translateX(0)}
   .st-main{margin-left:0;padding:16px}
 }
+
+/* Premium Studio polish */
+.st-top{backdrop-filter:blur(12px);background:rgba(15,15,15,.92)!important}
+.st-side a{border-radius:10px;margin:2px 8px;padding:10px 14px!important;transition:background .15s}
+.st-side a:hover,.st-side a.active{background:#272727!important}
+.st-main{padding:28px 32px!important;max-width:1200px}
+.st-h1{font-size:28px!important;font-weight:700;letter-spacing:-.03em;margin-bottom:4px}
+.st-sub{color:var(--muted);font-size:13.5px;margin-bottom:20px}
+.st-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin:18px 0}
+.st-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 18px}
+.st-card .lbl{font-size:12px;color:var(--muted)}
+.st-card .val{font-size:24px;font-weight:700;margin-top:4px}
+.st-panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px 20px;margin:16px 0}
+.st-panel h2{font-size:15px;font-weight:600;margin-bottom:12px}
+.st-actions{display:flex;flex-wrap:wrap;gap:10px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:10px 16px;border-radius:20px;font-size:13.5px;font-weight:500;border:none;cursor:pointer}
+.btn-blue{background:#3ea6ff;color:#0f0f0f}
+.btn-blue:hover{background:#65b8ff}
+.btn-white{background:#f1f1f1;color:#0f0f0f}
+.btn-outline{background:transparent;border:1px solid #555;color:#f1f1f1}
+.muted{color:var(--muted);font-size:13.5px;line-height:1.5}
 </style>
 </head>
 <body>
@@ -84,7 +105,7 @@ textarea.f{min-height:100px;resize:vertical}
   <a href="/platforma/studio/" class="st-logo">
     <span class="icon">▶</span>
     <span>Студия канала</span>
-    <span class="badge">Бета</span>
+    <span class="badge">Альфа</span>
   </a>
   <div class="st-top-right">
     <span><?= htmlspecialchars($user_name) ?></span>

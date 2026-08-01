@@ -123,6 +123,8 @@ if ($profileUser) {
   $optionalCols = [
     'prefix_id', 'username_css', 'phone',
     'profile_cover_url', 'profile_status_text',
+    'nick_decor_url', 'nick_decor_pos',
+    'custom_prefix_id', 'custom_prefix_changed_at',
     'session_started_at', 'last_seen_at', 'session_seconds',
   ];
   foreach ($optionalCols as $col) {
@@ -226,10 +228,43 @@ if ($isOwnProfile && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $css = user_sanitize_nick_css((string)($_POST['username_css'] ?? ''));
     try {
       db()->prepare('UPDATE users SET username_css = ? WHERE id = ?')->execute([$css !== '' ? $css : null, $uid]);
-      flash_set('success', $css !== '' ? 'CSS ника сохранён' : 'CSS ника сброшен');
+      flash_set('success', $css !== '' ? 'CSS ника сохранён (анимации и классы поддерживаются)' : 'CSS ника сброшен');
     } catch (Throwable $e) {
-      flash_set('error', 'Не удалось сохранить CSS ника (колонка username_css)');
+      flash_set('error', 'Не удалось сохранить CSS ника');
     }
+    redirect('/profile?username=' . rawurlencode($profileUser['username']));
+  }
+
+  if ($action === 'save_nick_decor') {
+    user_display_ensure_schema();
+    $url = trim((string)($_POST['nick_decor_url'] ?? ''));
+    $pos = strtolower(trim((string)($_POST['nick_decor_pos'] ?? 'before')));
+    if ($pos !== 'after') $pos = 'before';
+    if ($url !== '' && !preg_match('#^https?://#i', $url)) {
+      flash_set('error', 'Декор: нужна ссылка http(s) на gif/png/webp');
+    } else {
+      try {
+        db()->prepare('UPDATE users SET nick_decor_url = ?, nick_decor_pos = ? WHERE id = ?')
+          ->execute([$url !== '' ? $url : null, $pos, $uid]);
+        flash_set('success', $url !== '' ? 'Декор ника сохранён' : 'Декор сброшен');
+      } catch (Throwable $e) {
+        flash_set('error', 'Не удалось сохранить декор');
+      }
+    }
+    redirect('/profile?username=' . rawurlencode($profileUser['username']));
+  }
+
+  if ($action === 'save_custom_prefix') {
+    user_display_ensure_schema();
+    $res = user_save_custom_prefix(
+      $uid,
+      (string)($_POST['prefix_title'] ?? ''),
+      (string)($_POST['prefix_text_color'] ?? '#ffffff'),
+      (string)($_POST['prefix_bg_color'] ?? '#6366f1'),
+      (string)($_POST['prefix_css'] ?? '')
+    );
+    if ($res['ok']) flash_set('success', 'Свой префикс сохранён (следующая смена через 30 дней)');
+    else flash_set('error', $res['error'] ?? 'Ошибка');
     redirect('/profile?username=' . rawurlencode($profileUser['username']));
   }
 
@@ -378,7 +413,7 @@ try {
 
 $pageTitle = '@' . $profileUser['username'];
 $seoImage = $avatarUrl;
-$extraHead = '<link rel="stylesheet" href="/assets/css/profile-glass.css?v=20260801fix2">';
+$extraHead = '<link rel="stylesheet" href="/assets/css/profile-glass.css?v=20260801edit1';
 
 require_once __DIR__ . '/includes/header.php';
 // если шаблон не выводит $extraHead — подстрахуемся
@@ -394,8 +429,8 @@ if (strpos($extraHead, 'profile-glass') !== false) {
       : ' style="background:linear-gradient(135deg,#1e1b4b 0%,#4c1d95 45%,#0f172a 100%)"' ?>></div>
     <div class="pg-hero-top">
       <a class="pg-icon-btn" href="javascript:history.back()" title="Назад" aria-label="Назад">←</a>
-      <?php if ($isOwnProfile): ?>
-        <a class="pg-icon-btn" href="/account_settings.php" title="Настройки">Edit</a>
+      <?php if ($isOwnProfile): /* edit panel */ ?>
+        <a class="pg-icon-btn pg-edit-btn" href="#pg-edit-panel" title="Редактировать профиль" id="pg-edit-open">Edit</a>
       <?php else: ?>
         <span class="pg-icon-btn" style="opacity:.35;pointer-events:none">···</span>
       <?php endif; ?>
@@ -406,13 +441,14 @@ if (strpos($extraHead, 'profile-glass') !== false) {
 
       <div class="pg-name-row">
         <?php
-          // user_render_username_html уже рисует префиксы + ник с CSS — второй раз НЕ рендерим
           if (function_exists('user_enrich_display_fields')) {
             $profileUser = user_enrich_display_fields($profileUser);
           }
         ?>
-        <span class="pg-name-text"><?= function_exists('user_render_username_html') ? user_render_username_html($profileUser) : e($profileUser['username']) ?></span>
-        <?= function_exists('verify_badge') ? verify_badge((bool)($profileUser['is_verified'] ?? false)) : '' ?>
+        <div class="pg-name-cluster">
+          <span class="pg-name-text"><?= function_exists('user_render_username_html') ? user_render_username_html($profileUser) : e($profileUser['username']) ?></span>
+          <?= function_exists('verify_badge') ? verify_badge((bool)($profileUser['is_verified'] ?? false)) : '' ?>
+        </div>
         <?php if (!empty($usernameHistory)): ?>
           <button type="button" id="uh-toggle" class="xf-name-history-btn" title="История ников" aria-label="История ников">⏱</button>
         <?php endif; ?>
@@ -509,7 +545,7 @@ if (strpos($extraHead, 'profile-glass') !== false) {
       </div>
     </div>
     <?php if ($isOwnProfile): ?>
-    <div class="pg-glass-row" style="flex-direction:column;align-items:stretch;gap:10px">
+    <div class="pg-glass-row" id="pg-edit-panel" style="flex-direction:column;align-items:stretch;gap:10px">
       <form method="post" style="margin:0">
         <?= csrf_field() ?>
         <input type="hidden" name="action" value="status">
@@ -547,11 +583,53 @@ if (strpos($extraHead, 'profile-glass') !== false) {
       <form method="post" style="margin:0">
         <?= csrf_field() ?>
         <input type="hidden" name="action" value="save_nick_css">
-        <span class="pg-glass-label">CSS ника (видно везде: профиль, мини-профиль, форум)</span>
-        <input type="text" name="username_css" value="<?= e($profileUser['username_css'] ?? '') ?>"
-          placeholder="color:#fbbf24; text-shadow:0 0 8px #f59e0b"
-          style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.25);color:#fff;margin-top:4px">
+        <span class="pg-glass-label">CSS ника (inline или блок с @keyframes / .class — видно в профиле и мини-профиле)</span>
+        <textarea name="username_css" rows="8" placeholder="@keyframes neon-pulse { ... }&#10;.glitch-nick { animation: neon-pulse 1.5s infinite; color:#ff00cc; }"
+          style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.25);color:#fff;margin-top:4px;font-family:ui-monospace,monospace;font-size:12px"><?= e($profileUser['username_css'] ?? '') ?></textarea>
         <button type="submit" class="btn btn-primary btn-sm" style="margin-top:6px">Сохранить стиль ника</button>
+      </form>
+      <form method="post" style="margin:0">
+        <?= csrf_field() ?>
+        <input type="hidden" name="action" value="save_nick_decor">
+        <span class="pg-glass-label">Декор ника (GIF/PNG URL)</span>
+        <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap">
+          <input type="text" name="nick_decor_url" value="<?= e($profileUser['nick_decor_url'] ?? '') ?>"
+            placeholder="https://…/sparkle.gif"
+            style="flex:1;min-width:160px;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.25);color:#fff">
+          <select name="nick_decor_pos" style="padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.25);color:#fff">
+            <option value="before" <?= (($profileUser['nick_decor_pos'] ?? 'before') === 'before') ? 'selected' : '' ?>>перед ником</option>
+            <option value="after" <?= (($profileUser['nick_decor_pos'] ?? '') === 'after') ? 'selected' : '' ?>>после ника</option>
+          </select>
+          <button type="submit" class="btn btn-outline btn-sm">OK</button>
+        </div>
+      </form>
+      <?php
+        $canPfx = function_exists('user_can_edit_custom_prefix') && user_can_edit_custom_prefix($profileUser);
+        $nextPfx = function_exists('user_custom_prefix_next_date') ? user_custom_prefix_next_date($profileUser) : null;
+        $myPfx = null;
+        if (!empty($profileUser['custom_prefix_id']) && function_exists('user_get_prefix')) {
+          $myPfx = user_get_prefix((int)$profileUser['custom_prefix_id']);
+        }
+      ?>
+      <form method="post" style="margin:0;opacity:<?= $canPfx ? '1' : '.75' ?>">
+        <?= csrf_field() ?>
+        <input type="hidden" name="action" value="save_custom_prefix">
+        <span class="pg-glass-label">Свой префикс (1 шт, смена раз в 30 дней)</span>
+        <?php if (!$canPfx && $nextPfx): ?>
+          <div style="font-size:12px;opacity:.7;margin:4px 0">Следующая смена: <?= e($nextPfx) ?></div>
+        <?php endif; ?>
+        <input type="text" name="prefix_title" maxlength="40" value="<?= e($myPfx['title'] ?? '') ?>"
+          placeholder="VIP / Author / …" <?= $canPfx ? '' : 'readonly' ?>
+          style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.25);color:#fff;margin-top:4px">
+        <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+          <label style="font-size:12px">текст <input type="color" name="prefix_text_color" value="<?= e($myPfx['text_color'] ?? '#ffffff') ?>" <?= $canPfx ? '' : 'disabled' ?>></label>
+          <label style="font-size:12px">фон <input type="color" name="prefix_bg_color" value="<?= e($myPfx['bg_color'] ?? '#6366f1') ?>" <?= $canPfx ? '' : 'disabled' ?>></label>
+        </div>
+        <input type="text" name="prefix_css" value="<?= e($myPfx['css'] ?? '') ?>" placeholder="свой CSS префикса (опц.)" <?= $canPfx ? '' : 'readonly' ?>
+          style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.25);color:#fff;margin-top:6px">
+        <?php if ($canPfx): ?>
+          <button type="submit" class="btn btn-primary btn-sm" style="margin-top:6px">Сохранить префикс</button>
+        <?php endif; ?>
       </form>
     </div>
     <?php endif; ?>

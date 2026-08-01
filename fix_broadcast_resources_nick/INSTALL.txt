@@ -1,0 +1,19 @@
+Рассылки + ресурсы: ник как в мессенджере
+=========================================
+В корень. Ctrl+F5.
+
+БАГ в рассылках: $p['id'] поста перезаписывался user_id → ломались
+реакции/комменты и бейдж. Исправлено.
+
+Теперь:
+- посты рассылки: полный badge (аватар, CSS-ник, префиксы, декор, галочка)
+- live poll/send/комменты: username_html с сервера
+- ресурсы список + страница: render_user_badge как в мессенджере
+- запросы resources с fallback если нет колонок CSS
+
+Файлы:
+  broadcast_channel.php
+  broadcast_post_*.php
+  resource.php resources.php
+  includes/resources.php includes/user_display.php
+  assets/css/user-display.css

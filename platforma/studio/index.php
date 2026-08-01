@@ -3,98 +3,172 @@ declare(strict_types=1);
 $studio_title = 'Панель студии';
 $studio_active = 'dashboard';
 
-require_once dirname(__DIR__) . '/api_bootstrap.php';
-$pdo = pl_pdo();
-$site = pl_site_web();
+require_once dirname(__DIR__, 2) . '/includes/functions.php';
+require_once dirname(__DIR__, 2) . '/includes/auth.php';
 
-if (function_exists('session_status') && session_status() === PHP_SESSION_NONE) @session_start();
-$user_id = (int)($_SESSION['user_id'] ?? ($_SESSION['user']['id'] ?? 0));
+$user = current_user();
+$user_id = $user ? (int)$user['id'] : 0;
 
-$views = 0; $subs = 0; $videos = 0; $live = 0; $channels = 0;
-$recent = [];
+$views = 0;
+$videoViews = 0;
+$videoCount = 0;
+$live = 0;
+$channelsTv = [];
+$channelsRadio = [];
+$recentVideos = [];
 
-try {
-    if ($pdo && $user_id > 0) {
-        $chTable = pl_find_table($pdo, ['channels']);
-        if ($chTable) {
-            $cols = pl_columns($pdo, $chTable);
-            $owner = pl_pick_col($cols, ['owner_id', 'user_id', 'uid']);
-            $viewCol = pl_pick_col($cols, ['views', 'viewers']);
-            $liveCol = pl_pick_col($cols, ['last_stream_live', 'is_live']);
-            $idCol = pl_pick_col($cols, ['id']);
-            $titleCol = pl_pick_col($cols, ['title', 'name']);
-            if ($owner) {
-                $st = $pdo->prepare("SELECT * FROM `$chTable` WHERE `$owner` = ? ORDER BY `$idCol` DESC LIMIT 20");
-                $st->execute([$user_id]);
-                while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
-                    $channels++;
-                    if ($viewCol) $views += (int)($row[$viewCol] ?? 0);
-                    if ($liveCol && !empty($row[$liveCol])) $live++;
-                    $recent[] = [
-                        'id' => $idCol ? $row[$idCol] : '',
-                        'title' => $titleCol ? (string)$row[$titleCol] : 'Канал',
-                        'views' => $viewCol ? (int)$row[$viewCol] : 0,
-                    ];
-                }
-            }
-        }
-        $vTable = pl_find_table($pdo, ['stream_videos', 'videos']);
-        if ($vTable) {
-            $vcols = pl_columns($pdo, $vTable);
-            $vo = pl_pick_col($vcols, ['user_id', 'owner_id', 'channel_id']);
-            // count roughly
-            try {
-                $videos = (int)$pdo->query("SELECT COUNT(*) FROM `$vTable`")->fetchColumn();
-            } catch (Throwable $e) {}
-        }
+if ($user_id > 0) {
+  try {
+    $chRows = [];
+    try {
+      $st = db()->prepare("SELECT id, title, slug, type, status, views FROM channels WHERE owner_id = ? ORDER BY id DESC LIMIT 50");
+      $st->execute([$user_id]);
+      $chRows = $st->fetchAll() ?: [];
+    } catch (Throwable $e) {}
+    if (!$chRows) {
+      try {
+        $st = db()->prepare("SELECT id, title, slug, type, status, views FROM channels WHERE user_id = ? ORDER BY id DESC LIMIT 50");
+        $st->execute([$user_id]);
+        $chRows = $st->fetchAll() ?: [];
+      } catch (Throwable $e) {}
     }
-} catch (Throwable $e) {}
+    foreach ($chRows as $row) {
+      $views += (int)($row['views'] ?? 0);
+      $tt = strtolower(trim((string)($row['type'] ?? 'tv')));
+      if ($tt === 'radio' || strpos($tt, 'radio') !== false) $channelsRadio[] = $row;
+      else $channelsTv[] = $row;
+    }
+  } catch (Throwable $e) {}
+
+  try {
+    $st = db()->prepare(
+      "SELECT id, title, slug, views_count, status, thumbnail_url, created_at
+       FROM videos WHERE user_id = ? ORDER BY id DESC LIMIT 15"
+    );
+    $st->execute([$user_id]);
+    $recentVideos = $st->fetchAll() ?: [];
+    $videoCount = count($recentVideos);
+    // total count + views
+    $st2 = db()->prepare("SELECT COUNT(*) AS c, COALESCE(SUM(views_count),0) AS v FROM videos WHERE user_id = ?");
+    $st2->execute([$user_id]);
+    $agg = $st2->fetch() ?: [];
+    $videoCount = (int)($agg['c'] ?? $videoCount);
+    $videoViews = (int)($agg['v'] ?? 0);
+  } catch (Throwable $e) {
+    try {
+      $st = db()->prepare("SELECT id, title, slug, status FROM videos WHERE user_id = ? ORDER BY id DESC LIMIT 15");
+      $st->execute([$user_id]);
+      $recentVideos = $st->fetchAll() ?: [];
+      $videoCount = count($recentVideos);
+    } catch (Throwable $e2) {}
+  }
+}
 
 require __DIR__ . '/_layout.php';
 ?>
 <h1 class="st-h1">Панель управления каналом</h1>
-<p class="st-sub">Стиль YouTube Studio · данные из StreamLife</p>
+<p class="st-sub">Стиль YouTube Studio · ваши данные из StreamLife</p>
 
 <?php if ($user_id <= 0): ?>
-<div class="alert alert-info">Войди в аккаунт StreamLife, чтобы видеть статистику своего канала.</div>
-<a class="btn btn-blue" href="/auth/login.php">Войти</a>
+<div class="alert alert-info">Войдите в аккаунт StreamLife, чтобы видеть статистику.</div>
+<a class="btn btn-blue" href="/auth/login.php?next=<?= rawurlencode('/platforma/studio/') ?>">Войти</a>
 <?php else: ?>
 
 <div class="st-cards">
   <div class="st-card"><div class="lbl">Просмотры каналов</div><div class="val"><?= number_format($views) ?></div></div>
-  <div class="st-card"><div class="lbl">Ваши каналы</div><div class="val"><?= (int)$channels ?></div></div>
-  <div class="st-card"><div class="lbl">В эфире</div><div class="val"><?= (int)$live ?></div></div>
-  <div class="st-card"><div class="lbl">Видео (всего на сайте)</div><div class="val"><?= number_format($videos) ?></div></div>
+  <div class="st-card"><div class="lbl">Просмотры видео</div><div class="val"><?= number_format($videoViews) ?></div></div>
+  <div class="st-card"><div class="lbl">ТВ</div><div class="val"><?= count($channelsTv) ?></div></div>
+  <div class="st-card"><div class="lbl">Радио</div><div class="val"><?= count($channelsRadio) ?></div></div>
+  <div class="st-card"><div class="lbl">Ваши видео</div><div class="val"><?= number_format($videoCount) ?></div></div>
 </div>
 
 <div class="st-panel">
   <h2>Быстрые действия</h2>
   <div class="st-actions">
-    <a class="btn btn-blue" href="/platforma/studio/channel.php">Оформление канала</a>
+    <a class="btn btn-blue" href="/platforma/studio/content.php">Весь контент</a>
     <a class="btn btn-white" href="/platforma/studio/import.php">Импорт видео</a>
-    <a class="btn btn-outline" href="/platforma/studio/content.php">Контент</a>
-    <a class="btn btn-outline" href="/new_channel.php">Новый канал (StreamLife)</a>
+    <a class="btn btn-outline" href="/platforma/studio/analytics.php">Аналитика</a>
+    <a class="btn btn-outline" href="/platforma/studio/channel.php">Оформление</a>
+    <a class="btn btn-outline" href="/new_channel.php">Новый канал</a>
   </div>
 </div>
 
 <div class="st-panel">
-  <h2>Ваши каналы</h2>
-  <?php if (!$recent): ?>
-    <p class="muted">Каналов пока нет. Создай через StreamLife или открой channel_manage.</p>
+  <h2>ТВ-каналы (<?= count($channelsTv) ?>)</h2>
+  <?php if (!$channelsTv): ?>
+    <p class="muted">ТВ пока нет. <a href="/new_channel.php">Создать</a></p>
   <?php else: ?>
   <table class="st-table">
-    <thead><tr><th>Канал</th><th>Просмотры</th><th></th></tr></thead>
+    <thead><tr><th>Канал</th><th>Статус</th><th>Просмотры</th><th></th></tr></thead>
     <tbody>
-    <?php foreach ($recent as $r): ?>
+    <?php foreach ($channelsTv as $r): ?>
       <tr>
         <td><?= htmlspecialchars($r['title']) ?></td>
-        <td><?= number_format($r['views']) ?></td>
-        <td><a class="btn btn-outline" style="padding:6px 12px;font-size:12px" href="/channel.php?id=<?= urlencode((string)$r['id']) ?>">Открыть</a>
-            <a class="btn btn-outline" style="padding:6px 12px;font-size:12px" href="/channel_manage.php?id=<?= urlencode((string)$r['id']) ?>">Настройки</a></td>
+        <td class="muted"><?= htmlspecialchars((string)($r['status'] ?? '')) ?></td>
+        <td><?= number_format((int)($r['views'] ?? 0)) ?></td>
+        <td>
+          <a class="btn btn-outline" style="padding:6px 12px;font-size:12px" href="/channel.php?id=<?= (int)$r['id'] ?>">Открыть</a>
+          <a class="btn btn-outline" style="padding:6px 12px;font-size:12px" href="/channel_manage.php?id=<?= (int)$r['id'] ?>">Настройки</a>
+        </td>
       </tr>
     <?php endforeach; ?>
     </tbody>
   </table>
+  <?php endif; ?>
+</div>
+
+<div class="st-panel">
+  <h2>Радио (<?= count($channelsRadio) ?>)</h2>
+  <?php if (!$channelsRadio): ?>
+    <p class="muted">Радио пока нет. <a href="/new_channel.php">Создать</a></p>
+  <?php else: ?>
+  <table class="st-table">
+    <thead><tr><th>Канал</th><th>Статус</th><th>Просмотры</th><th></th></tr></thead>
+    <tbody>
+    <?php foreach ($channelsRadio as $r): ?>
+      <tr>
+        <td><?= htmlspecialchars($r['title']) ?></td>
+        <td class="muted"><?= htmlspecialchars((string)($r['status'] ?? '')) ?></td>
+        <td><?= number_format((int)($r['views'] ?? 0)) ?></td>
+        <td>
+          <a class="btn btn-outline" style="padding:6px 12px;font-size:12px" href="/channel.php?id=<?= (int)$r['id'] ?>">Открыть</a>
+          <a class="btn btn-outline" style="padding:6px 12px;font-size:12px" href="/channel_manage.php?id=<?= (int)$r['id'] ?>">Настройки</a>
+        </td>
+      </tr>
+    <?php endforeach; ?>
+    </tbody>
+  </table>
+  <?php endif; ?>
+</div>
+
+<div class="st-panel">
+  <h2>Последние видео (<?= $videoCount ?>)</h2>
+  <?php if (!$recentVideos): ?>
+    <p class="muted">Видео пока нет. <a href="/platforma/studio/import.php">Импорт</a></p>
+  <?php else: ?>
+  <table class="st-table">
+    <thead><tr><th></th><th>Название</th><th>Статус</th><th>Просмотры</th><th></th></tr></thead>
+    <tbody>
+    <?php foreach ($recentVideos as $v): ?>
+      <tr>
+        <td><?php if (!empty($v['thumbnail_url'])): ?><img src="<?= htmlspecialchars($v['thumbnail_url']) ?>" alt="" style="width:64px;height:36px;object-fit:cover;border-radius:4px;background:#222"><?php endif; ?></td>
+        <td><?= htmlspecialchars(mb_substr((string)($v['title'] ?? ''), 0, 60)) ?></td>
+        <td class="muted"><?= htmlspecialchars((string)($v['status'] ?? '')) ?></td>
+        <td><?= number_format((int)($v['views_count'] ?? 0)) ?></td>
+        <td>
+          <?php if (!empty($v['slug'])): ?>
+            <a class="btn btn-outline" style="padding:6px 12px;font-size:12px" href="/video/<?= htmlspecialchars($v['slug']) ?>">Открыть</a>
+          <?php else: ?>
+            <a class="btn btn-outline" style="padding:6px 12px;font-size:12px" href="/video.php?id=<?= (int)$v['id'] ?>">Открыть</a>
+          <?php endif; ?>
+        </td>
+      </tr>
+    <?php endforeach; ?>
+    </tbody>
+  </table>
+  <div class="st-actions" style="margin-top:12px">
+    <a class="btn btn-outline" href="/platforma/studio/content.php">Все видео и каналы →</a>
+  </div>
   <?php endif; ?>
 </div>
 <?php endif; ?>

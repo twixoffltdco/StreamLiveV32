@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
+if (is_file(__DIR__ . '/includes/recommendations.php')) require_once __DIR__ . '/includes/recommendations.php';
 
 $q = trim((string)($_GET['q'] ?? ''));
 $pageTitle = $q !== '' ? 'Поиск: ' . $q : 'Видео';
@@ -66,4 +67,11 @@ $videos = $stmt->fetchAll();
     <?php if (count($videos) === $perPage): ?><a class="btn btn-outline btn-sm" href="?q=<?= urlencode($q) ?>&page=<?= $page + 1 ?>">Далее →</a><?php endif; ?>
   </div>
 </div>
+<?php if (function_exists('render_recommendations_section')): ?>
+<div class="container">
+  <?php render_recommendations_section('videos', 8); ?>
+  <?php render_recommendations_section('tv', 6); ?>
+  <?php render_recommendations_section('radio', 6); ?>
+</div>
+<?php endif; ?>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

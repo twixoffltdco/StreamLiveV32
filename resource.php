@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/includes/resources.php';
+require_once __DIR__ . '/includes/user_display.php';
 require_once __DIR__ . '/includes/bbcode.php';
 require_once __DIR__ . '/includes/auth.php';
 $r = resource_find((string)($_GET['slug'] ?? ''), true);
@@ -16,7 +17,17 @@ $downloadHref = '/resource_download.php?slug=' . urlencode($r['slug']);
 ?>
 <div class="container" style="max-width:980px">
   <p><a href="/resources">← Все ресурсы</a></p><h1><?= e($r['title']) ?></h1>
-  <p style="color:var(--text-dim)">Автор: <a href="/profile?username=<?= e($r['username']) ?>"><?= e($r['username']) ?></a> · просмотров: <?= (int)$r['views'] ?> · <?= e($r['created_at']) ?></p>
+  <p style="color:var(--text-dim);display:flex;flex-wrap:wrap;align-items:center;gap:6px">Автор:
+    <?php
+      $author = ['id' => (int)($r['author_id'] ?? $r['user_id'] ?? 0), 'username' => $r['username'] ?? '', 'username_css' => $r['username_css'] ?? null, 'prefix_id' => $r['prefix_id'] ?? null, 'custom_prefix_id' => $r['custom_prefix_id'] ?? null, 'is_verified' => $r['is_verified'] ?? 0, 'nick_decor_url' => $r['nick_decor_url'] ?? null, 'nick_decor_pos' => $r['nick_decor_pos'] ?? null, 'avatar' => $r['avatar'] ?? null];
+      if (function_exists('render_user_badge')) {
+        echo render_user_badge($author, 22);
+      } else {
+        echo '<a href="/profile?username=' . e($r['username']) . '">' . e($r['username']) . '</a>';
+      }
+    ?>
+    · просмотров: <?= (int)$r['views'] ?> · <?= e($r['created_at']) ?>
+  </p>
   <?php if ($r['status']==='hidden'): ?><div class="alert alert-error">Скрыто: <?= e($r['hidden_reason']) ?></div><?php endif; ?>
   <?php if (!empty($r['repo_full_name'])): ?><section class="repo-card"><h2 style="margin-top:0">📦 <?= e($r['repo_full_name']) ?></h2><div class="repo-meta"><span>★ <?= e((string)($r['repo_stars'] ?? 0)) ?></span><?php if ($r['repo_language']): ?><span><?= e($r['repo_language']) ?></span><?php endif; ?><span>Источник GitHub распознан автоматически</span></div></section><?php endif; ?>
   <p><button class="btn btn-primary" type="button" onclick="openResourceRisk()">Скачать без регистрации</button> <a class="btn btn-outline" href="<?= e($r['external_url']) ?>" target="_blank" rel="noopener">Открыть источник</a></p>

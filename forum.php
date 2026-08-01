@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
+if (is_file(__DIR__ . '/includes/recommendations.php')) require_once __DIR__ . '/includes/recommendations.php';
 $__user = current_user();
 
 $pageTitle = 'Форум';
@@ -27,13 +28,7 @@ unset($cat);
 ?>
 <div class="container">
   <div style="display:flex;align-items:center;justify-content:space-between;margin:24px 0 6px;flex-wrap:wrap;gap:10px">
-    <div>
     <h1 style="margin:0">Форум</h1>
-    <div class="forum-tabs" style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 0">
-      <a href="/forum.php" class="btn btn-primary btn-sm">Категории</a>
-      <a href="/forum_whats_new.php" class="btn btn-outline btn-sm">Что нового</a>
-    </div>
-  </div>
     <div style="display:flex;gap:8px">
       <button type="button" class="btn btn-outline btn-sm" onclick="copyRssLink('<?= e(SITE_URL) ?>/rss_forum.php')">📋 RSS-ссылка</button>
       <?php if ($__user && $__user['role'] === 'admin'): ?>
@@ -41,18 +36,12 @@ unset($cat);
       <?php endif; ?>
     </div>
   </div>
-  <p style="color:var(--text-dim);font-size:13px;margin-bottom:12px">Обсуждайте что угодно, используйте BBCode ([b], [i], [url], [img], [quote], [code], [spoiler] и т.д.)</p>
+  <p style="color:var(--text-dim);font-size:13px;margin-bottom:20px">Обсуждайте что угодно, используйте BBCode ([b], [i], [url], [img], [quote], [code], [spoiler] и т.д.)</p>
   <script>
     function copyRssLink(url) {
       navigator.clipboard.writeText(url).then(() => alert('Ссылка на RSS скопирована! Вставьте её, например, в настройки автопостинга группы ВК.'));
     }
   </script>
-
-  
-  <div id="forum-live-banner" class="forum-live-banner" style="display:none;cursor:pointer;margin:0 0 12px;padding:10px 14px;border-radius:10px;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.35);font-size:13px"></div>
-  <div id="forum-whats-new-list" class="forum-thread-list" style="margin-bottom:18px"></div>
-  <div id="forum-live-root" data-category-id="0" data-after-ts="<?= time() ?>"></div>
-  <script src="/assets/js/forum-live.js?v=1" defer></script>
 
   <div class="forum-cat-list">
     <?php foreach ($categories as $cat): ?>
@@ -80,4 +69,10 @@ unset($cat);
     <?php endif; ?>
   </div>
 </div>
+<?php if (function_exists('render_recommendations_section')): ?>
+  <div class="container">
+    <?php render_recommendations_section('forum', 8); ?>
+    <?php render_recommendations_section('videos', 6); ?>
+  </div>
+<?php endif; ?>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

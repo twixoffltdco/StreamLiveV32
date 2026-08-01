@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/user_display.php';
 require_once __DIR__ . '/includes/contacts.php';
 contacts_ensure_schema();
 require_once __DIR__ . '/includes/oauth.php';
@@ -40,7 +41,7 @@ $peerIds = array_column($conversations, 'peer_id');
 $peers = [];
 if ($peerIds) {
   $in = implode(',', array_fill(0, count($peerIds), '?'));
-  $stmt = db()->prepare("SELECT id, username, avatar, gravatar_email, is_banned FROM users WHERE id IN ($in)");
+  $stmt = db()->prepare("SELECT id, username, avatar, gravatar_email, is_banned, is_verified, username_css, prefix_id, custom_prefix_id, nick_decor_url, nick_decor_pos FROM users WHERE id IN ($in)");
   $stmt->execute($peerIds);
   foreach ($stmt->fetchAll() as $p) { $peers[$p['id']] = $p; }
 }
@@ -51,7 +52,7 @@ if ($activeConvId && !in_array($activeConvId, array_column($conversations, 'conv
   $stmt->execute([$__user['id'], $activeConvId]);
   $pid = $stmt->fetchColumn();
   if ($pid && !isset($peers[$pid])) {
-    $stmt = db()->prepare('SELECT id, username, avatar, gravatar_email, is_banned FROM users WHERE id = ?');
+    $stmt = db()->prepare('SELECT id, username, avatar, gravatar_email, is_banned, is_verified, username_css, prefix_id, custom_prefix_id, nick_decor_url, nick_decor_pos FROM users WHERE id = ?');
     $stmt->execute([$pid]);
     if ($row = $stmt->fetch()) { $peers[$pid] = $row; }
   }
@@ -167,7 +168,7 @@ require_once __DIR__ . '/includes/header.php';
           <a href="/messages.php?conv=<?= (int)$c['conv_id'] ?>" class="msg-conv-item <?= $activeConvId === (int)$c['conv_id'] ? 'active' : '' ?>">
             <img src="<?= e(user_avatar_url($peer, 48)) ?>" alt="" onerror="this.style.display='none'">
             <div class="msg-conv-meta">
-              <b><?= e($peer['username']) ?></b>
+              <b style="font-weight:600"><?= function_exists('user_render_username_html') ? user_render_username_html($peer) : e($peer['username']) ?><?= function_exists('verify_badge') ? verify_badge(!empty($peer['is_verified'])) : '' ?></b>
               <span><?= e(mb_strimwidth((string)($c['last_body'] ?? 'Начните переписку'), 0, 34, '…')) ?></span>
             </div>
             <?php if ($c['unread'] > 0): ?><span class="msg-unread-badge"><?= (int)$c['unread'] ?></span><?php endif; ?>
@@ -181,7 +182,7 @@ require_once __DIR__ . '/includes/header.php';
           <?php foreach ($suggestions as $s): ?>
             <a href="/messages.php?with=<?= (int)$s['id'] ?>" class="msg-suggest-item">
               <img src="<?= e(user_avatar_url($s, 48)) ?>" alt="" onerror="this.style.display='none'">
-              <span><?= e($s['username']) ?></span>
+              <span><?= function_exists('user_render_username_html') ? user_render_username_html($s) : e($s['username']) ?></span>
               <b>Написать</b>
             </a>
           <?php endforeach; ?>
@@ -201,7 +202,7 @@ require_once __DIR__ . '/includes/header.php';
             <a href="/profile.php?username=<?= e(urlencode($peer['username'])) ?>" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;min-width:0">
               <img src="<?= e(user_avatar_url($peer, 48)) ?>" alt="" onerror="this.style.display='none'" style="width:40px;height:40px;border-radius:50%;object-fit:cover;<?= !empty($peer['is_banned']) ? 'filter:grayscale(1);opacity:.6' : '' ?>">
               <div style="min-width:0">
-                <b style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><?= e($peer['username']) ?></b>
+                <b style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%"><?= function_exists('user_render_username_html') ? user_render_username_html($peer) : e($peer['username']) ?><?= function_exists('verify_badge') ? verify_badge(!empty($peer['is_verified'])) : '' ?></b>
                 <?php if ($peerMutual): ?>
                   <span style="font-size:11px;color:var(--ok,#2ecc71)">в контактах · взаимно</span>
                 <?php elseif ($peerContact): ?>

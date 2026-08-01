@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/user_display.php';
 require_once __DIR__ . '/includes/service_helpers.php';
 $__user = require_login();
 
@@ -57,7 +58,8 @@ if ($postIds) {
 }
 
 $stmt = db()->prepare(
-  "SELECT bp.*, u.username, u.is_verified, u.avatar, u.is_banned, u.gravatar_email,
+  "SELECT bp.*, u.id AS user_id, u.username, u.is_verified, u.avatar, u.is_banned, u.gravatar_email,
+     u.username_css, u.prefix_id, u.custom_prefix_id, u.nick_decor_url, u.nick_decor_pos,
      (SELECT COUNT(*) FROM broadcast_post_views v WHERE v.post_id = bp.id) AS views_count,
      (SELECT COUNT(*) FROM broadcast_post_comments c WHERE c.post_id = bp.id) AS comments_count
    FROM broadcast_posts bp JOIN users u ON u.id = bp.author_id
@@ -129,7 +131,7 @@ require_once __DIR__ . '/includes/header.php';
     <?php foreach (array_reverse($posts) as $p): ?>
       <div class="msg-bubble-row" data-id="<?= (int)$p['id'] ?>">
         <div class="msg-bubble" style="max-width:80%">
-          <div style="margin-bottom:4px"><?= render_user_badge($p, 22) ?></div>
+          <div style="margin-bottom:4px"><?php $p['id'] = (int)($p['user_id'] ?? $p['author_id'] ?? $p['id'] ?? 0); echo render_user_badge($p, 22); ?></div>
           <?= banned_user_notice($p) ?>
           <?= render_with_stickers($p['body']) ?>
           <div style="font-size:10.5px;color:var(--text-dim);margin-top:4px;display:flex;gap:10px;align-items:center">

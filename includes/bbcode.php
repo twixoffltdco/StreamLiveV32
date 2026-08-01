@@ -181,6 +181,46 @@ function bbcode_callback_tags(?int $postId = null): array {
       $id = 'bbcode-' . bin2hex(random_bytes(4));
       return '<div class="bb-code-block"><button type="button" class="bb-code-copy" data-target="' . $id . '">Копировать</button><pre class="bb-code bb-html" id="' . $id . '">' . $m[1] . '</pre></div>';
     },
+    // Imgur screenshots
+    '/\[imgur\](.*?)\[\/imgur\]/is' => function ($m) {
+      $raw = trim($m[1]);
+      $id = $raw;
+      if (preg_match('#imgur\.com/(?:a/|gallery/)?([a-zA-Z0-9]+)(?:\.[a-z]+)?#i', $raw, $mm)) {
+        $id = $mm[1];
+      }
+      if (!preg_match('/^[a-zA-Z0-9]{5,12}$/', $id)) {
+        return htmlspecialchars($m[0], ENT_QUOTES);
+      }
+      $src = 'https://i.imgur.com/' . $id . '.jpg';
+      return '<a href="https://imgur.com/' . htmlspecialchars($id, ENT_QUOTES) . '" target="_blank" rel="noopener nofollow">'
+        . '<img src="' . htmlspecialchars($src, ENT_QUOTES) . '" class="bb-img bb-imgur" loading="lazy" alt="imgur" style="max-width:100%;border-radius:10px">'
+        . '</a>';
+    },
+    // Generic iframe when platform has no dedicated BBCode
+    '/\[iframe(?:=(\d{2,4})x(\d{2,4}))?\](https?:\/\/[^\]\s]+)\[\/iframe\]/is' => function ($m) {
+      $w = (isset($m[1]) && $m[1] !== '') ? (int)$m[1] : 560;
+      $h = (isset($m[2]) && $m[2] !== '') ? (int)$m[2] : 315;
+      $url = trim($m[3]);
+      if (!preg_match('#^https?://#i', $url)) return htmlspecialchars($m[0], ENT_QUOTES);
+      if (preg_match('#^(javascript|data|vbscript):#i', $url)) return '';
+      $w = max(200, min(900, $w));
+      $h = max(120, min(800, $h));
+      $safe = htmlspecialchars($url, ENT_QUOTES);
+      return '<div class="bb-iframe-wrap" style="position:relative;max-width:' . $w . 'px;width:100%;aspect-ratio:' . $w . '/' . $h . ';margin:10px 0 22px">'
+        . '<iframe src="' . $safe . '" loading="lazy" referrerpolicy="no-referrer" '
+        . 'sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-presentation" '
+        . 'allowfullscreen style="position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:10px;background:#111"></iframe>'
+        . '</div><div style="font-size:11px;opacity:.65;margin:-18px 0 10px"><a href="' . $safe . '" target="_blank" rel="noopener nofollow">открыть оригинал ↗</a></div>';
+    },
+    '/\[embed\](https?:\/\/[^\]\s]+)\[\/embed\]/is' => function ($m) {
+      $url = trim($m[1]);
+      if (!preg_match('#^https?://#i', $url)) return htmlspecialchars($m[0], ENT_QUOTES);
+      $safe = htmlspecialchars($url, ENT_QUOTES);
+      return '<div class="bb-iframe-wrap" style="position:relative;max-width:560px;width:100%;aspect-ratio:16/9;margin:10px 0">'
+        . '<iframe src="' . $safe . '" loading="lazy" referrerpolicy="no-referrer" '
+        . 'sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-presentation" '
+        . 'allowfullscreen style="position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:10px"></iframe></div>';
+    },
     '/\[align=(left|center|right|justify)\](.*?)\[\/align\]/is' => function ($m) {
       return '<div style="text-align:' . $m[1] . '">' . $m[2] . '</div>';
     },

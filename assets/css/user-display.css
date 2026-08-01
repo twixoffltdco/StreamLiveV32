@@ -1,28 +1,182 @@
 .user-prefix { vertical-align: middle; margin-right: 4px; }
 .user-prefixes { display: inline; }
 .user-nick { font-weight: 600; }
+.user-nick-decor { height: 18px; width: auto; vertical-align: middle; margin: 0 2px; }
 
+/* --- Мини-профиль --- */
 .xf-mini-profile {
   margin-top: 14px;
-  border-radius: 12px;
+  border-radius: 14px;
   overflow: hidden;
   border: 1px solid var(--border, rgba(255,255,255,.1));
   background: var(--card, #141416);
   max-width: 420px;
+  box-shadow: 0 8px 28px rgba(0,0,0,.25);
 }
-.xf-mini-cover { height: 54px; width: 100%; }
+.xf-mini-cover {
+  height: 72px;
+  width: 100%;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+}
+.xf-mini-cover::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, transparent 30%, rgba(0,0,0,.35) 100%);
+}
 .xf-mini-body {
   display: flex; gap: 12px; align-items: flex-start;
-  padding: 0 12px 12px; margin-top: -20px;
+  padding: 0 12px 12px; margin-top: -24px;
+  position: relative;
+  z-index: 1;
 }
 .xf-mini-avatar {
-  width: 48px; height: 48px; border-radius: 50%;
+  width: 52px; height: 52px; border-radius: 50%;
   object-fit: cover; border: 2px solid var(--card, #141416);
   background: #222;
+  flex-shrink: 0;
 }
-.xf-mini-meta { min-width: 0; padding-top: 18px; }
-.xf-mini-name { text-decoration: none; color: inherit; font-size: 14px; }
-.xf-mini-name .user-nick { font-weight: 600; }
-.xf-mini-status { font-size: 12px; color: var(--text-dim, #999); margin-top: 2px; }
+.xf-mini-meta { min-width: 0; padding-top: 22px; flex: 1; }
+.xf-mini-name-row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px;
+}
+.xf-mini-name { text-decoration: none; color: inherit; font-size: 14px; line-height: 1.3; }
+.xf-mini-name .user-nick { font-weight: 700; }
+.xf-mini-name .user-prefix { font-size: 10px; }
+.xf-mini-status { font-size: 12px; color: var(--text-dim, #999); margin-top: 4px; }
 .xf-mini-role { font-size: 11px; color: var(--accent-2, #a78bfa); margin-top: 2px; }
+.xf-mini-open {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--accent-2, #7dd3fc);
+  text-decoration: none;
+}
+.xf-mini-open:hover { text-decoration: underline; }
 .forum-post-footer-mini { margin-top: 10px; }
+
+/* --- Автор поста / бейдж: префиксы не раздувают строку --- */
+.forum-post-author {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 6px 8px !important;
+  max-width: 100%;
+}
+.forum-post-author > a,
+.forum-post-author > span {
+  max-width: 100%;
+  flex-wrap: wrap !important;
+}
+.forum-post-author .user-prefixes {
+  display: inline-flex !important;
+  flex-wrap: wrap !important;
+  gap: 3px !important;
+  max-width: 100%;
+  vertical-align: middle;
+}
+.forum-post-author .user-prefix {
+  font-size: 10px !important;
+  line-height: 1.2 !important;
+  padding: 1px 5px !important;
+  margin: 0 2px 2px 0 !important;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.forum-post-author .user-nick {
+  font-size: 14px;
+  word-break: break-word;
+}
+.forum-post-author .user-nick-decor {
+  height: 16px !important;
+}
+.forum-post-author .verify-badge {
+  width: 14px !important;
+  height: 14px !important;
+  flex-shrink: 0;
+}
+.forum-post-author .verify-badge svg {
+  width: 11px !important;
+  height: 11px !important;
+}
+
+/* Список тем: если там тоже ник с префиксами */
+.forum-thread-row .user-prefix,
+.forum-cat-last .user-prefix {
+  font-size: 10px !important;
+  padding: 1px 5px !important;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* === Мобилка: префиксы в темах компактные === */
+@media (max-width: 640px) {
+  .forum-post {
+    padding: 12px 12px !important;
+  }
+  .forum-post-author {
+    gap: 4px 6px !important;
+  }
+  .forum-post-author .user-prefix {
+    font-size: 9px !important;
+    padding: 1px 4px !important;
+    max-width: 38vw !important;
+    border-radius: 4px !important;
+  }
+  .forum-post-author .user-nick {
+    font-size: 13px !important;
+  }
+  .forum-post-author img {
+    width: 24px !important;
+    height: 24px !important;
+  }
+  .forum-thread-row .user-prefix,
+  .forum-cat-last .user-prefix {
+    font-size: 9px !important;
+    max-width: 36vw !important;
+  }
+  /* мини-профиль на мобилке оставляем как есть (уже норм) */
+  .xf-mini-name .user-prefix {
+    font-size: 9px !important;
+    max-width: 42vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* Галочка не «съедает» ник */
+.xf-mini-name-row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 4px 6px !important;
+  max-width: 100%;
+}
+.xf-mini-name-row .xf-mini-name {
+  display: inline !important;
+  max-width: calc(100% - 24px);
+}
+.xf-mini-name-row .verify-badge {
+  flex: 0 0 auto !important;
+  width: 15px !important;
+  height: 15px !important;
+  margin: 0 !important;
+  vertical-align: middle !important;
+}
+.xf-mini-name-row .verify-badge svg {
+  width: 11px !important;
+  height: 11px !important;
+}
+.xf-mini-name-row .user-prefix {
+  max-width: 36vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
