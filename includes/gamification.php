@@ -57,14 +57,22 @@ function register_daily_activity(int $userId): ?array {
   if ($u['last_active_date'] === $today) return null; // уже засчитано сегодня
 
   $yesterday = date('Y-m-d', strtotime('-1 day'));
+  $missedDay = ($u['last_active_date'] !== $yesterday && $u['last_active_date'] !== null && $u['last_active_date'] !== '');
+  // Пропуск дня → начинаем с начала (XP и дни сбрасываются), роль (admin/mod) НЕ трогаем
+  if ($missedDay) {
+    $streak = 1;
+    $activeDays = 1;
+    $cycle = (int)$u['cycle_number'];
+    $xpGain = 20;
+    $longestStreak = max((int)($u['longest_login_streak'] ?? 0), 1);
+    db()->prepare('UPDATE users SET xp = ?, total_active_days = ?, cycle_number = ?, login_streak_days = ?, longest_login_streak = ?, last_active_date = ? WHERE id = ?')
+      ->execute([$xpGain, $activeDays, $cycle, $streak, $longestStreak, $today, $userId]);
+    return ['xp_gained' => $xpGain, 'streak' => $streak, 'longest_streak' => $longestStreak, 'reset' => true, 'new_place' => get_user_rating_place($userId)];
+  }
+
   $streak = ($u['last_active_date'] === $yesterday) ? (int)$u['login_streak_days'] + 1 : 1;
-
-  // Рекорд серии — как на ProHub: текущая серия сбрасывается при пропуске дня, но лучший
-  // результат за всё время НЕ уменьшается, только растёт при новом личном рекорде.
   $longestStreak = max((int)($u['longest_login_streak'] ?? 0), $streak);
-
   $xpGain = 20 + min($streak, 30) * 2;
-
   $activeDays = (int)$u['total_active_days'] + 1;
   $cycle = (int)$u['cycle_number'];
   if ($activeDays >= CYCLE_LENGTH_DAYS) {
