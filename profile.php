@@ -5,7 +5,9 @@
  */
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
-require_once __DIR__ . '/includes/contacts.php';
+if (is_file(__DIR__ . '/includes/contacts.php')) {
+  require_once __DIR__ . '/includes/contacts.php';
+}
 require_once __DIR__ . '/includes/gamification.php';
 
 $__user = current_user();
@@ -76,13 +78,21 @@ $rank = function_exists('get_rank_for_xp')
   ? get_rank_for_xp((int)($profileUser['xp'] ?? 0))
   : ['title' => 'Участник'];
 $isOwnProfile = $__user && (int)$__user['id'] === (int)$profileUser['id'];
-contacts_ensure_schema();
 $viewerId = $__user ? (int)$__user['id'] : 0;
 $uidProfile = (int)$profileUser['id'];
-$iBlockedThem = $viewerId ? contacts_is_blocked($viewerId, $uidProfile) : false;
-$theyBlockedMe = $viewerId ? contacts_is_blocked($uidProfile, $viewerId) : false;
-$inMyContacts = $viewerId ? contacts_is_contact($viewerId, $uidProfile) : false;
-$mutualContacts = $viewerId ? contacts_are_mutual($viewerId, $uidProfile) : false;
+$iBlockedThem = false;
+$theyBlockedMe = false;
+$inMyContacts = false;
+$mutualContacts = false;
+if (function_exists('contacts_ensure_schema')) {
+  contacts_ensure_schema();
+  if ($viewerId) {
+    $iBlockedThem = contacts_is_blocked($viewerId, $uidProfile);
+    $theyBlockedMe = contacts_is_blocked($uidProfile, $viewerId);
+    $inMyContacts = contacts_is_contact($viewerId, $uidProfile);
+    $mutualContacts = contacts_are_mutual($viewerId, $uidProfile);
+  }
+}
 
 $uid = (int)$profileUser['id'];
 
@@ -247,11 +257,11 @@ if ($coverUrl === '') {
 $statusText = trim((string)($profileUser['profile_status_text'] ?? ''));
 $phone = trim((string)($profileUser['phone'] ?? ''));
 // телефон показываем только себе (приватность)
-$showPhone = ($phone !== '') && ($isOwnProfile || ($viewerId && contacts_can_see_phone($viewerId, $uidProfile, false)));
+$showPhone = ($phone !== '') && ($isOwnProfile || ($viewerId && function_exists('contacts_can_see_phone') && contacts_can_see_phone($viewerId, $uidProfile, false)));
 
 $pageTitle = '@' . $profileUser['username'];
 $seoImage = $avatarUrl;
-$extraHead = '<link rel="stylesheet" href="/assets/css/profile-glass.css?v=20260731pg1">';
+$extraHead = '<link rel="stylesheet" href="/assets/css/profile-glass.css?v=20260801fixavatar">';
 
 require_once __DIR__ . '/includes/header.php';
 // если шаблон не выводит $extraHead — подстрахуемся
@@ -273,28 +283,34 @@ if (strpos($extraHead, 'profile-glass') !== false) {
     </div>
 
     <div class="pg-hero-main">
-      <img class="pg-avatar" src="<?= e($avatarUrl) ?>" alt="" onerror="this.style.opacity='.3'">
-      <div class="pg-name" style="position:relative;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center">
-        <span><?= e($profileUser['username']) ?></span>
+      <img class="pg-avatar" src="<?= e($avatarUrl) ?>" alt="" width="96" height="96" onerror="this.style.opacity='.3'">
+
+      <div class="pg-name-row">
+        <span class="pg-name-text"><?= e($profileUser['username']) ?></span>
         <?= function_exists('verify_badge') ? verify_badge((bool)($profileUser['is_verified'] ?? false)) : '' ?>
-        <?php if ($usernameHistory): ?>
-          <button type="button" id="uh-toggle" class="xf-name-history-btn" title="История ников"
-            style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;margin:0;border:none;border-radius:4px;background:rgba(255,255,255,.12);color:rgba(255,255,255,.85);cursor:pointer;font-size:13px;line-height:1"
-            aria-label="История изменения ника">⏱</button>
+        <?php if (!empty($usernameHistory)): ?>
+          <button type="button" id="uh-toggle" class="xf-name-history-btn" title="История ников" aria-label="История ников">⏱</button>
         <?php endif; ?>
       </div>
+
       <div class="pg-sub">
-        <?php if (!empty($profileUser['is_banned'])): ?>
-          <span style="color:#f66">заблокирован</span>
-        <?php else: ?>
-          на сайте с <?= e(date('m.Y', strtotime($profileUser['created_at']))) ?>
-        <?php endif; ?>
+        на сайте с <?= e(date('m.Y', strtotime($profileUser['created_at']))) ?>
       </div>
+      <?php if (!empty($profileUser['is_banned'])): ?>
+        <div class="pg-glass" style="margin:12px auto 0;max-width:420px;border-color:rgba(255,80,80,.4);background:rgba(120,20,20,.5);text-align:left">
+          <div style="font-size:14px;font-weight:700;color:#ffb4b4;margin-bottom:6px">🚫 Аккаунт заблокирован на платформе</div>
+          <div style="font-size:12.5px;color:rgba(255,255,255,.85);line-height:1.45">
+            Данный пользователь заблокирован на платформе.
+            Администрация платформы <b>не несёт ответственности</b> за действия
+            пользователя вне платформы.
+          </div>
+        </div>
+      <?php endif; ?>
       <div class="pg-rank">[<?= e($rank['title'] ?? 'Участник') ?>]</div>
 
       <div class="pg-actions">
         <?php if ($__user && !$isOwnProfile): ?>
-          <?php if (!$iBlockedThem && !$theyBlockedMe): ?>
+          <?php if (empty($iBlockedThem) && empty($theyBlockedMe)): ?>
             <a class="pg-action" href="/messages.php?with=<?= (int)$profileUser['id'] ?>" title="Написать">💬</a>
           <?php endif; ?>
         <?php elseif ($isOwnProfile): ?>
@@ -302,34 +318,32 @@ if (strpos($extraHead, 'profile-glass') !== false) {
         <?php else: ?>
           <a class="pg-action" href="/auth/login.php" title="Войти, чтобы написать">💬</a>
         <?php endif; ?>
-        <a class="pg-action" href="/catalog.php" title="Каталог">🔔</a>
-        <a class="pg-action" href="#pg-tabs" title="Контент">🔍</a>
-        <button type="button" class="pg-action" id="pg-more-btn" title="Ещё" style="border:none;cursor:pointer">···</button>
+        <a class="pg-action" href="/catalog.php" title="Каталог">📺</a>
+        <a class="pg-action" href="#pg-tabs" id="pg-scroll-tabs" title="Контент">🔍</a>
+        <a class="pg-action" href="<?= $isOwnProfile ? '/account_settings.php' : '/dashboard.php' ?>" title="<?= $isOwnProfile ? 'Настройки' : 'Ещё' ?>">···</a>
       </div>
 
-      <?php if ($statusText !== ''): ?>
+      <?php if (!empty($statusText)): ?>
         <div class="pg-status">♪ <?= e($statusText) ?></div>
       <?php elseif ($isOwnProfile): ?>
         <div class="pg-status" style="opacity:.7">♪ Добавь статус в настройках ниже</div>
       <?php endif; ?>
 
-      <?php if ($usernameHistory): ?>
-        <div style="position:relative;display:inline-block;margin-top:8px">
-          <div id="uh-popup" class="pg-uh-popup" hidden>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-              <b style="font-size:13px;color:#fff">История ников</b>
-              <button type="button" id="uh-close" style="background:none;border:none;color:rgba(255,255,255,.5);font-size:18px;cursor:pointer">×</button>
-            </div>
-            <ul style="margin:0;padding-left:18px;font-size:12.5px;color:rgba(255,255,255,.65);line-height:1.55;max-height:220px;overflow:auto">
-              <?php foreach ($usernameHistory as $h): ?>
-                <li>
-                  <span style="text-decoration:line-through;opacity:.7"><?= e($h['old_username']) ?></span>
-                  → <b style="color:#fff"><?= e($h['new_username']) ?></b>
-                  <span style="opacity:.55"> · <?= e(date('d.m.Y', strtotime($h['changed_at']))) ?></span>
-                </li>
-              <?php endforeach; ?>
-            </ul>
+      <?php if (!empty($usernameHistory)): ?>
+        <div id="uh-popup" class="pg-uh-popup" hidden role="dialog" aria-label="История ников">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <b style="font-size:13px;color:#fff">История ников</b>
+            <button type="button" id="uh-close" style="background:none;border:none;color:rgba(255,255,255,.55);font-size:20px;cursor:pointer;line-height:1" aria-label="Закрыть">×</button>
           </div>
+          <ul style="margin:0;padding:0 4px 4px 18px;font-size:12.5px;color:rgba(255,255,255,.7);line-height:1.55;max-height:240px;overflow:auto">
+            <?php foreach ($usernameHistory as $h): ?>
+              <li style="margin-bottom:6px">
+                <span style="text-decoration:line-through;opacity:.7"><?= e($h['old_username']) ?></span>
+                → <b style="color:#fff"><?= e($h['new_username']) ?></b>
+                <span style="opacity:.55"> · <?= e(date('d.m.Y', strtotime($h['changed_at']))) ?></span>
+              </li>
+            <?php endforeach; ?>
+          </ul>
         </div>
       <?php endif; ?>
     </div>
@@ -580,33 +594,90 @@ if (strpos($extraHead, 'profile-glass') !== false) {
   tabs.forEach(function (tab) {
     tab.addEventListener('click', function () {
       var id = tab.getAttribute('data-tab');
-      tabs.forEach(function (t) { t.classList.toggle('active', t === tab); });
+      tabs.forEach(function (x) { x.classList.toggle('active', x === tab); });
       panels.forEach(function (p) {
         p.classList.toggle('active', p.id === 'pg-panel-' + id);
       });
     });
   });
 
-  // история ников — попап
+  // скролл к контенту
+  var scrollTabs = document.getElementById('pg-scroll-tabs');
+  if (scrollTabs) {
+    scrollTabs.addEventListener('click', function (e) {
+      var t = document.getElementById('pg-tabs');
+      if (t) { e.preventDefault(); t.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    });
+  }
+
+  // История ников (XenForo-style) — попап у кнопки ⏱
   var btn = document.getElementById('uh-toggle');
-  var btnMenu = document.getElementById('uh-toggle-menu');
-  if (!btn && btnMenu) btn = btnMenu;
   var pop = document.getElementById('uh-popup');
   var closeBtn = document.getElementById('uh-close');
-  if (btn && pop) {
-    function open() { pop.hidden = false; }
-    function close() { pop.hidden = true; }
-    btn.addEventListener('click', function (e) {
-      e.stopPropagation();
-      if (pop.hidden) open(); else close();
-    });
-    if (closeBtn) closeBtn.addEventListener('click', function (e) { e.stopPropagation(); close(); });
-    document.addEventListener('click', function (e) {
-      if (pop.hidden) return;
-      if (!pop.contains(e.target) && e.target !== btn) close();
-    });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+
+  function placePopup() {
+    if (!btn || !pop) return;
+    var r = btn.getBoundingClientRect();
+    var pad = 8;
+    pop.style.position = 'fixed';
+    pop.style.zIndex = '10050';
+    var wasHidden = pop.hidden;
+    if (wasHidden) {
+      pop.style.visibility = 'hidden';
+      pop.hidden = false;
+    }
+    var pw = pop.offsetWidth || 280;
+    var ph = pop.offsetHeight || 160;
+    if (wasHidden) {
+      pop.hidden = true;
+      pop.style.visibility = '';
+    }
+    var left = Math.min(window.innerWidth - pw - pad, Math.max(pad, r.left + r.width / 2 - pw / 2));
+    var top = r.bottom + 10;
+    if (top + ph > window.innerHeight - pad) {
+      top = Math.max(pad, r.top - ph - 10);
+    }
+    pop.style.left = left + 'px';
+    pop.style.top = top + 'px';
+    pop.style.right = 'auto';
+    pop.style.transform = 'none';
   }
+
+  function openUh() {
+    if (!pop) return;
+    placePopup();
+    pop.hidden = false;
+  }
+  function closeUh() {
+    if (pop) pop.hidden = true;
+  }
+
+  if (btn && pop) {
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (pop.hidden) openUh(); else closeUh();
+    });
+  }
+  if (closeBtn) {
+    closeBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      closeUh();
+    });
+  }
+  document.addEventListener('click', function (e) {
+    if (!pop || pop.hidden) return;
+    if (pop.contains(e.target)) return;
+    if (btn && (e.target === btn || btn.contains(e.target))) return;
+    closeUh();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeUh();
+  });
+  window.addEventListener('resize', function () {
+    if (pop && !pop.hidden) placePopup();
+  });
 })();
 </script>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

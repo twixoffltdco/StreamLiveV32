@@ -105,13 +105,24 @@ function detect_video_platform(string $url): ?string {
     'streamable.com'     => 'streamable',
     'reddit.com'         => 'reddit',
     'drive.google.com'   => 'gdrive',
+    'plvideo.base44.app' => 'playtube',
+    'russtube.ru'        => 'playtube',
+    'нашютуб.рф'         => 'playtube',
+    'xn--80a1acd.xn--p1ai'=> 'playtube', // нашютуб.рф punycode fallback
   ];
   if (isset($map[$host])) return $map[$host];
 
-  // PeerTube — это не один сайт, а движок, который ставят на разные домены (framatube.org,
-  // peertube.tv, video.something.xyz и т.д.). Однозначно по домену не определить, поэтому
-  // ловим по характерному пути /w/ (watch) или /videos/watch/, который есть у всех инстансов.
+  // PeerTube — путь /w/ или /videos/watch/
   if (preg_match('#/(w|videos/watch)/[\w-]+#', (string)parse_url($url, PHP_URL_PATH))) return 'peertube';
+
+  // PlayTube / клоны (plvideo, russtube, нашютуб и т.п.): /watch/ID, /v/ID, /embed/ID
+  $path = (string)parse_url($url, PHP_URL_PATH);
+  if (preg_match('#/(?:watch|v|embed|video)/([a-zA-Z0-9_-]{3,})#', $path)) {
+    // не путаем с youtube/vimeo — они уже в map
+    if (!in_array($host, ['youtube.com','youtu.be','vimeo.com','rutube.ru','vk.com','vk.ru'], true)) {
+      return 'playtube';
+    }
+  }
 
   if (preg_match('/\.(mp4|webm|mov)(\?.*)?$/i', $url)) return 'mp4';
   if (preg_match('/\.m3u8(\?.*)?$/i', $url)) return 'm3u8';
@@ -232,6 +243,23 @@ function normalize_video_embed(string $platform, string $url): string {
     case 'gdrive':
       if (preg_match('#/file/d/([^/]+)#', $url, $m)) return "https://drive.google.com/file/d/{$m[1]}/preview";
       return $url;
+
+    case 'playtube':
+      // PlayTube / plvideo.base44.app: /watch/ID → /embed/ID на том же хосте
+      $hostPt = strtolower((string)parse_url($url, PHP_URL_HOST));
+      $scheme = parse_url($url, PHP_URL_SCHEME) ?: 'https';
+      $id = null;
+      if (preg_match('#/(?:watch|v|embed|video)/([a-zA-Z0-9_-]{3,})#', $url, $m)) {
+        $id = $m[1];
+      } elseif (preg_match('/[?&](?:id|video_id)=([a-zA-Z0-9_-]+)/', $url, $m)) {
+        $id = $m[1];
+      }
+      if ($id && $hostPt) {
+        return $scheme . '://' . $hostPt . '/embed/' . rawurlencode($id);
+      }
+      // фолбэк — локальный скрапер плеера
+      $local = local_video_embed_url($url);
+      return $local !== null ? $local : $url;
 
     case 'smotrim':
       // Парсер проекта: playersmotrimru.php (не прямой player.smotrim.ru)

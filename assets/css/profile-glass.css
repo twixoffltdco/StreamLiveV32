@@ -4,7 +4,7 @@
   position: relative;
   height: 340px;
   border-radius: 0 0 28px 28px;
-  overflow: hidden;
+  overflow: visible;
   background: #1a1a1a;
 }
 .pg-hero-bg {
@@ -36,15 +36,70 @@
   text-align: center; z-index: 2; padding: 0 16px;
 }
 .pg-avatar {
+  display: block;
   width: 96px; height: 96px; border-radius: 50%;
   object-fit: cover; border: 3px solid rgba(255,255,255,.35);
   box-shadow: 0 8px 32px rgba(0,0,0,.45);
   background: #222;
+  margin: 0 auto;
 }
 .pg-name {
-  margin: 12px 0 2px; font-size: 26px; font-weight: 700; color: #fff;
+  margin: 12px auto 2px;
+  font-size: 26px; font-weight: 700; color: #fff;
   letter-spacing: -.02em;
+  text-align: center;
+  display: block;
 }
+.pg-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 12px 0 2px;
+}
+.pg-name-row .pg-name-text {
+  font-size: 26px; font-weight: 700; color: #fff;
+  letter-spacing: -.02em;
+  line-height: 1.2;
+}
+.xf-name-history-btn {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 26px; height: 26px;
+  padding: 0; margin: 0;
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 6px;
+  background: rgba(255,255,255,.12);
+  color: rgba(255,255,255,.9);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+.xf-name-history-btn:hover {
+  background: rgba(255,255,255,.22);
+}
+.pg-uh-popup {
+  position: fixed !important;
+  z-index: 10050 !important;
+  min-width: 260px;
+  max-width: min(340px, calc(100vw - 24px));
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(24,24,28,.96) !important;
+  border: 1px solid rgba(255,255,255,.14);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 16px 48px rgba(0,0,0,.55);
+  text-align: left;
+  transform: none !important;
+  left: 50%;
+  top: 50%;
+}
+
 .pg-sub { color: rgba(255,255,255,.65); font-size: 13px; }
 .pg-rank { color: rgba(255,255,255,.85); font-size: 12px; margin-top: 4px; }
 .pg-actions {
