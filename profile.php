@@ -103,42 +103,41 @@ if ($username === '') {
   exit;
 }
 
-// Только реальные колонки. Раньше в SELECT были profile_cover/profile_status
-// (их нет в схеме — есть profile_cover_url / profile_status_text) → весь запрос
-// падал, срабатывал fallback без username_css / session / обложки → белый ник,
-// обложка=аватар, статус/сессия пустые.
+// Базовый SELECT (только колонки, которые есть почти всегда).
+// Опциональные поля (username_css, session_*, cover, status) подтягиваем ОТДЕЛЬНО —
+// иначе один отсутствующий столбец роняет весь запрос и ник остаётся белым.
 $profileUser = null;
-$selectAttempts = [
-  'SELECT id, username, avatar, gravatar_email, role, created_at, prefix_id, username_css,
-          session_started_at, last_seen_at, session_seconds,
-          is_verified, is_banned, xp, phone, profile_cover_url, profile_status_text
-   FROM users WHERE username = ? LIMIT 1',
-  'SELECT id, username, avatar, gravatar_email, role, created_at, prefix_id, username_css,
-          session_started_at, last_seen_at, session_seconds,
-          is_verified, is_banned, xp, phone
-   FROM users WHERE username = ? LIMIT 1',
-  'SELECT id, username, avatar, gravatar_email, role, created_at, is_verified, is_banned, xp
-   FROM users WHERE username = ? LIMIT 1',
-];
-foreach ($selectAttempts as $sql) {
-  try {
-    $stmt = db()->prepare($sql);
-    $stmt->execute([$username]);
-    $profileUser = $stmt->fetch();
-    if ($profileUser) break;
-  } catch (Throwable $e) {
-    $profileUser = null;
-  }
+try {
+  $stmt = db()->prepare(
+    'SELECT id, username, avatar, gravatar_email, role, created_at, is_verified, is_banned, xp
+     FROM users WHERE username = ? LIMIT 1'
+  );
+  $stmt->execute([$username]);
+  $profileUser = $stmt->fetch() ?: null;
+} catch (Throwable $e) {
+  $profileUser = null;
 }
+
 if ($profileUser) {
-  $profileUser['phone'] = $profileUser['phone'] ?? null;
-  $profileUser['profile_cover_url'] = $profileUser['profile_cover_url'] ?? null;
-  $profileUser['profile_status_text'] = $profileUser['profile_status_text'] ?? null;
-  $profileUser['username_css'] = $profileUser['username_css'] ?? null;
-  $profileUser['prefix_id'] = $profileUser['prefix_id'] ?? null;
-  $profileUser['session_started_at'] = $profileUser['session_started_at'] ?? null;
-  $profileUser['last_seen_at'] = $profileUser['last_seen_at'] ?? null;
-  $profileUser['session_seconds'] = $profileUser['session_seconds'] ?? 0;
+  $uidTmp = (int)$profileUser['id'];
+  $optionalCols = [
+    'prefix_id', 'username_css', 'phone',
+    'profile_cover_url', 'profile_status_text',
+    'session_started_at', 'last_seen_at', 'session_seconds',
+  ];
+  foreach ($optionalCols as $col) {
+    $profileUser[$col] = $profileUser[$col] ?? ($col === 'session_seconds' ? 0 : null);
+    try {
+      $st = db()->prepare("SELECT `{$col}` FROM users WHERE id = ? LIMIT 1");
+      $st->execute([$uidTmp]);
+      $val = $st->fetchColumn();
+      if ($val !== false) {
+        $profileUser[$col] = ($col === 'session_seconds') ? (int)$val : $val;
+      }
+    } catch (Throwable $e) {
+      // колонки нет — оставляем null/0
+    }
+  }
 }
 
 if (!$profileUser) {
@@ -406,6 +405,12 @@ if (strpos($extraHead, 'profile-glass') !== false) {
       <img class="pg-avatar" src="<?= e($avatarUrl) ?>" alt="" width="96" height="96" onerror="this.style.opacity='.3'">
 
       <div class="pg-name-row">
+        <?php
+          // user_render_username_html уже рисует префиксы + ник с CSS — второй раз НЕ рендерим
+          if (function_exists('user_enrich_display_fields')) {
+            $profileUser = user_enrich_display_fields($profileUser);
+          }
+        ?>
         <span class="pg-name-text"><?= function_exists('user_render_username_html') ? user_render_username_html($profileUser) : e($profileUser['username']) ?></span>
         <?= function_exists('verify_badge') ? verify_badge((bool)($profileUser['is_verified'] ?? false)) : '' ?>
         <?php if (!empty($usernameHistory)): ?>
@@ -560,12 +565,7 @@ if (strpos($extraHead, 'profile-glass') !== false) {
     echo '</div>';
   }
   ?>
-          <?php
-          // user_render_username_html уже рисует префиксы + ник с CSS — второй раз НЕ рендерим
-          if (function_exists('user_enrich_display_fields')) {
-            $profileUser = user_enrich_display_fields($profileUser);
-          }
-        ?>
+
   
   <?php if ($__user && !$isOwnProfile): ?>
   <div class="pg-glass" style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">

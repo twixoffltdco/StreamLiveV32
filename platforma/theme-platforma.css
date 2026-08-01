@@ -438,3 +438,30 @@ body:not(.pl-theme-platforma) .pl-tg-banner {
 body.pl-theme-platforma .pl-tg-banner {
   display: block !important;
 }
+
+/* === Studio shortcut chip + search density (YouTube parity) === */
+.pl-yt-studio-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 18px; font-size: 13px; font-weight: 500;
+  background: #272727; color: #f1f1f1 !important; text-decoration: none !important;
+  margin-left: 8px;
+}
+.pl-yt-studio-chip:hover { background: #3f3f3f; }
+.pl-yt-analytics-link {
+  color: #3ea6ff !important; font-size: 13px; margin-left: 8px;
+}
+
+/* denser video grid like YT */
+body.pl-theme-platforma .video-grid,
+body.pl-theme-platforma .videos-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)) !important;
+  gap: 16px 12px !important;
+}
+body.pl-theme-platforma .video-card img,
+body.pl-theme-platforma .video-card .thumb {
+  border-radius: 12px !important;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+  width: 100%;
+}

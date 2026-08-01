@@ -292,9 +292,20 @@ function user_sanitize_nick_css(string $css): string {
 
 function user_render_username_html(array $user): string {
   $name = htmlspecialchars((string)($user['username'] ?? 'Гость'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+  // Если CSS не передали — дотянем из БД (форум/лента часто отдают только username+id)
+  if ((!isset($user['username_css']) || $user['username_css'] === null || $user['username_css'] === '')
+      && !empty($user['id'])) {
+    try {
+      $st = db()->prepare('SELECT username_css FROM users WHERE id = ? LIMIT 1');
+      $st->execute([(int)$user['id']]);
+      $got = $st->fetchColumn();
+      if ($got !== false && $got !== null && (string)$got !== '') {
+        $user['username_css'] = (string)$got;
+      }
+    } catch (Throwable $e) {}
+  }
   $css = user_sanitize_nick_css((string)($user['username_css'] ?? ''));
-  // !important в inline не ставим — стиль через attribute style достаточно;
-  // color навешиваем отдельно, чтобы не перебивался родительским .pg-name-text { color:#fff }
+  // inline style побеждает color родителя (.pg-name-text { color:#fff })
   $style = $css !== '' ? ' style="' . htmlspecialchars($css, ENT_QUOTES) . '"' : '';
   $prefixes = user_get_prefixes_for_user($user);
   return user_render_prefixes_html($prefixes) . '<span class="user-nick"' . $style . '>' . $name . '</span>';

@@ -1,14 +1,17 @@
 <?php
 declare(strict_types=1);
 $mode = strtolower(trim((string)($_GET['mode'] ?? 'streamlife')));
-if ($mode !== 'platforma') $mode = 'streamlife';
+$allowed = ['streamlife', 'platforma', 'telegram'];
+if (!in_array($mode, $allowed, true)) {
+  $mode = 'streamlife';
+}
 $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
 setcookie('pl_ui_mode', $mode, [
-    'expires' => time() + 86400 * 365,
-    'path' => '/',
-    'secure' => $secure,
-    'httponly' => false,
-    'samesite' => 'Lax',
+  'expires' => time() + 86400 * 365,
+  'path' => '/',
+  'secure' => $secure,
+  'httponly' => false,
+  'samesite' => 'Lax',
 ]);
 if (session_status() === PHP_SESSION_NONE) @session_start();
 $_SESSION['pl_ui_mode'] = $mode;
