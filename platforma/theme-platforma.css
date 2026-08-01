@@ -317,3 +317,119 @@ body.pl-theme-platforma .footer {
 @media (max-width: 768px) {
   body.pl-theme-platforma header { flex-wrap: wrap !important; }
 }
+
+
+/* ===== TG banner: только стиль Платформа ===== */
+body.pl-theme-platforma .pl-tg-banner {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9990;
+  pointer-events: none;
+}
+body.pl-theme-platforma .pl-tg-banner-inner {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 auto;
+  max-width: 920px;
+  padding: 10px 14px;
+  background: rgba(24, 24, 24, 0.92);
+  border: 1px solid #303030;
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.35);
+  color: #f1f1f1;
+  font: 500 13px/1.35 system-ui, -apple-system, sans-serif;
+}
+body.pl-theme-platforma .pl-tg-banner-ico {
+  flex-shrink: 0;
+  color: #2AABEE;
+  display: flex;
+}
+body.pl-theme-platforma .pl-tg-banner-text {
+  flex: 1;
+  min-width: 0;
+  color: #ccc;
+}
+body.pl-theme-platforma .pl-tg-banner-text b {
+  color: #fff;
+  font-weight: 700;
+}
+body.pl-theme-platforma .pl-tg-banner-text a {
+  color: #3ea6ff !important;
+  text-decoration: none !important;
+  font-weight: 600;
+}
+body.pl-theme-platforma .pl-tg-banner-text a:hover {
+  text-decoration: underline !important;
+}
+body.pl-theme-platforma .pl-tg-banner-btn {
+  flex-shrink: 0;
+  padding: 7px 14px;
+  border-radius: 18px;
+  background: #2AABEE;
+  color: #fff !important;
+  text-decoration: none !important;
+  font-weight: 600;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+body.pl-theme-platforma .pl-tg-banner-btn:hover {
+  background: #229ED9;
+  color: #fff !important;
+}
+body.pl-theme-platforma .pl-tg-banner-x {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #888;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+body.pl-theme-platforma .pl-tg-banner-x:hover {
+  background: #272727;
+  color: #fff;
+}
+
+/* Поднять над мобильной нижней навигацией */
+@media (max-width: 900px) {
+  body.pl-theme-platforma .pl-tg-banner {
+    bottom: 56px; /* высота .pl-yt-bottom */
+  }
+  body.pl-theme-platforma .pl-tg-banner-inner {
+    margin: 0 8px;
+    border-radius: 12px;
+    border: 1px solid #303030;
+    padding: 9px 12px;
+    font-size: 12px;
+  }
+  body.pl-theme-platforma .pl-tg-banner-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+}
+
+/* Отступ контента, чтобы баннер не перекрывал */
+body.pl-theme-platforma.pl-has-tg-banner {
+  padding-bottom: 64px !important;
+}
+@media (max-width: 900px) {
+  body.pl-theme-platforma.pl-has-tg-banner {
+    padding-bottom: 120px !important;
+  }
+}
+
+/* На StreamLife (без класса) баннер не существует / скрыт */
+html:not(.pl-theme-platforma) .pl-tg-banner,
+body:not(.pl-theme-platforma) .pl-tg-banner {
+  display: none !important;
+}

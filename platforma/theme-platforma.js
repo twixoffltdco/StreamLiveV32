@@ -16,7 +16,7 @@
 
   var LINKS = [
     { href: '/', label: 'Главная', icon: 'home' },
-    { href: '/channels.php', label: 'Каналы', icon: 'tv' },
+    { href: '/catalog.php', label: 'Каналы', icon: 'tv' },
     { href: '/videos.php', label: 'Видео', icon: 'play' },
     { href: '/shorts.php', label: 'Shorts', icon: 'shorts' },
     { href: '/resources.php', label: 'Ресурсы', icon: 'docs' },
@@ -48,6 +48,9 @@
   }
 
   function addBetaBadge() {
+    // убираем старый бейдж «Альфа», если остался от кэша/прошлой версии
+    var oldAlpha = document.getElementById('pl-alpha-badge');
+    if (oldAlpha && oldAlpha.parentNode) oldAlpha.parentNode.removeChild(oldAlpha);
     if (document.getElementById('pl-beta-badge')) return;
     // ищем логотип / название
     var candidates = document.querySelectorAll(
@@ -142,7 +145,7 @@
     [
       { href: '/', label: 'Главная', icon: 'home' },
       { href: '/shorts.php', label: 'Shorts', icon: 'shorts' },
-      { href: '/channels.php', label: 'Каналы', icon: 'tv' },
+      { href: '/catalog.php', label: 'Каналы', icon: 'tv' },
       { href: '/platforma/studio/', label: 'Студия', icon: 'studio' },
       { href: '#menu', label: 'Ещё', icon: 'menu' }
     ].forEach(function (l) {
@@ -189,6 +192,48 @@
 
     hideDecor();
     addBetaBadge();
+    addTgBanner();
+  }
+
+  
+  /** Нижний баннер: баги → ТГ, общение в ТГ. Только стиль Платформа. */
+  function addTgBanner() {
+    if (!isOn()) return;
+    if (document.getElementById('pl-tg-banner')) return;
+    try {
+      if (localStorage.getItem('pl_tg_banner_hide') === '1') return;
+    } catch (e) {}
+
+    var tgUrl = (window.PL_TG_URL || 'https://t.me/platforma_offcial');
+    var bar = document.createElement('div');
+    bar.id = 'pl-tg-banner';
+    bar.className = 'pl-tg-banner';
+    bar.setAttribute('role', 'status');
+    bar.innerHTML =
+      '<div class="pl-tg-banner-inner">' +
+        '<span class="pl-tg-banner-ico" aria-hidden="true">' +
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/></svg>' +
+        '</span>' +
+        '<div class="pl-tg-banner-text">' +
+          '<b>Бета</b> · Сообщайте о багах и недоработках в Telegram · ' +
+          'для общения — <a href="' + tgUrl + '" target="_blank" rel="noopener">наш Telegram</a>' +
+        '</div>' +
+        '<a class="pl-tg-banner-btn" href="' + tgUrl + '" target="_blank" rel="noopener">Написать</a>' +
+        '<button type="button" class="pl-tg-banner-x" title="Скрыть" aria-label="Скрыть">×</button>' +
+      '</div>';
+    document.body.appendChild(bar);
+    document.body.classList.add('pl-has-tg-banner');
+
+    var close = bar.querySelector('.pl-tg-banner-x');
+    if (close) {
+      close.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        bar.remove();
+        document.body.classList.remove('pl-has-tg-banner');
+        try { localStorage.setItem('pl_tg_banner_hide', '1'); } catch (err) {}
+      });
+    }
   }
 
   function hideDecor() {
