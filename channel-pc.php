@@ -147,9 +147,9 @@ if ($__user) {
         </tbody>
       </table>
 
-      <h3 id="comments" style="margin-top:28px">Комментарии (<?= count($comments) ?>)</h3>
+      <h3 id="comments" style="margin-top:28px">Комментарии (<span id="comments-count"><?= count($comments) ?></span>)</h3>
       <?php if ($__user): ?>
-        <form method="POST" action="/comment_add" style="margin-bottom:18px">
+        <form method="POST" action="/comment_add" id="channel-comment-form" style="margin-bottom:18px">
           <?= csrf_field() ?>
           <input type="hidden" name="channel_id" value="<?= (int)$channel['id'] ?>">
           <textarea id="comment-input" name="message" placeholder="Написать комментарий..." maxlength="1000" required></textarea>
@@ -163,9 +163,16 @@ if ($__user) {
       <?php else: ?>
         <p style="color:var(--text-dim);font-size:13px"><a href="/auth/login.php" style="color:var(--accent-2)">Войдите</a>, чтобы оставить комментарий.</p>
       <?php endif; ?>
-      <div style="display:flex;flex-direction:column;gap:14px">
+      <?php
+        $__maxCommentId = 0;
+        foreach ($comments as $__c) { if ((int)$__c['id'] > $__maxCommentId) $__maxCommentId = (int)$__c['id']; }
+      ?>
+      <div id="comments-list" data-after="<?= (int)$__maxCommentId ?>" style="display:flex;flex-direction:column;gap:14px">
+        <?php if (empty($comments)): ?>
+          <p id="comments-empty" style="color:var(--text-dim);font-size:13px">Комментариев пока нет — будьте первым.</p>
+        <?php endif; ?>
         <?php foreach ($comments as $c): ?>
-          <div style="border-bottom:1px solid var(--border);padding-bottom:12px">
+          <div class="channel-comment" data-id="<?= (int)$c['id'] ?>" style="border-bottom:1px solid var(--border);padding-bottom:12px">
             <b><a href="/profile.php?username=<?= e($c['username']) ?>" style="color:inherit;text-decoration:none"><?= e($c['username']) ?></a></b><?= verify_badge((bool)$c['is_verified']) ?> <span style="color:var(--text-dim);font-size:12px"><?= e($c['created_at']) ?></span>
             <?php if ($isModerator): ?>
               <form method="POST" action="/comment_delete" style="display:inline" onsubmit="return confirm('Удалить комментарий и заблокировать автора на канале?')">
@@ -178,7 +185,6 @@ if ($__user) {
             <p style="margin:4px 0 0"><?= render_with_stickers($c['message'], $stickers) ?></p>
           </div>
         <?php endforeach; ?>
-        <?php if (empty($comments)): ?><p style="color:var(--text-dim);font-size:13px">Комментариев пока нет — будьте первым.</p><?php endif; ?>
       </div>
     </div>
   </div>
@@ -470,6 +476,51 @@ if ($__user) {
   document.cookie = 'viewed_channels=' + encodeURIComponent(viewed.slice(0,80).join(',')) + '; path=/; max-age=31536000';
 })();
 </script>
+<?php
+
+?>
+<script>
+(function () {
+  var list = document.getElementById('comments-list');
+  if (!list) return;
+  var channelId = <?= (int)$channel['id'] ?>;
+  var after = parseInt(list.getAttribute('data-after') || '0', 10) || 0;
+  var countEl = document.getElementById('comments-count');
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function appendComment(c) {
+    if (list.querySelector('.channel-comment[data-id="' + c.id + '"]')) return;
+    var empty = document.getElementById('comments-empty');
+    if (empty) empty.remove();
+    var div = document.createElement('div');
+    div.className = 'channel-comment';
+    div.setAttribute('data-id', c.id);
+    div.style.cssText = 'border-bottom:1px solid var(--border);padding-bottom:12px';
+    div.innerHTML = '<b><a href="/profile.php?username=' + encodeURIComponent(c.username) + '" style="color:inherit;text-decoration:none">' + esc(c.username) + '</a></b>' +
+      (c.is_verified ? ' ✓' : '') +
+      ' <span style="color:var(--text-dim);font-size:12px">' + esc(c.created_at) + '</span>' +
+      '<p style="margin:4px 0 0">' + esc(c.message) + '</p>';
+    list.insertBefore(div, list.firstChild);
+    after = Math.max(after, c.id);
+    list.setAttribute('data-after', String(after));
+    if (countEl) countEl.textContent = String(list.querySelectorAll('.channel-comment').length);
+  }
+  function pollComments() {
+    fetch('/comments_poll.php?channel_id=' + channelId + '&after=' + after, { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d || !d.ok) return;
+        (d.comments || []).forEach(appendComment);
+        if (d.max_id) after = Math.max(after, d.max_id);
+      })
+      .catch(function () {})
+      .finally(function () { setTimeout(pollComments, 10000); });
+  }
+  setTimeout(pollComments, 10000);
+})();
+</script>
+
 <?php
 require_once __DIR__ . '/includes/footer.php';
 ?>

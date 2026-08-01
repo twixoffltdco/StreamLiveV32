@@ -274,9 +274,14 @@ if (strpos($extraHead, 'profile-glass') !== false) {
 
     <div class="pg-hero-main">
       <img class="pg-avatar" src="<?= e($avatarUrl) ?>" alt="" onerror="this.style.opacity='.3'">
-      <div class="pg-name">
-        <?= e($profileUser['username']) ?>
+      <div class="pg-name" style="position:relative;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center">
+        <span><?= e($profileUser['username']) ?></span>
         <?= function_exists('verify_badge') ? verify_badge((bool)($profileUser['is_verified'] ?? false)) : '' ?>
+        <?php if ($usernameHistory): ?>
+          <button type="button" id="uh-toggle" class="xf-name-history-btn" title="История ников"
+            style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;margin:0;border:none;border-radius:4px;background:rgba(255,255,255,.12);color:rgba(255,255,255,.85);cursor:pointer;font-size:13px;line-height:1"
+            aria-label="История изменения ника">⏱</button>
+        <?php endif; ?>
       </div>
       <div class="pg-sub">
         <?php if (!empty($profileUser['is_banned'])): ?>
@@ -299,11 +304,7 @@ if (strpos($extraHead, 'profile-glass') !== false) {
         <?php endif; ?>
         <a class="pg-action" href="/catalog.php" title="Каталог">🔔</a>
         <a class="pg-action" href="#pg-tabs" title="Контент">🔍</a>
-        <?php if ($usernameHistory): ?>
-          <button type="button" class="pg-action" id="uh-toggle" title="История ников" style="border:none;cursor:pointer">🕘</button>
-        <?php else: ?>
-          <a class="pg-action" href="/dashboard.php" title="Ещё">···</a>
-        <?php endif; ?>
+        <button type="button" class="pg-action" id="pg-more-btn" title="Ещё" style="border:none;cursor:pointer">···</button>
       </div>
 
       <?php if ($statusText !== ''): ?>
@@ -588,6 +589,8 @@ if (strpos($extraHead, 'profile-glass') !== false) {
 
   // история ников — попап
   var btn = document.getElementById('uh-toggle');
+  var btnMenu = document.getElementById('uh-toggle-menu');
+  if (!btn && btnMenu) btn = btnMenu;
   var pop = document.getElementById('uh-popup');
   var closeBtn = document.getElementById('uh-close');
   if (btn && pop) {

@@ -579,10 +579,12 @@ function switchInfoTab(id, tab) {
         } else {
             html += `<p style="color:#888;font-size:0.9rem;"><a href="/auth/login.php" style="color:#7c5cff;">Войдите</a>, чтобы комментировать</p>`;
         }
-        html += `<div id="comment-list-${id}">`;
+        let maxCid = 0;
+        (data.comments || []).forEach(c => { if (c.id && c.id > maxCid) maxCid = c.id; });
+        html += `<div id="comment-list-${id}" data-after="${maxCid}">`;
         if (data.comments && data.comments.length) {
             data.comments.forEach(c => {
-                html += `<div class="comment-item"><b>${escapeHtml(c.username)}</b> <span style="color:#888;font-size:0.75rem;">${escapeHtml(c.created_at)}</span><br>${renderTextWithStickers(id, c.message)}</div>`;
+                html += `<div class="comment-item" data-cid="${c.id||0}"><b>${escapeHtml(c.username)}</b> <span style="color:#888;font-size:0.75rem;">${escapeHtml(c.created_at)}</span><br>${renderTextWithStickers(id, c.message)}</div>`;
             });
         } else {
             html += `<p style="color:#888;">Комментариев пока нет.</p>`;
@@ -938,5 +940,35 @@ document.addEventListener('DOMContentLoaded', function() {
   words.filter(w => w && w.length > 2).slice(0,12).forEach(w => document.cookie = 'interest_' + md5lite(w) + '=1; path=/; max-age=31536000');
   function md5lite(s){let h=0;for(let i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0}return Math.abs(h).toString(16)}
 })();
+
+// Live comments every 10s for open comment tabs
+function pollChannelComments(id) {
+  const list = document.getElementById('comment-list-' + id);
+  if (!list) return;
+  let after = parseInt(list.getAttribute('data-after') || '0', 10) || 0;
+  fetch('/comments_poll.php?channel_id=' + id + '&after=' + after, { credentials: 'same-origin' })
+    .then(r => r.json())
+    .then(d => {
+      if (!d || !d.ok || !d.comments) return;
+      d.comments.forEach(c => {
+        if (list.querySelector('[data-cid="' + c.id + '"]')) return;
+        const div = document.createElement('div');
+        div.className = 'comment-item';
+        div.setAttribute('data-cid', c.id);
+        div.innerHTML = '<b>' + escapeHtml(c.username) + '</b> <span style="color:#888;font-size:0.75rem;">' + escapeHtml(c.created_at) + '</span><br>' + escapeHtml(c.message);
+        list.insertBefore(div, list.firstChild);
+        after = Math.max(after, c.id);
+      });
+      if (d.max_id) after = Math.max(after, d.max_id);
+      list.setAttribute('data-after', String(after));
+    })
+    .catch(() => {});
+}
+setInterval(function () {
+  document.querySelectorAll('[id^="comment-list-"]').forEach(function (el) {
+    const id = el.id.replace('comment-list-', '');
+    if (id && el.offsetParent !== null) pollChannelComments(id);
+  });
+}, 10000);
 </script>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
