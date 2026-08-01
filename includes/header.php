@@ -1,6 +1,17 @@
 <?php
 require_once __DIR__ . '/auth.php';
 $__user = current_user();
+
+if (is_file(__DIR__ . '/user_display.php')) {
+  require_once __DIR__ . '/user_display.php';
+  if (function_exists('user_display_ensure_schema')) {
+    try { user_display_ensure_schema(); } catch (Throwable $e) {}
+  }
+  if (!empty($__user) && function_exists('user_touch_session')) {
+    try { user_touch_session($__user); } catch (Throwable $e) {}
+  }
+}
+
 $__flash = flash_get();
 
 // Начисление опыта за вход — срабатывает само на любой странице, если сегодня
@@ -46,6 +57,7 @@ $__canonical = SITE_URL . ($_SERVER['REQUEST_URI'] ?? '/');
 ?>
 <?php @include __DIR__ . '/platforma/header_switcher.php'; ?>
 <?php @include dirname(__DIR__) . '/platforma/header_switcher.php'; ?>
+<?php @include __DIR__ . '/platforma/recommendations_block.php'; ?>
 <!DOCTYPE html>
 <html lang="ru" class="<?= ($_COOKIE['site_color_mode'] ?? 'dark') === 'light' ? 'light-mode' : '' ?>">
 <head>
@@ -66,6 +78,7 @@ $__canonical = SITE_URL . ($_SERVER['REQUEST_URI'] ?? '/');
   <?php require_once __DIR__ . '/themes.php'; $__activeTheme = themes_active(); if ($__activeTheme): ?><link rel="stylesheet" href="<?= e($__activeTheme['css']) ?>?v=<?= time() ?>"><?php endif; ?>
   <link rel="stylesheet" href="/assets/css/light-mode.css?v=<?= file_exists(__DIR__ . '/../assets/css/light-mode.css') ? filemtime(__DIR__ . '/../assets/css/light-mode.css') : time() ?>">
   <?php if (!empty($extraHead)) echo $extraHead; ?>
+  <link rel="stylesheet" href="/assets/css/user-display.css?v=2">
 </head>
 
 <!-- Seasonal effects -->
@@ -112,12 +125,6 @@ if (month === 12 || month === 1 || month === 2) { // Winter
 }
 </style>
 <body>
-<?php
-// «Для вас» только в режиме Платформа, после открытия body (не в head)
-if (($_COOKIE['pl_ui_mode'] ?? $_SESSION['pl_ui_mode'] ?? '') === 'platforma') {
-  @include dirname(__DIR__) . '/platforma/recommendations_block.php';
-}
-?>
 <?php $__themesList = themes_all(); if ($__themesList): ?><div class="theme-switcher"><select onchange="document.cookie='site_theme='+this.value+'; path=/; max-age=31536000'; location.reload()"><option value="">Themes</option><?php foreach ($__themesList as $t): ?><option value="<?= e($t['slug']) ?>" <?= (!empty($__activeTheme) && $__activeTheme['slug']===$t['slug'])?'selected':'' ?>><?= e($t['name']) ?></option><?php endforeach; ?></select></div><?php endif; ?>
 <?php if (!empty($__activeTheme['header'])) theme_safe_include(themes_dir() . '/' . $__activeTheme['header']); ?>
     <style>
@@ -295,6 +302,7 @@ if (($_COOKIE['pl_ui_mode'] ?? $_SESSION['pl_ui_mode'] ?? '') === 'platforma') {
   </form>
   <div class="nav-links">
     <a href="/forum">Форум</a>
+    <a href="/forum_whats_new.php">Что нового</a>
     <a href="/videos">Видео</a>
     <a href="/resources">Ресурсы</a>
     <a href="/rating">Рейтинг</a>

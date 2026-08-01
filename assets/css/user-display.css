@@ -1,0 +1,33 @@
+.user-prefix {
+  display: inline-block !important;
+  padding: 2px 8px !important;
+  border-radius: 6px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  line-height: 1.35 !important;
+  margin-right: 6px !important;
+  vertical-align: middle !important;
+  white-space: nowrap;
+}
+.user-nick { font-weight: 600; vertical-align: middle; }
+.xf-mini-profile {
+  margin-top: 14px; border-radius: 12px; overflow: hidden;
+  border: 1px solid var(--border, rgba(255,255,255,.1));
+  background: var(--card, #141416); max-width: 420px;
+}
+.xf-mini-cover { height: 54px; width: 100%; }
+.xf-mini-body { display: flex; gap: 12px; padding: 0 12px 12px; margin-top: -20px; }
+.xf-mini-avatar {
+  width: 48px; height: 48px; border-radius: 50%; object-fit: cover;
+  border: 2px solid var(--card, #141416); background: #222;
+}
+.xf-mini-meta { min-width: 0; padding-top: 18px; }
+.xf-mini-name { text-decoration: none; color: inherit; font-size: 14px; }
+.xf-mini-status { font-size: 12px; color: var(--text-dim, #999); margin-top: 2px; }
+.pg-prefix-line { margin-top: 8px; }
+.pg-verify-cta {
+  margin: 12px auto 0; max-width: 420px; padding: 12px 14px;
+  border-radius: 12px; border: 1px solid rgba(99,102,241,.35);
+  background: rgba(99,102,241,.12); font-size: 13px; text-align: left;
+}
+.pg-verify-cta a { color: #a5b4fc; font-weight: 600; }

@@ -378,10 +378,14 @@ function user_avatar_url(array $user, int $size = 96): string {
 // а не по-разному в каждом шаблоне. $size — диаметр кружка в пикселях.
 function render_user_badge(array $user, int $size = 28, bool $link = true): string {
   $avatar = user_avatar_url($user, $size * 2); // берём с запасом на retina-экраны
-  $name = e($user['username'] ?? 'Гость');
   $verified = !empty($user['is_verified']) ? verify_badge(true) : '';
   $img = '<img src="' . e($avatar) . '" alt="" style="width:' . $size . 'px;height:' . $size . 'px;border-radius:50%;object-fit:cover;flex-shrink:0' . (!empty($user['is_banned']) ? ';filter:grayscale(1);opacity:.6' : '') . '" loading="lazy">';
-  $inner = $img . '<span style="font-weight:600">' . $name . '</span>' . $verified;
+  if (function_exists('user_render_username_html')) {
+    $nameHtml = user_render_username_html($user);
+  } else {
+    $nameHtml = '<span style="font-weight:600">' . e($user['username'] ?? 'Гость') . '</span>';
+  }
+  $inner = $img . $nameHtml . $verified;
   $style = 'display:inline-flex;align-items:center;gap:8px;text-decoration:none;color:inherit';
   $row = $link && !empty($user['username'])
     ? '<a href="/profile?username=' . urlencode($user['username']) . '" style="' . $style . '">' . $inner . '</a>'

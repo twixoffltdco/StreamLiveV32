@@ -11,5 +11,6 @@ require_moderator();
     <a href="/moderator/videos">Модерация видео</a>
     <a href="/moderator/users">Пользователи</a>
       <a href="/moderator/resources">Ресурсы</a>
-  </div>
+    <a href="/moderator/verification_requests.php">Верификация</a>
+</div>
   <div class="admin-content">

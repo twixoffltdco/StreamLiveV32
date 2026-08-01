@@ -11,10 +11,10 @@ require_admin();
     <a href="/admin/forum.php">Форум (категории)</a>
     <a href="/admin/rss.php">RSS-источники</a>
     <a href="/admin/ai.php">ИИ T2000</a>
+    <a href="/admin/prefixes.php">Префиксы</a>
     <a href="/admin/sources.php">Источники</a>
     <a href="/admin/oauth.php">Соц. авторизация</a>
     <a href="/admin/themes.php">Themes</a>
-    <a href="/admin/ads.php">Реклама в плеерах</a>
     <a href="/admin/services.php">Деплой-сервисы</a>
     <a href="/admin/users.php">Пользователи</a>
     <a href="/admin/update.php">Обновление БД</a>

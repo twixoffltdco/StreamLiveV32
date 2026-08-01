@@ -1,6 +1,10 @@
 <?php
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/user_display.php';
+user_display_ensure_schema();
+try { user_display_ensure_schema(); } catch (Throwable $e) {}
+
 require_once __DIR__ . '/includes/service_helpers.php';
 require_once __DIR__ . '/includes/bbcode.php';
 $__user = current_user();
@@ -18,7 +22,8 @@ $thread = $stmt->fetch();
 if (!$thread) {
   http_response_code(404);
   $pageTitle = 'Тема не найдена';
-  require_once __DIR__ . '/includes/header.php';
+  $extraHead = ($extraHead ?? '') . '<link rel="stylesheet" href="/assets/css/user-display.css?v=1">';
+require_once __DIR__ . '/includes/header.php';
   echo '<div class="container"><div class="empty-state"><h2>Тема не найдена</h2><a href="/forum.php" class="btn btn-primary" style="margin-top:14px">На форум</a></div></div>';
   require_once __DIR__ . '/includes/footer.php';
   exit;
@@ -52,13 +57,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 db()->prepare('UPDATE forum_threads SET views = views + 1 WHERE id = ?')->execute([$threadId]);
 
-$stmt = db()->prepare(
-  'SELECT fp.*, u.username, u.role, u.avatar, u.is_verified, u.is_banned, u.gravatar_email FROM forum_posts fp
-   JOIN users u ON u.id = fp.user_id
-   WHERE fp.thread_id = ? AND fp.is_deleted = 0 ORDER BY fp.created_at ASC LIMIT 500'
-);
-$stmt->execute([$threadId]);
-$posts = $stmt->fetchAll();
+try {
+  $stmt = db()->prepare(
+    'SELECT fp.*, u.username, u.role, u.avatar, u.is_verified, u.is_banned, u.gravatar_email,
+            u.prefix_id, u.username_css, u.profile_cover, u.profile_status, u.session_started_at, u.last_seen_at, u.session_seconds
+     FROM forum_posts fp
+     JOIN users u ON u.id = fp.user_id
+     WHERE fp.thread_id = ? AND fp.is_deleted = 0 ORDER BY fp.created_at ASC LIMIT 500'
+  );
+  $stmt->execute([$threadId]);
+  $posts = $stmt->fetchAll();
+  if (function_exists('user_enrich_display_fields')) {
+    foreach ($posts as &$__p) { $__p = user_enrich_display_fields($__p); }
+    unset($__p);
+  }
+} catch (Throwable $e) {
+  $stmt = db()->prepare(
+    'SELECT fp.*, u.username, u.role, u.avatar, u.is_verified, u.is_banned, u.gravatar_email
+     FROM forum_posts fp JOIN users u ON u.id = fp.user_id
+     WHERE fp.thread_id = ? AND fp.is_deleted = 0 ORDER BY fp.created_at ASC LIMIT 500'
+  );
+  $stmt->execute([$threadId]);
+  $posts = $stmt->fetchAll();
+  if (function_exists('user_enrich_display_fields')) {
+    foreach ($posts as &$__p) { $__p = user_enrich_display_fields($__p); }
+    unset($__p);
+  }
+}
 
 $pageTitle = $thread['title'] . ' — Форум';
 require_once __DIR__ . '/includes/header.php';
@@ -88,6 +113,9 @@ require_once __DIR__ . '/includes/header.php';
       <div class="forum-post">
         <div class="forum-post-author">
           <?= render_user_badge($p, 28) ?>
+          <?php if (function_exists('user_render_username_html') && !empty($p['prefix_id'])): ?>
+            <span class="forum-post-prefix"><?= user_render_prefix_html(user_get_prefix((int)$p['prefix_id'])) ?></span>
+          <?php endif; ?>
           <?php if ($p['role'] === 'admin'): ?><span class="role-badge">админ</span><?php endif; ?>
           <span style="color:var(--text-dim);font-size:12px"><?= e($p['created_at']) ?></span>
           <?php if ($__user && (int)$p['user_id'] !== (int)$__user['id']): ?>
@@ -96,6 +124,7 @@ require_once __DIR__ . '/includes/header.php';
         </div>
         <?= banned_user_notice($p) ?>
         <div class="forum-post-body"><?= bbcode_to_html($p['message'], (int)$p['id']) ?></div>
+        <div class="forum-post-footer-mini"><?= user_render_mini_profile($p) ?></div>
         <?php if ($isForumModerator): ?>
           <form method="POST" onsubmit="return confirm('Удалить сообщение?')" style="margin-top:6px">
             <?= csrf_field() ?>

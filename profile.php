@@ -5,6 +5,8 @@
  */
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/user_display.php';
+user_display_ensure_schema();
 if (is_file(__DIR__ . '/includes/contacts.php')) {
   require_once __DIR__ . '/includes/contacts.php';
 }
@@ -14,6 +16,62 @@ $__user = current_user();
 try { ensure_user_gravatar_column(); } catch (Throwable $e) {}
 
 /** Self-healing: обложка и статус профиля (миграция 038) */
+
+function profile_days_word(int $n): string {
+  $n = abs($n) % 100; $n1 = $n % 10;
+  if ($n > 10 && $n < 20) return 'дней';
+  if ($n1 === 1) return 'день';
+  if ($n1 >= 2 && $n1 <= 4) return 'дня';
+  return 'дней';
+}
+function profile_months_word(int $n): string {
+  $n = abs($n) % 100; $n1 = $n % 10;
+  if ($n > 10 && $n < 20) return 'месяцев';
+  if ($n1 === 1) return 'месяц';
+  if ($n1 >= 2 && $n1 <= 4) return 'месяца';
+  return 'месяцев';
+}
+function profile_years_word(int $n): string {
+  $n = abs($n) % 100; $n1 = $n % 10;
+  if ($n > 10 && $n < 20) return 'лет';
+  if ($n1 === 1) return 'год';
+  if ($n1 >= 2 && $n1 <= 4) return 'года';
+  return 'лет';
+}
+function profile_membership_label(?string $createdAt): string {
+  if (!$createdAt) return '';
+  $start = strtotime($createdAt);
+  if (!$start) return '';
+  $now = time();
+  if ($start > $now) $start = $now;
+  $days = (int)floor(($now - $start) / 86400);
+  if ($days < 1) return 'на платформе сегодня · с ' . date('d.m.Y', $start);
+  if ($days < 30) return 'на платформе ' . $days . ' ' . profile_days_word($days) . ' · с ' . date('d.m.Y', $start);
+  $months = (int)floor($days / 30);
+  if ($months < 12) {
+    return 'на платформе ' . $months . ' ' . profile_months_word($months) . ' · с ' . date('d.m.Y', $start);
+  }
+  $years = (int)floor($days / 365);
+  $remMonths = (int)floor(($days % 365) / 30);
+  $s = 'на платформе ' . $years . ' ' . profile_years_word($years);
+  if ($remMonths > 0) $s .= ' ' . $remMonths . ' ' . profile_months_word($remMonths);
+  return $s . ' · с ' . date('d.m.Y', $start);
+}
+function profile_session_label(): string {
+  if (session_status() === PHP_SESSION_NONE) @session_start();
+  if (empty($_SESSION['sl_sess_start'])) {
+    $_SESSION['sl_sess_start'] = time();
+  }
+  $sec = max(0, time() - (int)$_SESSION['sl_sess_start']);
+  if ($sec < 60) return 'эта сессия: только что';
+  $min = (int)floor($sec / 60);
+  if ($min < 60) return 'эта сессия: ' . $min . ' мин';
+  $h = (int)floor($min / 60);
+  $m = $min % 60;
+  return 'эта сессия: ' . $h . ' ч ' . $m . ' мин';
+}
+
+
 function profile_glass_ensure_schema(): void {
   static $done = false;
   if ($done) return;
@@ -44,7 +102,7 @@ if ($username === '') {
 // Тянем все возможные колонки; лишние просто будут null, если их нет в SELECT *
 try {
   $stmt = db()->prepare(
-    'SELECT id, username, avatar, gravatar_email, role, created_at,
+    'SELECT id, username, avatar, gravatar_email, role, created_at, prefix_id, username_css, profile_cover, profile_status, session_started_at, last_seen_at, session_seconds,
             is_verified, is_banned, xp, phone, profile_cover_url, profile_status_text
      FROM users WHERE username = ? LIMIT 1'
   );
@@ -261,7 +319,7 @@ $showPhone = ($phone !== '') && ($isOwnProfile || ($viewerId && function_exists(
 
 $pageTitle = '@' . $profileUser['username'];
 $seoImage = $avatarUrl;
-$extraHead = '<link rel="stylesheet" href="/assets/css/profile-glass.css?v=20260801fixavatar">';
+$extraHead = '<link rel="stylesheet" href="/assets/css/profile-glass.css?v=20260801member">';
 
 require_once __DIR__ . '/includes/header.php';
 // если шаблон не выводит $extraHead — подстрахуемся
@@ -286,15 +344,36 @@ if (strpos($extraHead, 'profile-glass') !== false) {
       <img class="pg-avatar" src="<?= e($avatarUrl) ?>" alt="" width="96" height="96" onerror="this.style.opacity='.3'">
 
       <div class="pg-name-row">
-        <span class="pg-name-text"><?= e($profileUser['username']) ?></span>
+        <span class="pg-name-text"><?= function_exists('user_render_username_html') ? user_render_username_html($profileUser) : e($profileUser['username']) ?></span>
         <?= function_exists('verify_badge') ? verify_badge((bool)($profileUser['is_verified'] ?? false)) : '' ?>
+
+      <?php
+        if (function_exists('user_enrich_display_fields')) {
+          $profileUser = user_enrich_display_fields($profileUser);
+        }
+        $__pfx = (!empty($profileUser['prefix_id']) && function_exists('user_get_prefix'))
+          ? user_get_prefix((int)$profileUser['prefix_id']) : null;
+      ?>
+      <?php if ($__pfx): ?>
+        <div class="pg-prefix-line"><?= user_render_prefix_html($__pfx) ?></div>
+      <?php endif; ?>
+
         <?php if (!empty($usernameHistory)): ?>
           <button type="button" id="uh-toggle" class="xf-name-history-btn" title="История ников" aria-label="История ников">⏱</button>
         <?php endif; ?>
       </div>
 
       <div class="pg-sub">
-        на сайте с <?= e(date('m.Y', strtotime($profileUser['created_at']))) ?>
+        <?= e(profile_membership_label($profileUser['created_at'] ?? null)) ?>
+      <?php if (!empty($isOwnProfile) && empty($profileUser['is_verified'])): ?>
+        <div class="pg-verify-cta">
+          Нет галочки «доверенный».
+          <a href="/verification_request.php">Подать заявку на верификацию</a>
+          — рассмотрят модераторы.
+        </div>
+      <?php endif; ?>
+
+        <div class="pg-sub" style="opacity:.85;margin-top:4px"><?= e(user_session_label_from_row($profileUser)) ?></div>
       </div>
       <?php if (!empty($profileUser['is_banned'])): ?>
         <div class="pg-glass" style="margin:12px auto 0;max-width:420px;border-color:rgba(255,80,80,.4);background:rgba(120,20,20,.5);text-align:left">
@@ -398,6 +477,19 @@ if (strpos($extraHead, 'profile-glass') !== false) {
       <form method="post" style="margin:0">
         <?= csrf_field() ?>
         <input type="hidden" name="action" value="gravatar">
+        
+    <?php if (!empty($isOwnProfile)): ?>
+    <div class="pg-glass-row" style="flex-direction:column;align-items:stretch;gap:8px;margin-top:8px">
+      <form method="post">
+        <?= csrf_field() ?>
+        <input type="hidden" name="action" value="save_nick_css">
+        <span class="pg-glass-label">CSS ника (видно везде)</span>
+        <input type="text" name="username_css" value="<?= e($profileUser['username_css'] ?? '') ?>" placeholder="color:#fbbf24; text-shadow:0 0 8px #f59e0b" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.25);color:#fff">
+        <button type="submit" class="pg-action" style="margin-top:6px">Сохранить стиль ника</button>
+      </form>
+    </div>
+    <?php endif; ?>
+
         <span class="pg-glass-label">Gravatar email</span>
         <div style="display:flex;gap:8px;margin-top:4px">
           <input type="email" name="gravatar_email" value="<?= e($profileUser['gravatar_email'] ?? '') ?>"
@@ -680,4 +772,14 @@ if (strpos($extraHead, 'profile-glass') !== false) {
   });
 })();
 </script>
+
+<div class="pg-session-foot" style="max-width:960px;margin:24px auto 8px;padding:12px 16px;text-align:center;font-size:12.5px;color:rgba(255,255,255,.45)">
+  <?php if (!empty($isOwnProfile)): ?>
+    <?= e(profile_session_label()) ?>
+    · <?= e(profile_membership_label($profileUser['created_at'] ?? null)) ?>
+  <?php else: ?>
+    <?= e(profile_membership_label($profileUser['created_at'] ?? null)) ?>
+  <?php endif; ?>
+</div>
+
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

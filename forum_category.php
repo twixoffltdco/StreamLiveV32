@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
+if (is_file(__DIR__.'/includes/user_display.php')) { require_once __DIR__.'/includes/user_display.php'; try{user_display_ensure_schema();}catch(Throwable $e){} }
 require_once __DIR__ . '/includes/service_helpers.php';
 $__user = current_user();
 
@@ -22,7 +23,7 @@ $pageTitle = $category['title'] . ' — Форум';
 require_once __DIR__ . '/includes/header.php';
 
 $stmt = db()->prepare(
-  "SELECT t.*, u.username, u.avatar, u.is_verified, u.is_banned, u.gravatar_email,
+  "SELECT t.*, u.username, u.avatar, u.is_verified, u.is_banned, u.gravatar_email, u.prefix_id, u.username_css,
      (SELECT COUNT(*) FROM forum_posts p WHERE p.thread_id = t.id AND p.is_deleted = 0) AS post_count
    FROM forum_threads t JOIN users u ON u.id = t.user_id
    WHERE t.category_id = ? AND t.is_deleted = 0
@@ -47,7 +48,7 @@ $threads = $stmt->fetchAll();
           <?php if ($t['is_locked']): ?><span class="lock-badge">Закрыто</span><?php endif; ?>
           <a href="/forum_thread.php?id=<?= (int)$t['id'] ?>" class="forum-thread-title"><?= e($t['title']) ?></a>
           <div style="color:var(--text-dim);font-size:12px;display:flex;align-items:center;gap:6px;margin-top:2px">
-            <?= render_user_badge($t, 18) ?> · <?= e($t['created_at']) ?>
+            <?= render_user_badge($t, 18) ?> <?php if (!empty($t['prefix_id']) && function_exists('user_get_prefix')): ?><?= user_render_prefix_html(user_get_prefix((int)$t['prefix_id'])) ?><?php endif; ?> · <?= e($t['created_at']) ?>
             <?= banned_user_notice($t) ?>
           </div>
         </div>
