@@ -433,3 +433,8 @@ html:not(.pl-theme-platforma) .pl-tg-banner,
 body:not(.pl-theme-platforma) .pl-tg-banner {
   display: none !important;
 }
+
+/* Баннер ТГ нельзя скрыть */
+body.pl-theme-platforma .pl-tg-banner {
+  display: block !important;
+}

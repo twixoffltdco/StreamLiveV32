@@ -24,6 +24,46 @@
 //   fetch_video_meta(string $url, string $platform): array  // [title, description, thumbnail_url, tags, meta_source]
 //   guess_video_tags(string $title, string $description): string
 
+
+/**
+ * Локальные парсеры проекта (НЕ внешние iframe сайтов целиком):
+ *  - Смотрим → /playersmotrimru.php?id=…
+ *  - любой неизвестный сайт → /embedwebsite/index.php?url=…&embed=1 (только плеер)
+ * Без лишних зависимостей, без 500.
+ */
+function local_video_embed_url(string $url): ?string {
+  $url = trim($url);
+  if ($url === '' || !preg_match('#^https?://#i', $url)) {
+    return null;
+  }
+  $host = strtolower((string)parse_url($url, PHP_URL_HOST));
+  $host = preg_replace('/^www\./', '', $host ?? '') ?: '';
+
+  // ——— Смотрим: ваш playersmotrimru.php ———
+  if ($host === 'smotrim.ru' || $host === 'player.smotrim.ru' || str_ends_with_safe($host, '.smotrim.ru')) {
+    $id = 0;
+    if (preg_match('#(?:smotrim\.ru/video/|player\.smotrim\.ru/iframe/video/id/)(\d+)#i', $url, $m)) {
+      $id = (int)$m[1];
+    } elseif (preg_match('/(\d{5,})/', $url, $m)) {
+      $id = (int)$m[1];
+    }
+    if ($id > 0) {
+      return '/playersmotrimru.php?id=' . $id;
+    }
+    // id не вытащили — пусть парсер сам разберёт из url
+    return '/playersmotrimru.php?url=' . rawurlencode($url);
+  }
+
+  // ——— Неизвестный сайт: только embed-плеер, не полная страница ———
+  return '/embedwebsite/index.php?url=' . rawurlencode($url) . '&embed=1';
+}
+
+function str_ends_with_safe(string $haystack, string $needle): bool {
+  if ($needle === '') return true;
+  if (function_exists('str_ends_with')) return str_ends_with($haystack, $needle);
+  return substr($haystack, -strlen($needle)) === $needle;
+}
+
 function detect_video_platform(string $url): ?string {
   $host = strtolower((string)parse_url($url, PHP_URL_HOST));
   $host = preg_replace('/^www\./', '', $host ?? '');
@@ -193,25 +233,24 @@ function normalize_video_embed(string $platform, string $url): string {
       if (preg_match('#/file/d/([^/]+)#', $url, $m)) return "https://drive.google.com/file/d/{$m[1]}/preview";
       return $url;
 
-        case 'smotrim':
-      // Локальный playersmotrimru.php — короткая ссылка, без ручного ввода длинного URL
-      $local = resolve_local_embed($url, false);
-      if ($local) return $local;
-      if (preg_match('#smotrim\.ru/video/(\d+)#i', $url, $m)) {
-        return "https://player.smotrim.ru/iframe/video/id/{$m[1]}/";
-      }
-      return $url;
+    case 'smotrim':
+      // Парсер проекта: playersmotrimru.php (не прямой player.smotrim.ru)
+      $local = local_video_embed_url($url);
+      return $local !== null ? $local : $url;
 
     case 'iframe':
-      // Неизвестная платформа: сначала узкий локальный хендлер, иначе embedwebsite
-      $local = resolve_local_embed($url, true);
-      return $local ?: $url;
+      // Неизвестный сайт → embedwebsite/index.php?url=…&embed=1 (только плеер)
+      $local = local_video_embed_url($url);
+      return $local !== null ? $local : $url;
 
     default:
-      // mp4 / m3u8 — как есть; прочее неизвестное — пробуем локальные провайдеры
-      if (in_array($platform, ['mp4', 'm3u8'], true)) return $url;
-      $local = resolve_local_embed($url, true);
-      return $local ?: $url;
+      // mp4 / m3u8 и уже нормализованные платформы — без изменений
+      if (in_array($platform, ['mp4', 'm3u8'], true)) {
+        return $url;
+      }
+      // На всякий случай неизвестный label → тоже через локальный парсер
+      $local = local_video_embed_url($url);
+      return $local !== null ? $local : $url;
   }
 }
 
