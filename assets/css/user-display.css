@@ -1,5 +1,7 @@
-.user-prefix { vertical-align: middle; }
+.user-prefix { vertical-align: middle; margin-right: 4px; }
+.user-prefixes { display: inline; }
 .user-nick { font-weight: 600; }
+
 .xf-mini-profile {
   margin-top: 14px;
   border-radius: 12px;
@@ -20,6 +22,7 @@
 }
 .xf-mini-meta { min-width: 0; padding-top: 18px; }
 .xf-mini-name { text-decoration: none; color: inherit; font-size: 14px; }
+.xf-mini-name .user-nick { font-weight: 600; }
 .xf-mini-status { font-size: 12px; color: var(--text-dim, #999); margin-top: 2px; }
 .xf-mini-role { font-size: 11px; color: var(--accent-2, #a78bfa); margin-top: 2px; }
 .forum-post-footer-mini { margin-top: 10px; }

@@ -1,6 +1,7 @@
 <?php
 /**
  * Префиксы (XenForo-style), CSS ника, сессия на платформе, мини-профиль.
+ * До 3 префиксов на аккаунт через user_prefix_map.
  */
 
 function user_display_ensure_schema(): void {
@@ -17,6 +18,17 @@ function user_display_ensure_schema(): void {
       sort_order INT NOT NULL DEFAULT 0,
       is_active TINYINT(1) NOT NULL DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+  } catch (Throwable $e) {}
+
+  // До 3 префиксов на пользователя (связь many-to-many)
+  try {
+    db()->exec("CREATE TABLE IF NOT EXISTS user_prefix_map (
+      user_id INT UNSIGNED NOT NULL,
+      prefix_id INT UNSIGNED NOT NULL,
+      sort_order TINYINT UNSIGNED NOT NULL DEFAULT 0,
+      PRIMARY KEY (user_id, prefix_id),
+      KEY idx_user_sort (user_id, sort_order)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
   } catch (Throwable $e) {}
 
@@ -38,52 +50,108 @@ function user_display_ensure_schema(): void {
       }
     } catch (Throwable $e) { /* already exists / no ALTER */ }
   }
+
+  // Однократная миграция: старый users.prefix_id → user_prefix_map
+  try {
+    db()->exec(
+      "INSERT IGNORE INTO user_prefix_map (user_id, prefix_id, sort_order)
+       SELECT id, prefix_id, 0 FROM users
+       WHERE prefix_id IS NOT NULL AND prefix_id > 0"
+    );
+  } catch (Throwable $e) {}
 }
 
-/** Обновление «этой сессии» для текущего юзера (разрыв > 30 мин = новая сессия). */
+/** Парсинг DATETIME из БД в unix ts (учитывает date_default_timezone_set проекта). */
+function user_session_ts($value): int {
+  if ($value === null || $value === '' || $value === false) return 0;
+  if (is_numeric($value)) return (int)$value;
+  $t = strtotime((string)$value);
+  return $t !== false ? $t : 0;
+}
+
+/**
+ * Обновление «этой сессии» для текущего юзера.
+ * Разрыв > 30 мин без last_seen = новая сессия.
+ * Время пишем из PHP (date), не NOW() БД — иначе рассинхрон TZ ломает счётчик.
+ */
 function user_touch_session(?array $user): void {
   if (!$user || empty($user['id'])) return;
   user_display_ensure_schema();
   $uid = (int)$user['id'];
-  $gap = 30 * 60; // 30 минут бездействия → новая сессия
+  $gap = 30 * 60;
+  $now = time();
+  $nowStr = date('Y-m-d H:i:s', $now);
   try {
     $st = db()->prepare('SELECT session_started_at, last_seen_at, session_seconds FROM users WHERE id = ?');
     $st->execute([$uid]);
     $row = $st->fetch() ?: [];
-    $now = time();
-    $last = !empty($row['last_seen_at']) ? strtotime($row['last_seen_at']) : 0;
-    $start = !empty($row['session_started_at']) ? strtotime($row['session_started_at']) : 0;
+    $last = user_session_ts($row['last_seen_at'] ?? null);
+    $start = user_session_ts($row['session_started_at'] ?? null);
 
     if (!$start || !$last || ($now - $last) > $gap) {
-      // новая сессия
-      db()->prepare('UPDATE users SET session_started_at = NOW(), last_seen_at = NOW(), session_seconds = 0 WHERE id = ?')
-        ->execute([$uid]);
+      db()->prepare('UPDATE users SET session_started_at = ?, last_seen_at = ?, session_seconds = 0 WHERE id = ?')
+        ->execute([$nowStr, $nowStr, $uid]);
       return;
     }
     $sec = max(0, $now - $start);
-    db()->prepare('UPDATE users SET last_seen_at = NOW(), session_seconds = ? WHERE id = ?')
-      ->execute([$sec, $uid]);
-  } catch (Throwable $e) {}
+    db()->prepare('UPDATE users SET last_seen_at = ?, session_seconds = ? WHERE id = ?')
+      ->execute([$nowStr, $sec, $uid]);
+  } catch (Throwable $e) {
+    // колонок ещё нет / нет прав — тихо
+  }
 }
 
+/**
+ * Подпись сессии для профиля / мини-профиля.
+ * Онлайн (last_seen ≤ 5 мин): «эта сессия: N мин» — считаем live от session_started_at.
+ * Оффлайн: «последняя сессия: …» из session_seconds.
+ */
 function user_session_label_from_row(array $u): string {
-  $last = !empty($u['last_seen_at']) ? strtotime($u['last_seen_at']) : 0;
-  $start = !empty($u['session_started_at']) ? strtotime($u['session_started_at']) : 0;
+  $last = user_session_ts($u['last_seen_at'] ?? null);
+  $start = user_session_ts($u['session_started_at'] ?? null);
+  $stored = (int)($u['session_seconds'] ?? 0);
   $now = time();
   $onlineGap = 5 * 60;
 
-  if ($start && $last && ($now - $last) <= $onlineGap) {
+  // Онлайн — длительность текущей сессии live
+  if ($start > 0 && $last > 0 && ($now - $last) <= $onlineGap) {
     $sec = max(0, $now - $start);
-  } elseif (!empty($u['session_seconds'])) {
-    $sec = (int)$u['session_seconds'];
-    if ($last && ($now - $last) > $onlineGap) {
-      // оффлайн — показываем длительность последней сессии
-      return 'последняя сессия: ' . user_format_duration($sec);
-    }
-  } else {
-    return 'сессия: —';
+    // защита от мусора (часы в будущем и т.п.)
+    if ($sec > 86400 * 7) $sec = $stored > 0 ? $stored : 0;
+    return 'эта сессия: ' . user_format_duration($sec);
   }
-  return 'эта сессия: ' . user_format_duration($sec);
+
+  // Оффлайн, но есть записанная длительность
+  if ($stored > 0) {
+    return 'последняя сессия: ' . user_format_duration($stored);
+  }
+
+  // Была сессия, но seconds ещё 0 (только зашёл и ушёл)
+  if ($start > 0 && $last > 0) {
+    $sec = max(0, $last - $start);
+    if ($sec > 0) return 'последняя сессия: ' . user_format_duration($sec);
+  }
+
+  return 'сессия: —';
+}
+
+/** Свежие session_* поля юзера из БД (после touch). */
+function user_fetch_session_fields(int $userId): array {
+  if ($userId <= 0) {
+    return ['session_started_at' => null, 'last_seen_at' => null, 'session_seconds' => 0];
+  }
+  try {
+    $st = db()->prepare('SELECT session_started_at, last_seen_at, session_seconds FROM users WHERE id = ?');
+    $st->execute([$userId]);
+    $row = $st->fetch() ?: [];
+    return [
+      'session_started_at' => $row['session_started_at'] ?? null,
+      'last_seen_at' => $row['last_seen_at'] ?? null,
+      'session_seconds' => (int)($row['session_seconds'] ?? 0),
+    ];
+  } catch (Throwable $e) {
+    return ['session_started_at' => null, 'last_seen_at' => null, 'session_seconds' => 0];
+  }
 }
 
 function user_format_duration(int $sec): string {
@@ -111,6 +179,83 @@ function user_get_prefix(?int $prefixId): ?array {
   return $cache[$prefixId];
 }
 
+/**
+ * Все активные префиксы пользователя (макс. 3), по sort_order.
+ * Берёт из user_prefix_map; если пусто — fallback на users.prefix_id.
+ */
+function user_get_prefixes_for_user(array $user): array {
+  user_display_ensure_schema();
+  $uid = (int)($user['id'] ?? 0);
+  $out = [];
+  $seen = [];
+
+  if ($uid > 0) {
+    try {
+      $st = db()->prepare(
+        "SELECT p.* FROM user_prefix_map m
+         JOIN user_prefixes p ON p.id = m.prefix_id AND p.is_active = 1
+         WHERE m.user_id = ?
+         ORDER BY m.sort_order ASC, p.sort_order ASC, p.id ASC
+         LIMIT 3"
+      );
+      $st->execute([$uid]);
+      foreach ($st->fetchAll() as $row) {
+        $pid = (int)$row['id'];
+        if (isset($seen[$pid])) continue;
+        $seen[$pid] = true;
+        $out[] = $row;
+      }
+    } catch (Throwable $e) {}
+  }
+
+  // fallback: старый одиночный prefix_id / денормализованные поля
+  if (!$out) {
+    if (!empty($user['prefix_id'])) {
+      $p = user_get_prefix((int)$user['prefix_id']);
+      if ($p) $out[] = $p;
+    } elseif (!empty($user['prefix_title'])) {
+      $out[] = [
+        'title' => $user['prefix_title'],
+        'css' => $user['prefix_css'] ?? '',
+        'text_color' => $user['prefix_text_color'] ?? '#fff',
+        'bg_color' => $user['prefix_bg_color'] ?? '#6366f1',
+      ];
+    }
+  }
+
+  return $out;
+}
+
+/**
+ * Назначить пользователю до 3 префиксов (массив id).
+ * Пустой массив / нули — снять все.
+ */
+function user_set_prefixes(int $userId, array $prefixIds): void {
+  if ($userId <= 0) return;
+  user_display_ensure_schema();
+
+  $clean = [];
+  $seen = [];
+  foreach ($prefixIds as $pid) {
+    $pid = (int)$pid;
+    if ($pid <= 0 || isset($seen[$pid])) continue;
+    $seen[$pid] = true;
+    $clean[] = $pid;
+    if (count($clean) >= 3) break;
+  }
+
+  try {
+    db()->prepare('DELETE FROM user_prefix_map WHERE user_id = ?')->execute([$userId]);
+    $ins = db()->prepare('INSERT INTO user_prefix_map (user_id, prefix_id, sort_order) VALUES (?, ?, ?)');
+    foreach ($clean as $i => $pid) {
+      $ins->execute([$userId, $pid, $i]);
+    }
+    // зеркало в старый столбец (первый префикс) для совместимости
+    $first = $clean[0] ?? null;
+    db()->prepare('UPDATE users SET prefix_id = ? WHERE id = ?')->execute([$first, $userId]);
+  } catch (Throwable $e) {}
+}
+
 function user_render_prefix_html(?array $prefix): string {
   if (!$prefix) return '';
   $title = htmlspecialchars((string)$prefix['title'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -118,12 +263,24 @@ function user_render_prefix_html(?array $prefix): string {
   if ($custom !== '') {
     // только безопасный кусок css в style — без {} скриптов
     $custom = preg_replace('/[<>]|expression|javascript/i', '', $custom);
-    return '<span class="user-prefix" style="' . htmlspecialchars($custom, ENT_QUOTES) . '">' . $title . '</span> ';
+    return '<span class="user-prefix" style="' . htmlspecialchars($custom, ENT_QUOTES) . '">' . $title . '</span>';
   }
   $tc = htmlspecialchars((string)($prefix['text_color'] ?? '#fff'), ENT_QUOTES);
   $bg = htmlspecialchars((string)($prefix['bg_color'] ?? '#6366f1'), ENT_QUOTES);
   return '<span class="user-prefix" style="display:inline-block;padding:1px 7px;border-radius:6px;font-size:11px;font-weight:700;line-height:1.4;color:'
-    . $tc . ';background:' . $bg . ';margin-right:4px;vertical-align:middle">' . $title . '</span> ';
+    . $tc . ';background:' . $bg . ';margin-right:4px;vertical-align:middle">' . $title . '</span>';
+}
+
+/** Несколько префиксов подряд */
+function user_render_prefixes_html(array $prefixes): string {
+  if (!$prefixes) return '';
+  $parts = [];
+  foreach ($prefixes as $p) {
+    $h = user_render_prefix_html($p);
+    if ($h !== '') $parts[] = $h;
+  }
+  if (!$parts) return '';
+  return '<span class="user-prefixes">' . implode(' ', $parts) . '</span> ';
 }
 
 /** Безопасный CSS для ника пользователя */
@@ -136,19 +293,11 @@ function user_sanitize_nick_css(string $css): string {
 function user_render_username_html(array $user): string {
   $name = htmlspecialchars((string)($user['username'] ?? 'Гость'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
   $css = user_sanitize_nick_css((string)($user['username_css'] ?? ''));
+  // !important в inline не ставим — стиль через attribute style достаточно;
+  // color навешиваем отдельно, чтобы не перебивался родительским .pg-name-text { color:#fff }
   $style = $css !== '' ? ' style="' . htmlspecialchars($css, ENT_QUOTES) . '"' : '';
-  $prefix = null;
-  if (!empty($user['prefix_id'])) {
-    $prefix = user_get_prefix((int)$user['prefix_id']);
-  } elseif (!empty($user['prefix_title'])) {
-    $prefix = [
-      'title' => $user['prefix_title'],
-      'css' => $user['prefix_css'] ?? '',
-      'text_color' => $user['prefix_text_color'] ?? '#fff',
-      'bg_color' => $user['prefix_bg_color'] ?? '#6366f1',
-    ];
-  }
-  return user_render_prefix_html($prefix) . '<span class="user-nick"' . $style . '>' . $name . '</span>';
+  $prefixes = user_get_prefixes_for_user($user);
+  return user_render_prefixes_html($prefixes) . '<span class="user-nick"' . $style . '>' . $name . '</span>';
 }
 
 /**
@@ -156,8 +305,8 @@ function user_render_username_html(array $user): string {
  */
 function user_render_mini_profile(array $user): string {
   $avatar = function_exists('user_avatar_url') ? user_avatar_url($user, 96) : '';
-  $cover = (string)($user['profile_cover'] ?? $user['cover_url'] ?? '');
-  $status = (string)($user['profile_status'] ?? $user['status_text'] ?? '');
+  $cover = (string)($user['profile_cover'] ?? $user['cover_url'] ?? $user['profile_cover_url'] ?? '');
+  $status = (string)($user['profile_status'] ?? $user['status_text'] ?? $user['profile_status_text'] ?? '');
   $uname = (string)($user['username'] ?? '');
   $href = $uname !== '' ? '/profile?username=' . rawurlencode($uname) : '#';
   $coverStyle = $cover !== ''

@@ -63,6 +63,17 @@
   letter-spacing: -.02em;
   line-height: 1.2;
 }
+/* CSS ника (inline style на .user-nick) не должен перебиваться родителем */
+.pg-name-row .pg-name-text .user-nick {
+  font-size: inherit;
+  font-weight: inherit;
+  /* color / text-shadow / gradient — только из inline style пользователя */
+}
+.pg-name-row .pg-name-text .user-prefix {
+  font-size: 12px;
+  vertical-align: middle;
+  margin-right: 4px;
+}
 .xf-name-history-btn {
   display: inline-flex !important;
   align-items: center;

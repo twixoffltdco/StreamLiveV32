@@ -28,14 +28,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   } elseif ($action === 'delete') {
     $id = (int)($_POST['id'] ?? 0);
     if ($id) {
+      try {
+        db()->prepare('DELETE FROM user_prefix_map WHERE prefix_id = ?')->execute([$id]);
+      } catch (Throwable $e) {}
       db()->prepare('UPDATE users SET prefix_id = NULL WHERE prefix_id = ?')->execute([$id]);
       db()->prepare('DELETE FROM user_prefixes WHERE id = ?')->execute([$id]);
     }
   } elseif ($action === 'assign') {
     $uid = (int)($_POST['user_id'] ?? 0);
-    $pid = (int)($_POST['prefix_id'] ?? 0);
+    // до 3 префиксов
+    $pids = [];
+    if (isset($_POST['prefix_ids']) && is_array($_POST['prefix_ids'])) {
+      foreach ($_POST['prefix_ids'] as $p) {
+        $p = (int)$p;
+        if ($p > 0) $pids[] = $p;
+      }
+    } else {
+      // backward compat: один select
+      $one = (int)($_POST['prefix_id'] ?? 0);
+      if ($one > 0) $pids[] = $one;
+    }
     if ($uid) {
-      db()->prepare('UPDATE users SET prefix_id = ? WHERE id = ?')->execute([$pid > 0 ? $pid : null, $uid]);
+      user_set_prefixes($uid, $pids);
     }
   }
   redirect('/admin/prefixes.php');
@@ -44,11 +58,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $rows = db()->query('SELECT * FROM user_prefixes ORDER BY sort_order ASC, id ASC')->fetchAll();
 $users = db()->query('SELECT id, username, prefix_id FROM users ORDER BY id DESC LIMIT 200')->fetchAll();
 
+// текущие назначения (до 3)
+$userPfxMap = [];
+try {
+  $mapRows = db()->query(
+    'SELECT user_id, prefix_id, sort_order FROM user_prefix_map ORDER BY user_id, sort_order ASC'
+  )->fetchAll();
+  foreach ($mapRows as $m) {
+    $uid = (int)$m['user_id'];
+    if (!isset($userPfxMap[$uid])) $userPfxMap[$uid] = [];
+    if (count($userPfxMap[$uid]) < 3) {
+      $userPfxMap[$uid][] = (int)$m['prefix_id'];
+    }
+  }
+} catch (Throwable $e) {}
+
 require_once __DIR__ . '/_layout_start.php';
 ?>
 <h2>Префиксы пользователей (как XenForo)</h2>
 <p style="color:var(--text-dim);font-size:13px;max-width:640px">
-  Создайте префикс (цвет или свой CSS) и назначьте пользователю. Показывается в профиле, на форуме и в ответах.
+  Создайте префикс (цвет или свой CSS) и назначьте пользователю <b>до 3 штук</b>.
+  Показывается в профиле, мини-профиле, на форуме и в ответах — каждый префикс один раз.
 </p>
 
 <div class="form-card form-wide" style="margin-bottom:24px">
@@ -87,28 +117,42 @@ require_once __DIR__ . '/_layout_start.php';
   <?php endforeach; ?>
 </table>
 
-<h3 style="margin-top:28px">Выдать префикс</h3>
-<form method="post" class="form-card" style="max-width:480px">
+<h3 style="margin-top:28px">Выдать префиксы (до 3 на аккаунт)</h3>
+<form method="post" class="form-card" style="max-width:520px">
   <?= csrf_field() ?>
   <input type="hidden" name="action" value="assign">
   <label>Пользователь
-    <select name="user_id" required>
+    <select name="user_id" id="assign-user" required onchange="fillUserPfx(this.value)">
+      <option value="">— выберите —</option>
       <?php foreach ($users as $u): ?>
         <option value="<?= (int)$u['id'] ?>">@<?= e($u['username']) ?></option>
       <?php endforeach; ?>
     </select>
   </label>
-  <label>Префикс
-    <select name="prefix_id">
-      <option value="0">— без префикса —</option>
+  <?php for ($slot = 1; $slot <= 3; $slot++): ?>
+  <label>Префикс <?= $slot ?>
+    <select name="prefix_ids[]" class="assign-pfx-slot">
+      <option value="0">— пусто —</option>
       <?php foreach ($rows as $r): if (!$r['is_active']) continue; ?>
         <option value="<?= (int)$r['id'] ?>"><?= e($r['title']) ?></option>
       <?php endforeach; ?>
     </select>
   </label>
+  <?php endfor; ?>
+  <p style="font-size:12px;color:var(--text-dim);margin:4px 0 10px">
+    Один и тот же префикс дважды не ставится. Пустые слоты игнорируются.
+  </p>
   <button class="btn btn-primary" type="submit">Назначить</button>
 </form>
 <script>
+var userPfxMap = <?= json_encode($userPfxMap, JSON_UNESCAPED_UNICODE) ?>;
+function fillUserPfx(uid) {
+  var slots = document.querySelectorAll('.assign-pfx-slot');
+  var list = userPfxMap[uid] || userPfxMap[String(uid)] || [];
+  slots.forEach(function (sel, i) {
+    sel.value = list[i] ? String(list[i]) : '0';
+  });
+}
 function editPfx(r) {
   document.getElementById('pfx-id').value = r.id;
   document.getElementById('pfx-title').value = r.title || '';

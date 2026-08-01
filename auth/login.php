@@ -1,6 +1,7 @@
 <?php
 $pageTitle = 'Вход';
-require_once __DIR__ . '/../includes/header.php';
+require_once __DIR__ . '/../includes/auth.php';
+$__user = current_user();
 
 if (isset($_GET['next'])) {
   $_SESSION['login_next'] = normalize_auth_redirect_target($_GET['next'], '/dashboard.php');
@@ -69,6 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $providers = db()->query('SELECT name, display_name, icon_url FROM oauth_providers WHERE enabled = 1')->fetchAll();
+require_once __DIR__ . '/../includes/header.php';
 ?>
 <div class="container">
   <div class="form-card">

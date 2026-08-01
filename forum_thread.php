@@ -67,6 +67,10 @@ try {
   );
   $stmt->execute([$threadId]);
   $posts = $stmt->fetchAll();
+  if (function_exists('user_enrich_display_fields')) {
+    foreach ($posts as &$__p) { $__p = user_enrich_display_fields($__p); }
+    unset($__p);
+  }
 } catch (Throwable $e) {
   $stmt = db()->prepare(
     'SELECT fp.*, u.username, u.role, u.avatar, u.is_verified, u.is_banned, u.gravatar_email
@@ -75,6 +79,10 @@ try {
   );
   $stmt->execute([$threadId]);
   $posts = $stmt->fetchAll();
+  if (function_exists('user_enrich_display_fields')) {
+    foreach ($posts as &$__p) { $__p = user_enrich_display_fields($__p); }
+    unset($__p);
+  }
 }
 
 $pageTitle = $thread['title'] . ' — Форум';
@@ -105,6 +113,9 @@ require_once __DIR__ . '/includes/header.php';
       <div class="forum-post">
         <div class="forum-post-author">
           <?= render_user_badge($p, 28) ?>
+          <?php if (function_exists('user_render_username_html') && !empty($p['prefix_id'])): ?>
+            <span class="forum-post-prefix"><?= user_render_prefix_html(user_get_prefix((int)$p['prefix_id'])) ?></span>
+          <?php endif; ?>
           <?php if ($p['role'] === 'admin'): ?><span class="role-badge">админ</span><?php endif; ?>
           <span style="color:var(--text-dim);font-size:12px"><?= e($p['created_at']) ?></span>
           <?php if ($__user && (int)$p['user_id'] !== (int)$__user['id']): ?>

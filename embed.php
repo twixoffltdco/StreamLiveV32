@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/player_ads.php';
 
 $slug = $_GET['slug'] ?? '';
 $stmt = db()->prepare("SELECT * FROM channels WHERE slug = ? AND status = 'approved'");
@@ -41,6 +42,7 @@ $activeSource = resolve_active_source($channel);
 <div class="player-wrap" id="player-wrap">
   <div id="playerjs-container"></div>
   <?php if ($channel['logo_url']): ?><img class="logo" src="<?= e($channel['logo_url']) ?>" alt=""><?php endif; ?>
+  <?php if (function_exists('player_ads_render')) player_ads_render('embed'); ?>
 </div>
 
 <script src="playerjs.js"></script>

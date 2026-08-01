@@ -14,6 +14,10 @@ require_once __DIR__ . '/includes/gamification.php';
 
 $__user = current_user();
 try { ensure_user_gravatar_column(); } catch (Throwable $e) {}
+// Пишем сессию ДО выборки профиля — иначе на своём профиле last_seen ещё старый
+if ($__user && function_exists('user_touch_session')) {
+  try { user_touch_session($__user); } catch (Throwable $e) {}
+}
 
 /** Self-healing: обложка и статус профиля (миграция 038) */
 
@@ -99,28 +103,42 @@ if ($username === '') {
   exit;
 }
 
-// Тянем все возможные колонки; лишние просто будут null, если их нет в SELECT *
-try {
-  $stmt = db()->prepare(
-    'SELECT id, username, avatar, gravatar_email, role, created_at, prefix_id, username_css, profile_cover, profile_status, session_started_at, last_seen_at, session_seconds,
-            is_verified, is_banned, xp, phone, profile_cover_url, profile_status_text
-     FROM users WHERE username = ? LIMIT 1'
-  );
-  $stmt->execute([$username]);
-  $profileUser = $stmt->fetch();
-} catch (Throwable $e) {
-  // без новых колонок
-  $stmt = db()->prepare(
-    'SELECT id, username, avatar, gravatar_email, role, created_at, is_verified, is_banned, xp
-     FROM users WHERE username = ? LIMIT 1'
-  );
-  $stmt->execute([$username]);
-  $profileUser = $stmt->fetch();
-  if ($profileUser) {
-    $profileUser['phone'] = $profileUser['phone'] ?? null;
-    $profileUser['profile_cover_url'] = null;
-    $profileUser['profile_status_text'] = null;
+// Только реальные колонки. Раньше в SELECT были profile_cover/profile_status
+// (их нет в схеме — есть profile_cover_url / profile_status_text) → весь запрос
+// падал, срабатывал fallback без username_css / session / обложки → белый ник,
+// обложка=аватар, статус/сессия пустые.
+$profileUser = null;
+$selectAttempts = [
+  'SELECT id, username, avatar, gravatar_email, role, created_at, prefix_id, username_css,
+          session_started_at, last_seen_at, session_seconds,
+          is_verified, is_banned, xp, phone, profile_cover_url, profile_status_text
+   FROM users WHERE username = ? LIMIT 1',
+  'SELECT id, username, avatar, gravatar_email, role, created_at, prefix_id, username_css,
+          session_started_at, last_seen_at, session_seconds,
+          is_verified, is_banned, xp, phone
+   FROM users WHERE username = ? LIMIT 1',
+  'SELECT id, username, avatar, gravatar_email, role, created_at, is_verified, is_banned, xp
+   FROM users WHERE username = ? LIMIT 1',
+];
+foreach ($selectAttempts as $sql) {
+  try {
+    $stmt = db()->prepare($sql);
+    $stmt->execute([$username]);
+    $profileUser = $stmt->fetch();
+    if ($profileUser) break;
+  } catch (Throwable $e) {
+    $profileUser = null;
   }
+}
+if ($profileUser) {
+  $profileUser['phone'] = $profileUser['phone'] ?? null;
+  $profileUser['profile_cover_url'] = $profileUser['profile_cover_url'] ?? null;
+  $profileUser['profile_status_text'] = $profileUser['profile_status_text'] ?? null;
+  $profileUser['username_css'] = $profileUser['username_css'] ?? null;
+  $profileUser['prefix_id'] = $profileUser['prefix_id'] ?? null;
+  $profileUser['session_started_at'] = $profileUser['session_started_at'] ?? null;
+  $profileUser['last_seen_at'] = $profileUser['last_seen_at'] ?? null;
+  $profileUser['session_seconds'] = $profileUser['session_seconds'] ?? 0;
 }
 
 if (!$profileUser) {
@@ -171,34 +189,51 @@ if ($isOwnProfile && $_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
       flash_set('error', 'Укажите корректную почту Gravatar');
     }
-    redirect('/profile.php?username=' . rawurlencode($profileUser['username']));
+    redirect('/profile?username=' . rawurlencode($profileUser['username']));
   }
 
   if ($action === 'status') {
+    profile_glass_ensure_schema();
     $st = mb_substr(trim((string)($_POST['profile_status_text'] ?? '')), 0, 120);
     try {
       db()->prepare('UPDATE users SET profile_status_text = ? WHERE id = ?')->execute([$st !== '' ? $st : null, $uid]);
       flash_set('success', 'Статус обновлён');
     } catch (Throwable $e) {
-      flash_set('error', 'Не удалось сохранить статус (нужна миграция 038)');
+      flash_set('error', 'Не удалось сохранить статус (колонка profile_status_text). Залей sql/migrations/038_profile_glass.sql');
     }
-    redirect('/profile.php?username=' . rawurlencode($profileUser['username']));
+    redirect('/profile?username=' . rawurlencode($profileUser['username']));
   }
 
   if ($action === 'cover') {
+    profile_glass_ensure_schema();
     $cover = trim((string)($_POST['profile_cover_url'] ?? ''));
-    if ($cover !== '' && !filter_var($cover, FILTER_VALIDATE_URL)) {
-      flash_set('error', 'Обложка: нужна корректная URL-ссылка');
+    // Разрешаем http(s) URL; filter_var иногда режет валидные ссылки с кириллицей/query
+    $okUrl = ($cover === '') || (bool)preg_match('#^https?://[^\s<>"\']{4,}$#iu', $cover);
+    if (!$okUrl) {
+      flash_set('error', 'Обложка: нужна ссылка http(s)://…');
     } else {
       try {
         db()->prepare('UPDATE users SET profile_cover_url = ? WHERE id = ?')->execute([$cover !== '' ? $cover : null, $uid]);
-        flash_set('success', 'Обложка обновлена');
+        flash_set('success', $cover !== '' ? 'Обложка обновлена' : 'Обложка сброшена');
       } catch (Throwable $e) {
-        flash_set('error', 'Не удалось сохранить обложку (нужна миграция 038)');
+        flash_set('error', 'Не удалось сохранить обложку (колонка profile_cover_url). Залей sql/migrations/038_profile_glass.sql');
       }
     }
-    redirect('/profile.php?username=' . rawurlencode($profileUser['username']));
+    redirect('/profile?username=' . rawurlencode($profileUser['username']));
   }
+
+  if ($action === 'save_nick_css') {
+    user_display_ensure_schema();
+    $css = user_sanitize_nick_css((string)($_POST['username_css'] ?? ''));
+    try {
+      db()->prepare('UPDATE users SET username_css = ? WHERE id = ?')->execute([$css !== '' ? $css : null, $uid]);
+      flash_set('success', $css !== '' ? 'CSS ника сохранён' : 'CSS ника сброшен');
+    } catch (Throwable $e) {
+      flash_set('error', 'Не удалось сохранить CSS ника (колонка username_css)');
+    }
+    redirect('/profile?username=' . rawurlencode($profileUser['username']));
+  }
+
 }
 
 // ---- История ников ----
@@ -307,19 +342,44 @@ try {
   $resources = $stmt->fetchAll();
 } catch (Throwable $e) {}
 
+// Обновим session_* перед показом (после touch в header ещё раз подтянем)
+if (function_exists('user_fetch_session_fields')) {
+  $profileUser = array_merge($profileUser, user_fetch_session_fields((int)$profileUser['id']));
+}
+
 $avatarUrl = user_avatar_url($profileUser, 192);
 $coverUrl = trim((string)($profileUser['profile_cover_url'] ?? ''));
-if ($coverUrl === '') {
-  $coverUrl = $avatarUrl; // фолбэк — аватар размытый как обложка
-}
+// НЕ подставляем аватар как обложку — иначе кажется, что обложка «сломалась»
+$hasCustomCover = ($coverUrl !== '');
 $statusText = trim((string)($profileUser['profile_status_text'] ?? ''));
 $phone = trim((string)($profileUser['phone'] ?? ''));
 // телефон показываем только себе (приватность)
 $showPhone = ($phone !== '') && ($isOwnProfile || ($viewerId && function_exists('contacts_can_see_phone') && contacts_can_see_phone($viewerId, $uidProfile, false)));
 
+// Что смотрит прямо сейчас (последний page_view за 5 мин)
+$watchingNow = null;
+try {
+  if (is_file(__DIR__ . '/includes/stats.php')) {
+    require_once __DIR__ . '/includes/stats.php';
+  }
+  $since = date('Y-m-d H:i:s', time() - 300);
+  $st = db()->prepare(
+    'SELECT path, created_at FROM page_views
+     WHERE user_id = ? AND created_at >= ?
+     ORDER BY id DESC LIMIT 1'
+  );
+  $st->execute([$uid, $since]);
+  $pv = $st->fetch();
+  if ($pv && function_exists('online_path_label')) {
+    $watchingNow = online_path_label((string)$pv['path']);
+  } elseif ($pv) {
+    $watchingNow = (string)$pv['path'];
+  }
+} catch (Throwable $e) {}
+
 $pageTitle = '@' . $profileUser['username'];
 $seoImage = $avatarUrl;
-$extraHead = '<link rel="stylesheet" href="/assets/css/profile-glass.css?v=20260801member">';
+$extraHead = '<link rel="stylesheet" href="/assets/css/profile-glass.css?v=20260801fix2">';
 
 require_once __DIR__ . '/includes/header.php';
 // если шаблон не выводит $extraHead — подстрахуемся
@@ -330,7 +390,9 @@ if (strpos($extraHead, 'profile-glass') !== false) {
 <div class="pg-wrap">
 
   <div class="pg-hero">
-    <div class="pg-hero-bg" style="background-image:url('<?= e($coverUrl) ?>')"></div>
+    <div class="pg-hero-bg"<?= $hasCustomCover
+      ? ' style="background-image:url(\'' . e($coverUrl) . '\')"'
+      : ' style="background:linear-gradient(135deg,#1e1b4b 0%,#4c1d95 45%,#0f172a 100%)"' ?>></div>
     <div class="pg-hero-top">
       <a class="pg-icon-btn" href="javascript:history.back()" title="Назад" aria-label="Назад">←</a>
       <?php if ($isOwnProfile): ?>
@@ -346,18 +408,6 @@ if (strpos($extraHead, 'profile-glass') !== false) {
       <div class="pg-name-row">
         <span class="pg-name-text"><?= function_exists('user_render_username_html') ? user_render_username_html($profileUser) : e($profileUser['username']) ?></span>
         <?= function_exists('verify_badge') ? verify_badge((bool)($profileUser['is_verified'] ?? false)) : '' ?>
-
-      <?php
-        if (function_exists('user_enrich_display_fields')) {
-          $profileUser = user_enrich_display_fields($profileUser);
-        }
-        $__pfx = (!empty($profileUser['prefix_id']) && function_exists('user_get_prefix'))
-          ? user_get_prefix((int)$profileUser['prefix_id']) : null;
-      ?>
-      <?php if ($__pfx): ?>
-        <div class="pg-prefix-line"><?= user_render_prefix_html($__pfx) ?></div>
-      <?php endif; ?>
-
         <?php if (!empty($usernameHistory)): ?>
           <button type="button" id="uh-toggle" class="xf-name-history-btn" title="История ников" aria-label="История ников">⏱</button>
         <?php endif; ?>
@@ -374,6 +424,9 @@ if (strpos($extraHead, 'profile-glass') !== false) {
       <?php endif; ?>
 
         <div class="pg-sub" style="opacity:.85;margin-top:4px"><?= e(user_session_label_from_row($profileUser)) ?></div>
+        <?php if ($watchingNow): ?>
+          <div class="pg-sub" style="opacity:.9;margin-top:2px">👁 сейчас: <?= e($watchingNow) ?></div>
+        <?php endif; ?>
       </div>
       <?php if (!empty($profileUser['is_banned'])): ?>
         <div class="pg-glass" style="margin:12px auto 0;max-width:420px;border-color:rgba(255,80,80,.4);background:rgba(120,20,20,.5);text-align:left">
@@ -468,8 +521,9 @@ if (strpos($extraHead, 'profile-glass') !== false) {
         <input type="hidden" name="action" value="cover">
         <span class="pg-glass-label">обложка (URL картинки)</span>
         <div style="display:flex;gap:8px;margin-top:4px">
-          <input type="url" name="profile_cover_url" value="<?= e($profileUser['profile_cover_url'] ?? '') ?>"
-            placeholder="https://…"
+          <input type="text" name="profile_cover_url" value="<?= e($profileUser['profile_cover_url'] ?? '') ?>"
+            placeholder="https://example.com/cover.jpg"
+            inputmode="url" autocomplete="off"
             style="flex:1;padding:8px 10px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.25);color:inherit">
           <button class="btn btn-outline btn-sm" type="submit">OK</button>
         </div>
@@ -477,19 +531,6 @@ if (strpos($extraHead, 'profile-glass') !== false) {
       <form method="post" style="margin:0">
         <?= csrf_field() ?>
         <input type="hidden" name="action" value="gravatar">
-        
-    <?php if (!empty($isOwnProfile)): ?>
-    <div class="pg-glass-row" style="flex-direction:column;align-items:stretch;gap:8px;margin-top:8px">
-      <form method="post">
-        <?= csrf_field() ?>
-        <input type="hidden" name="action" value="save_nick_css">
-        <span class="pg-glass-label">CSS ника (видно везде)</span>
-        <input type="text" name="username_css" value="<?= e($profileUser['username_css'] ?? '') ?>" placeholder="color:#fbbf24; text-shadow:0 0 8px #f59e0b" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.25);color:#fff">
-        <button type="submit" class="pg-action" style="margin-top:6px">Сохранить стиль ника</button>
-      </form>
-    </div>
-    <?php endif; ?>
-
         <span class="pg-glass-label">Gravatar email</span>
         <div style="display:flex;gap:8px;margin-top:4px">
           <input type="email" name="gravatar_email" value="<?= e($profileUser['gravatar_email'] ?? '') ?>"
@@ -497,6 +538,15 @@ if (strpos($extraHead, 'profile-glass') !== false) {
             style="flex:1;padding:8px 10px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.25);color:inherit">
           <button class="btn btn-outline btn-sm" type="submit">OK</button>
         </div>
+      </form>
+      <form method="post" style="margin:0">
+        <?= csrf_field() ?>
+        <input type="hidden" name="action" value="save_nick_css">
+        <span class="pg-glass-label">CSS ника (видно везде: профиль, мини-профиль, форум)</span>
+        <input type="text" name="username_css" value="<?= e($profileUser['username_css'] ?? '') ?>"
+          placeholder="color:#fbbf24; text-shadow:0 0 8px #f59e0b"
+          style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.25);color:#fff;margin-top:4px">
+        <button type="submit" class="btn btn-primary btn-sm" style="margin-top:6px">Сохранить стиль ника</button>
       </form>
     </div>
     <?php endif; ?>
@@ -510,7 +560,12 @@ if (strpos($extraHead, 'profile-glass') !== false) {
     echo '</div>';
   }
   ?>
-
+          <?php
+          // user_render_username_html уже рисует префиксы + ник с CSS — второй раз НЕ рендерим
+          if (function_exists('user_enrich_display_fields')) {
+            $profileUser = user_enrich_display_fields($profileUser);
+          }
+        ?>
   
   <?php if ($__user && !$isOwnProfile): ?>
   <div class="pg-glass" style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
@@ -774,12 +829,9 @@ if (strpos($extraHead, 'profile-glass') !== false) {
 </script>
 
 <div class="pg-session-foot" style="max-width:960px;margin:24px auto 8px;padding:12px 16px;text-align:center;font-size:12.5px;color:rgba(255,255,255,.45)">
-  <?php if (!empty($isOwnProfile)): ?>
-    <?= e(profile_session_label()) ?>
-    · <?= e(profile_membership_label($profileUser['created_at'] ?? null)) ?>
-  <?php else: ?>
-    <?= e(profile_membership_label($profileUser['created_at'] ?? null)) ?>
-  <?php endif; ?>
+  <?= e(user_session_label_from_row($profileUser)) ?>
+  <?php if ($watchingNow): ?> · 👁 <?= e($watchingNow) ?><?php endif; ?>
+  · <?= e(profile_membership_label($profileUser['created_at'] ?? null)) ?>
 </div>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
