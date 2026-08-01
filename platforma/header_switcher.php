@@ -47,12 +47,12 @@ $pl_r = rawurlencode($pl_redirect);
   <a href="<?= htmlspecialchars($pl_sw . '?mode=platforma&redirect=' . $pl_r, ENT_QUOTES, 'UTF-8') ?>" class="<?= $pl_is ? 'on-pl' : '' ?>">Платформа</a>
 </div>
 <?php if ($pl_is): ?>
-<link rel="stylesheet" href="/platforma/theme-platforma.css?v=20260801fix500">
+<link rel="stylesheet" href="/platforma/theme-platforma.css?v=20260801contacts1">
 <script>
 try{
   document.documentElement.classList.add('pl-theme-platforma');
   document.addEventListener('DOMContentLoaded',function(){document.body&&document.body.classList.add('pl-theme-platforma');});
 }catch(e){}
 </script>
-<script src="/platforma/theme-platforma.js?v=20260801fix500" defer></script>
+<script src="/platforma/theme-platforma.js?v=20260801contacts1" defer></script>
 <?php endif; ?>

@@ -196,11 +196,13 @@
   }
 
   
-  /** Нижний баннер: баги → ТГ, общение в ТГ. Только стиль Платформа. */
+  /** Нижний баннер ТГ — только стиль Платформа. Есть × (скрывает до конца вкладки). */
   function addTgBanner() {
     if (!isOn()) return;
     if (document.getElementById('pl-tg-banner')) return;
-    // Баннер всегда виден в стиле Платформа — без скрытия
+    try {
+      if (sessionStorage.getItem('pl_tg_banner_hide') === '1') return;
+    } catch (e) {}
 
     var tgUrl = (window.PL_TG_URL || 'https://t.me/platforma_offcial');
     var bar = document.createElement('div');
@@ -217,9 +219,20 @@
           'для общения — <a href="' + tgUrl + '" target="_blank" rel="noopener">наш Telegram</a>' +
         '</div>' +
         '<a class="pl-tg-banner-btn" href="' + tgUrl + '" target="_blank" rel="noopener">Написать</a>' +
+        '<button type="button" class="pl-tg-banner-x" title="Скрыть" aria-label="Скрыть">×</button>' +
       '</div>';
     document.body.appendChild(bar);
     document.body.classList.add('pl-has-tg-banner');
+    var close = bar.querySelector('.pl-tg-banner-x');
+    if (close) {
+      close.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        bar.remove();
+        document.body.classList.remove('pl-has-tg-banner');
+        try { sessionStorage.setItem('pl_tg_banner_hide', '1'); } catch (err) {}
+      });
+    }
   }
 
   function hideDecor() {

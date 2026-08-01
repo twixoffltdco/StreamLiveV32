@@ -5,6 +5,7 @@
  */
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/contacts.php';
 require_once __DIR__ . '/includes/gamification.php';
 
 $__user = current_user();
@@ -75,6 +76,14 @@ $rank = function_exists('get_rank_for_xp')
   ? get_rank_for_xp((int)($profileUser['xp'] ?? 0))
   : ['title' => 'Участник'];
 $isOwnProfile = $__user && (int)$__user['id'] === (int)$profileUser['id'];
+contacts_ensure_schema();
+$viewerId = $__user ? (int)$__user['id'] : 0;
+$uidProfile = (int)$profileUser['id'];
+$iBlockedThem = $viewerId ? contacts_is_blocked($viewerId, $uidProfile) : false;
+$theyBlockedMe = $viewerId ? contacts_is_blocked($uidProfile, $viewerId) : false;
+$inMyContacts = $viewerId ? contacts_is_contact($viewerId, $uidProfile) : false;
+$mutualContacts = $viewerId ? contacts_are_mutual($viewerId, $uidProfile) : false;
+
 $uid = (int)$profileUser['id'];
 
 // ---- POST: свои настройки профиля ----
@@ -238,7 +247,7 @@ if ($coverUrl === '') {
 $statusText = trim((string)($profileUser['profile_status_text'] ?? ''));
 $phone = trim((string)($profileUser['phone'] ?? ''));
 // телефон показываем только себе (приватность)
-$showPhone = $isOwnProfile && $phone !== '';
+$showPhone = ($phone !== '') && ($isOwnProfile || ($viewerId && contacts_can_see_phone($viewerId, $uidProfile, false)));
 
 $pageTitle = '@' . $profileUser['username'];
 $seoImage = $avatarUrl;
@@ -280,7 +289,9 @@ if (strpos($extraHead, 'profile-glass') !== false) {
 
       <div class="pg-actions">
         <?php if ($__user && !$isOwnProfile): ?>
-          <a class="pg-action" href="/messages.php?with=<?= $uid ?>" title="Написать">💬</a>
+          <?php if (!$iBlockedThem && !$theyBlockedMe): ?>
+            <a class="pg-action" href="/messages.php?with=<?= (int)$profileUser['id'] ?>" title="Написать">💬</a>
+          <?php endif; ?>
         <?php elseif ($isOwnProfile): ?>
           <a class="pg-action" href="/messages.php" title="Мессенджер">💬</a>
         <?php else: ?>
@@ -392,6 +403,57 @@ if (strpos($extraHead, 'profile-glass') !== false) {
     echo '</div>';
   }
   ?>
+
+  
+  <?php if ($__user && !$isOwnProfile): ?>
+  <div class="pg-glass" style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+    <?php if ($theyBlockedMe): ?>
+      <span style="font-size:13px;color:rgba(255,255,255,.6)">Пользователь ограничил доступ к профилю</span>
+    <?php elseif ($iBlockedThem): ?>
+      <span style="font-size:13px;color:rgba(255,255,255,.6)">Вы заблокировали этого пользователя</span>
+      <button type="button" class="btn btn-outline btn-sm" id="pg-unblock" data-uid="<?= (int)$profileUser['id'] ?>">Разблокировать</button>
+    <?php else: ?>
+      <?php if ($inMyContacts): ?>
+        <button type="button" class="btn btn-outline btn-sm" id="pg-contact" data-uid="<?= (int)$profileUser['id'] ?>" data-act="remove">Удалить из контактов</button>
+      <?php else: ?>
+        <button type="button" class="btn btn-primary btn-sm" id="pg-contact" data-uid="<?= (int)$profileUser['id'] ?>" data-act="add">В контакты</button>
+      <?php endif; ?>
+      <?php if ($mutualContacts): ?>
+        <span style="font-size:12px;opacity:.7">✓ взаимные контакты<?= $phone !== '' ? ' · телефон виден' : '' ?></span>
+      <?php endif; ?>
+      <button type="button" class="btn btn-danger btn-sm" id="pg-block" data-uid="<?= (int)$profileUser['id'] ?>">Заблокировать</button>
+      <button type="button" class="btn btn-outline btn-sm" id="pg-spam" data-uid="<?= (int)$profileUser['id'] ?>">Спам</button>
+    <?php endif; ?>
+  </div>
+  <script>
+  (function(){
+    function post(url, body){
+      return fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),credentials:'same-origin'})
+        .then(function(r){return r.json().catch(function(){return {ok:false};});});
+    }
+    function on(id, fn){ var el=document.getElementById(id); if(el) el.addEventListener('click', fn); }
+    on('pg-contact', function(){
+      var b=this, uid=+b.getAttribute('data-uid'), act=b.getAttribute('data-act')||'add';
+      b.disabled=true;
+      post('/contact_action.php',{action:act,user_id:uid}).then(function(d){ if(d&&d.ok) location.reload(); else { alert((d&&d.error)||'Ошибка'); b.disabled=false; } });
+    });
+    on('pg-block', function(){
+      if(!confirm('Заблокировать пользователя?')) return;
+      var b=this, uid=+b.getAttribute('data-uid'); b.disabled=true;
+      post('/user_block_action.php',{action:'block',user_id:uid}).then(function(d){ if(d&&d.ok) location.reload(); else { alert((d&&d.error)||'Ошибка'); b.disabled=false; } });
+    });
+    on('pg-unblock', function(){
+      var b=this, uid=+b.getAttribute('data-uid'); b.disabled=true;
+      post('/user_block_action.php',{action:'unblock',user_id:uid}).then(function(d){ if(d&&d.ok) location.reload(); else { alert((d&&d.error)||'Ошибка'); b.disabled=false; } });
+    });
+    on('pg-spam', function(){
+      if(!confirm('Пожаловаться на спам?')) return;
+      var b=this, uid=+b.getAttribute('data-uid'); b.disabled=true;
+      post('/user_report_action.php',{user_id:uid,reason:'spam',severity:'medium'}).then(function(d){ alert((d&&(d.message||d.error))||'Готово'); b.disabled=false; });
+    });
+  })();
+  </script>
+  <?php endif; ?>
 
   <div class="pg-tabs" id="pg-tabs" role="tablist">
     <button type="button" class="pg-tab active" data-tab="posts">Посты</button>
