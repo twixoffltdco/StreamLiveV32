@@ -11,6 +11,10 @@ $message = trim(mb_substr($input['message'] ?? '', 0, 500));
 
 if ($message === '') { echo json_encode(['ok' => false, 'error' => 'Пустое сообщение']); exit; }
 
+if (function_exists('sl_rate_limit') && !sl_rate_limit('chat_send', 2, (int)$user['id'])) {
+  echo json_encode(['ok' => false, 'error' => 'Слишком быстро. Подождите пару секунд.']); exit;
+}
+
 $stmt = db()->prepare('SELECT id FROM chat_bans WHERE channel_id = ? AND user_id = ?');
 $stmt->execute([$channelId, $user['id']]);
 if ($stmt->fetch()) { echo json_encode(['ok' => false, 'error' => 'Вы забанены в этом чате']); exit; }

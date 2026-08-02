@@ -3,7 +3,12 @@ require_once __DIR__ . '/includes/db.php';
 
 header('Content-Type: application/xml; charset=utf-8');
 
-$base = defined('SITE_URL') ? SITE_URL : 'https://streamlive.freedev.app';
+$base = defined('SITE_URL') ? rtrim(SITE_URL, '/') : '';
+if ($base === '' || strpos($base, 'freedev.app') !== false) {
+  $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+  $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+  $base = $scheme . '://' . $host;
+}
 
 echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
 echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
@@ -46,5 +51,22 @@ try {
 } catch (\Throwable $e) {
   // Если какая-то таблица недоступна — отдаём хотя бы статичные страницы выше, не 500-м
 }
+
+
+  // Видео
+  try {
+    $stmt = $pdo->query("SELECT id, created_at FROM videos WHERE status = 'approved' OR status IS NULL OR status = 'published' ORDER BY id DESC LIMIT 2000");
+    foreach ($stmt->fetchAll() as $v) {
+      sm_url($base . '/video.php?id=' . (int)$v['id'], $v['created_at'] ?? null, 'weekly', '0.7');
+    }
+  } catch (Throwable $e) {}
+
+  // Ресурсы
+  try {
+    $stmt = $pdo->query("SELECT id, created_at FROM resources WHERE status = 'approved' OR status = 'published' ORDER BY id DESC LIMIT 2000");
+    foreach ($stmt->fetchAll() as $r) {
+      sm_url($base . '/resource.php?id=' . (int)$r['id'], $r['created_at'] ?? null, 'weekly', '0.6');
+    }
+  } catch (Throwable $e) {}
 
 echo '</urlset>';

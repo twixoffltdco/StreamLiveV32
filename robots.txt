@@ -1,14 +1,20 @@
 User-agent: *
 Allow: /
 Disallow: /admin/
+Disallow: /moderator/
 Disallow: /auth/
-Disallow: /channel_manage.php
-Disallow: /dashboard.php
-Disallow: /messages.php
-Disallow: /antibot_challenge.php
-Disallow: /antibot_verify.php
-Disallow: /antibot_image.svg.php
-Disallow: /diagnose.php
 Disallow: /install/
+Disallow: /config/
+Disallow: /includes/
+Disallow: /sql/
+Disallow: /storage/
+Disallow: /messages
+Disallow: /message_
+Disallow: /dashboard
+Disallow: /channel_manage
+Disallow: /antibot_
+Disallow: /diagnose
+Disallow: /health.php
 
-Sitemap: https://streamlive.freedev.app/sitemap.xml.php
+# Sitemap подставляется относительно домена — поправьте если другой URL
+Sitemap: /sitemap.xml.php

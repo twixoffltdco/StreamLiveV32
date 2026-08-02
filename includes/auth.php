@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/functions.php';
+if (is_file(__DIR__ . '/prod_hardening.php')) {
+  require_once __DIR__ . '/prod_hardening.php';
+}
 
 function ensure_auth_schema(): void {
   static $done = false;
@@ -32,6 +35,9 @@ function ensure_auth_schema(): void {
   }
 }
 ensure_auth_schema();
+if (function_exists('sl_maintenance_guard')) {
+  try { sl_maintenance_guard(); } catch (\Throwable $e) {}
+}
 
 function auth_canonical_path(?string $path): string {
   $path = '/' . ltrim((string)($path ?: '/'), '/');
