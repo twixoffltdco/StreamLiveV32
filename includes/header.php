@@ -78,7 +78,7 @@ $__canonical = SITE_URL . ($_SERVER['REQUEST_URI'] ?? '/');
   <?php require_once __DIR__ . '/themes.php'; $__activeTheme = themes_active(); if ($__activeTheme): ?><link rel="stylesheet" href="<?= e($__activeTheme['css']) ?>?v=<?= time() ?>"><?php endif; ?>
   <link rel="stylesheet" href="/assets/css/light-mode.css?v=<?= file_exists(__DIR__ . '/../assets/css/light-mode.css') ? filemtime(__DIR__ . '/../assets/css/light-mode.css') : time() ?>">
   <?php if (!empty($extraHead)) echo $extraHead; ?>
-  <link rel="stylesheet" href="/assets/css/user-display.css?v=20260801bc2">
+  <link rel="stylesheet" href="/assets/css/user-display.css?v=20260801everywhere">
 </head>
 
 <!-- Seasonal effects -->
@@ -441,6 +441,27 @@ screen.colorDepth:screen.pixelDepth))+";u"+escape(document.URL)+
         <div class="banner-actions">
             <a href="/profile?username=admin" class="btn-write"; return false;">Написать</a>
     </nav>
+</div>
+<div style="max-width:880px; margin:0 auto; background:#11161f; border-radius:28px; padding:30px 25px; color:#fff; font-family:system-ui, sans-serif; border:1px solid rgba(255,255,255,0.05);">
+    <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:20px;">
+        <span style="background:linear-gradient(135deg,#f7971e,#ffd200); color:#1a1f2a; font-weight:800; font-size:16px; padding:5px 20px; border-radius:40px;">🔥 НОВОЕ</span>
+        <span style="font-size:26px; font-weight:700;">Мы есть <span style="color:#7bbde6;">везде</span></span>
+    </div>
+    <div style="color:#8b9bb5; margin-bottom:18px;">
+        6 платформ на движке <strong style="color:#b8cbe5;">streamliveV26Final</strong>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px;">
+        <a href="https://streamliveru.web1337.net/" target="_blank" style="background:rgba(255,255,255,0.04); border-radius:16px; padding:14px; color:#d6e2f5; text-decoration:none; display:flex; align-items:center; gap:10px; transition:0.2s; border:1px solid transparent;">📡 streamliveru <span style="margin-left:auto; font-size:11px; color:#ffd966;">V26</span></a>
+        <a href="https://www.plvideo.blyz.ru" target="_blank" style="background:rgba(255,255,255,0.04); border-radius:16px; padding:14px; color:#d6e2f5; text-decoration:none; display:flex; align-items:center; gap:10px; transition:0.2s; border:1px solid transparent;">🎬 plvideo <span style="margin-left:auto; font-size:11px; color:#ffd966;">V26</span></a>
+        <a href="https://www.platforma.blyz.ru" target="_blank" style="background:rgba(255,255,255,0.04); border-radius:16px; padding:14px; color:#d6e2f5; text-decoration:none; display:flex; align-items:center; gap:10px; transition:0.2s; border:1px solid transparent;">📺 platforma <span style="margin-left:auto; font-size:11px; color:#ffd966;">V26</span></a>
+        <a href="https://streamlive.freedev.app" target="_blank" style="background:rgba(255,255,255,0.04); border-radius:16px; padding:14px; color:#d6e2f5; text-decoration:none; display:flex; align-items:center; gap:10px; transition:0.2s; border:1px solid transparent;">⚡ streamlive <span style="margin-left:auto; font-size:11px; color:#ffd966;">V26</span></a>
+        <a href="https://flexdev.freehosting.dev" target="_blank" style="background:rgba(255,255,255,0.04); border-radius:16px; padding:14px; color:#d6e2f5; text-decoration:none; display:flex; align-items:center; gap:10px; transition:0.2s; border:1px solid transparent;">🛠️ flexdev <span style="margin-left:auto; font-size:11px; color:#ffd966;">V26</span></a>
+        <a href="https://streamlivetv.freedev.app" target="_blank" style="background:rgba(255,255,255,0.04); border-radius:16px; padding:14px; color:#d6e2f5; text-decoration:none; display:flex; align-items:center; gap:10px; transition:0.2s; border:1px solid transparent;">📡 streamlivetv <span style="margin-left:auto; font-size:11px; color:#ffd966;">V26</span></a>
+    </div>
+    <div style="margin-top:24px; border-top:1px solid rgba(255,255,255,0.05); padding-top:18px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+        <span style="color:#5f738f; font-size:13px;">Движок <a href="https://gitverse.rustreamlive/streamliveV26Final" target="_blank" style="color:#7bbde6; text-decoration:none; border-bottom:1px dashed rgba(123,189,230,0.3);">streamliveV26Final</a></span>
+        <a href="#" style="background:rgba(45,156,219,0.1); border:1px solid rgba(45,156,219,0.15); border-radius:40px; padding:6px 20px; color:#9bc9ed; font-size:13px; text-decoration:none;">✧ все стримы</a>
+    </div>
 </div>
 <head>
     <meta charset="UTF-8">
@@ -987,6 +1008,38 @@ screen.colorDepth:screen.pixelDepth))+";u"+escape(document.URL)+
 </script>
     <!-- /Adlook fly -->  
 <script async src="https://statika.mpsuadv.ru/scripts/11138.js"></script>
+<!-- Adlook Fly-Roll (липкая реклама снизу на всех страницах) -->
+<script>
+(function UTCoreInitialization() {
+  if (window.UTInventoryCore) {
+    new window.UTInventoryCore({
+      type: "sticky",
+      host: 5814,           // твой хост (у тебя был 5814)
+      content: false,
+      adaptive: true,
+      width: 400,
+      height: 225,
+      playMode: "autoplay",
+      align: "left",
+      verticalAlign: "bottom",
+      openTo: "open-creativeView",
+      infinity: true,
+      infinityTimer: 1,
+      interfaceType: 0,
+      withoutIframe: true,
+      mobile: {
+        align: "center",
+        verticalAlign: "bottom",
+        mobileStickyHeight: 25,
+      }
+    });
+    return;
+  }
+  if (!window.UTInventoryCore) {
+    setTimeout(UTCoreInitialization, 100);
+  }
+})();
+</script>
  
  <!-- защита от копирования -->
 <script>
