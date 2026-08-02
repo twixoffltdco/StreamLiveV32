@@ -78,6 +78,7 @@ try {
 $pageTitle = 'Боты VK / Telegram';
 require_once __DIR__ . '/_layout_start.php';
 ?>
+<p><a href="/admin/bots_diagnose.php">→ Диагностика (если бот не работает)</a></p>
 <h2>🤖 Боты StreamLive — VK + Telegram</h2>
 <p style="color:var(--text-dim);font-size:13px;max-width:720px;margin-bottom:16px">
   Единая площадка автопостинга: ручные посты, очередь, хуки (форум/видео/RSS).

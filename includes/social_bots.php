@@ -6,6 +6,9 @@
  */
 
 require_once __DIR__ . '/secret_crypto.php';
+if (!function_exists('bots_http_json')) {
+  require_once __DIR__ . '/bots_http.php';
+}
 
 function bots_ensure_schema(): void {
   static $done = false;
@@ -28,6 +31,8 @@ function bots_ensure_schema(): void {
         auto_ads TINYINT(1) NOT NULL DEFAULT 0,
         default_prefix TEXT NULL,
         default_suffix TEXT NULL,
+        tg_webhook_secret VARCHAR(64) NULL,
+        tg_inbound_enabled TINYINT(1) NOT NULL DEFAULT 1,
         updated_at DATETIME NULL
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     );
@@ -75,6 +80,8 @@ function bots_ensure_schema(): void {
       db()->exec('INSERT INTO bots_settings (id) VALUES (1)');
     }
   } catch (Throwable $e) {}
+  try { db()->exec("ALTER TABLE bots_settings ADD COLUMN tg_webhook_secret VARCHAR(64) NULL"); } catch (Throwable $e) {}
+  try { db()->exec("ALTER TABLE bots_settings ADD COLUMN tg_inbound_enabled TINYINT(1) NOT NULL DEFAULT 1"); } catch (Throwable $e) {}
 }
 
 function bots_settings(): array {
@@ -102,7 +109,7 @@ function bots_save_settings(array $data): void {
   $vkEnc = $s['vk_token_enc'] ?? null;
 
   // новый токен только если не пустой и не маска
-  $tgNew = trim((string)($data['tg_token'] ?? ''));
+  $tgNew = function_exists('bots_clean_token') ? bots_clean_token((string)($data['tg_token'] ?? '')) : trim((string)($data['tg_token'] ?? ''));
   if ($tgNew !== '' && strpos($tgNew, '•') === false) {
     $tgEnc = bots_encrypt_secret($tgNew);
   }
@@ -110,7 +117,7 @@ function bots_save_settings(array $data): void {
     $tgEnc = null;
   }
 
-  $vkNew = trim((string)($data['vk_token'] ?? ''));
+  $vkNew = function_exists('bots_clean_token') ? bots_clean_token((string)($data['vk_token'] ?? '')) : trim((string)($data['vk_token'] ?? ''));
   if ($vkNew !== '' && strpos($vkNew, '•') === false) {
     $vkEnc = bots_encrypt_secret($vkNew);
   }
@@ -118,29 +125,73 @@ function bots_save_settings(array $data): void {
     $vkEnc = null;
   }
 
-  db()->prepare(
-    'UPDATE bots_settings SET
-      tg_enabled=?, vk_enabled=?,
-      tg_token_enc=?, vk_token_enc=?,
-      tg_chat_id=?, vk_group_id=?,
-      tg_parse_mode=?,
-      auto_forum=?, auto_video=?, auto_rss=?, auto_ads=?,
-      default_prefix=?, default_suffix=?,
-      updated_at=NOW()
-     WHERE id=1'
-  )->execute([
-    $tgEnabled, $vkEnabled,
-    $tgEnc, $vkEnc,
-    $tgChat !== '' ? $tgChat : null,
-    $vkGroup,
-    $parse,
-    !empty($data['auto_forum']) ? 1 : 0,
-    !empty($data['auto_video']) ? 1 : 0,
-    !empty($data['auto_rss']) ? 1 : 0,
-    !empty($data['auto_ads']) ? 1 : 0,
-    mb_substr(trim((string)($data['default_prefix'] ?? '')), 0, 500),
-    mb_substr(trim((string)($data['default_suffix'] ?? '')), 0, 500),
-  ]);
+  $inbound = !empty($data['tg_inbound_enabled']) ? 1 : 0;
+  try {
+    db()->prepare(
+      'UPDATE bots_settings SET
+        tg_enabled=?, vk_enabled=?,
+        tg_token_enc=?, vk_token_enc=?,
+        tg_chat_id=?, vk_group_id=?,
+        tg_parse_mode=?,
+        auto_forum=?, auto_video=?, auto_rss=?, auto_ads=?,
+        default_prefix=?, default_suffix=?,
+        tg_inbound_enabled=?,
+        updated_at=NOW()
+       WHERE id=1'
+    )->execute([
+      $tgEnabled, $vkEnabled,
+      $tgEnc, $vkEnc,
+      $tgChat !== '' ? $tgChat : null,
+      $vkGroup,
+      $parse,
+      !empty($data['auto_forum']) ? 1 : 0,
+      !empty($data['auto_video']) ? 1 : 0,
+      !empty($data['auto_rss']) ? 1 : 0,
+      !empty($data['auto_ads']) ? 1 : 0,
+      mb_substr(trim((string)($data['default_prefix'] ?? '')), 0, 500),
+      mb_substr(trim((string)($data['default_suffix'] ?? '')), 0, 500),
+      $inbound,
+    ]);
+  } catch (Throwable $e) {
+    // без новых колонок
+    db()->prepare(
+      'UPDATE bots_settings SET
+        tg_enabled=?, vk_enabled=?,
+        tg_token_enc=?, vk_token_enc=?,
+        tg_chat_id=?, vk_group_id=?,
+        tg_parse_mode=?,
+        auto_forum=?, auto_video=?, auto_rss=?, auto_ads=?,
+        default_prefix=?, default_suffix=?,
+        updated_at=NOW()
+       WHERE id=1'
+    )->execute([
+      $tgEnabled, $vkEnabled,
+      $tgEnc, $vkEnc,
+      $tgChat !== '' ? $tgChat : null,
+      $vkGroup,
+      $parse,
+      !empty($data['auto_forum']) ? 1 : 0,
+      !empty($data['auto_video']) ? 1 : 0,
+      !empty($data['auto_rss']) ? 1 : 0,
+      !empty($data['auto_ads']) ? 1 : 0,
+      mb_substr(trim((string)($data['default_prefix'] ?? '')), 0, 500),
+      mb_substr(trim((string)($data['default_suffix'] ?? '')), 0, 500),
+    ]);
+  }
+  // inbound / webhook secret
+  try {
+    $wh = trim((string)($data['tg_webhook_secret'] ?? ''));
+    $inb = !empty($data['tg_inbound_enabled']) ? 1 : 0;
+    if ($wh === '' && !empty($data['tg_webhook_secret_gen'])) {
+      $wh = bin2hex(random_bytes(16));
+    }
+    if ($wh !== '') {
+      db()->prepare('UPDATE bots_settings SET tg_webhook_secret=?, tg_inbound_enabled=? WHERE id=1')
+        ->execute([$wh, $inb]);
+    } else {
+      db()->prepare('UPDATE bots_settings SET tg_inbound_enabled=? WHERE id=1')->execute([$inb]);
+    }
+  } catch (Throwable $e) {}
 }
 
 function bots_tg_token(): string {
@@ -163,33 +214,7 @@ function bots_vk_token(): string {
   }
 }
 
-function bots_http_json(string $url, array $post = [], int $timeout = 20): array {
-  $ch = curl_init($url);
-  curl_setopt_array($ch, [
-    CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_TIMEOUT => $timeout,
-    CURLOPT_CONNECTTIMEOUT => 10,
-    CURLOPT_SSL_VERIFYPEER => true,
-    CURLOPT_USERAGENT => 'StreamLiveBots/1.0',
-  ]);
-  if ($post) {
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
-  }
-  $body = curl_exec($ch);
-  $err = curl_error($ch);
-  $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-  curl_close($ch);
-  if ($body === false) {
-    return ['ok' => false, 'error' => $err ?: 'curl failed', 'http' => $code];
-  }
-  $json = json_decode($body, true);
-  if (!is_array($json)) {
-    return ['ok' => false, 'error' => 'bad json', 'http' => $code, 'raw' => substr($body, 0, 500)];
-  }
-  $json['_http'] = $code;
-  return $json;
-}
+/* bots_http_json → includes/bots_http.php */
 
 function bots_log(string $channel, bool $ok, string $message, $raw = null): void {
   try {
@@ -226,10 +251,9 @@ function bots_telegram_send(string $text, ?string $imageUrl = null): array {
     return ['ok' => false, 'error' => 'Telegram: нет токена или chat_id'];
   }
   $parse = $s['tg_parse_mode'] ?? 'HTML';
-  $base = 'https://api.telegram.org/bot' . rawurlencode($token) . '/';
 
   if ($imageUrl && preg_match('#^https?://#i', $imageUrl)) {
-    $res = bots_http_json($base . 'sendPhoto', [
+    $res = bots_http_json(bots_tg_method_url($token, 'sendPhoto'), [
       'chat_id' => $chat,
       'photo' => $imageUrl,
       'caption' => mb_substr($text, 0, 1024),
@@ -237,7 +261,7 @@ function bots_telegram_send(string $text, ?string $imageUrl = null): array {
       'disable_web_page_preview' => '0',
     ]);
   } else {
-    $res = bots_http_json($base . 'sendMessage', [
+    $res = bots_http_json(bots_tg_method_url($token, 'sendMessage'), [
       'chat_id' => $chat,
       'text' => mb_substr($text, 0, 4096),
       'parse_mode' => $parse,
@@ -377,7 +401,7 @@ function bots_notify_video(int $videoId, string $title, string $url, ?string $th
 function bots_test_telegram(): array {
   $token = bots_tg_token();
   if ($token === '') return ['ok' => false, 'error' => 'Токен не задан'];
-  $res = bots_http_json('https://api.telegram.org/bot' . rawurlencode($token) . '/getMe');
+  $res = bots_http_json(bots_tg_method_url($token, 'getMe'));
   if (!empty($res['ok'])) {
     $u = $res['result']['username'] ?? '';
     return ['ok' => true, 'username' => $u, 'id' => $res['result']['id'] ?? null];
@@ -408,4 +432,102 @@ function bots_test_vk(): array {
     return ['ok' => true, 'name' => 'user ' . $res2['response'][0]['id'], 'id' => $res2['response'][0]['id']];
   }
   return ['ok' => false, 'error' => $res['error']['error_msg'] ?? $res2['error']['error_msg'] ?? 'VK API error'];
+}
+
+
+/** Ответ в конкретный chat (входящие) */
+function bots_telegram_reply($chatId, string $text, array $extra = []): array {
+  $token = bots_tg_token();
+  if ($token === '') return ['ok' => false, 'error' => 'no token'];
+  $s = bots_settings();
+  $parse = $s['tg_parse_mode'] ?? 'HTML';
+  $post = array_merge([
+    'chat_id' => $chatId,
+    'text' => mb_substr($text, 0, 4096),
+    'parse_mode' => $parse,
+  ], $extra);
+  $res = bots_http_json(bots_tg_method_url($token, 'sendMessage'), $post);
+  $ok = !empty($res['ok']);
+  bots_log('telegram', $ok, $ok ? 'reply' : ($res['description'] ?? 'reply fail'), $res);
+  return $ok ? ['ok' => true] : ['ok' => false, 'error' => $res['description'] ?? 'fail'];
+}
+
+function bots_site_base_url(): string {
+  $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+  $host = $_SERVER['HTTP_HOST'] ?? '';
+  if ($host === '') return '';
+  return $scheme . '://' . $host;
+}
+
+/** Обработка update от Telegram */
+function bots_handle_telegram_update(array $update): void {
+  $s = bots_settings();
+  if (isset($s['tg_inbound_enabled']) && (int)$s['tg_inbound_enabled'] === 0) {
+    return;
+  }
+  // Единый обработчик: личка + группы + нейрохам
+  if (function_exists('mod_bots_handle_inbound_with_token')) {
+    $token = bots_tg_token();
+    if ($token === '') return;
+    $site = function_exists('bots_site_base_url') ? bots_site_base_url() : '';
+    mod_bots_handle_inbound_with_token($token, $update, true, $site);
+    return;
+  }
+  $msg = $update['message'] ?? $update['channel_post'] ?? null;
+  if (!$msg || empty($msg['chat']['id'])) return;
+  $chatId = $msg['chat']['id'];
+  $text = trim((string)($msg['text'] ?? $msg['caption'] ?? ''));
+  $from = $msg['from']['username'] ?? $msg['from']['first_name'] ?? 'user';
+  $site = function_exists('bots_site_base_url') ? bots_site_base_url() : '';
+  $name = defined('SITE_NAME') ? SITE_NAME : 'StreamLive';
+  if ($text === '') return;
+  $lower = mb_strtolower($text);
+  if (strpos($lower, '/start') === 0 || $lower === 'старт') {
+    bots_telegram_reply($chatId, "👋 Привет! Это бот <b>" . htmlspecialchars($name) . "</b>.\n/help — помощь");
+    return;
+  }
+  if (strpos($lower, '/help') === 0) {
+    bots_telegram_reply($chatId, "🤖 Бот StreamLive\n/site — сайт");
+    return;
+  }
+  if (strpos($lower, '/site') === 0) {
+    bots_telegram_reply($chatId, $site !== '' ? "🌐 " . $site : "Сайт не определён");
+    return;
+  }
+  $isGroup = in_array(($msg['chat']['type'] ?? ''), ['group', 'supergroup'], true);
+  if ($isGroup) return;
+  bots_telegram_reply($chatId, "✅ Бот на связи.");
+}
+
+
+function bots_telegram_set_webhook(string $url, ?string $secret = null): array {
+  $token = bots_tg_token();
+  if ($token === '') return ['ok' => false, 'error' => 'Токен не задан'];
+  $post = [
+    'url' => $url,
+    'allowed_updates' => json_encode(['message', 'channel_post']),
+    'drop_pending_updates' => '1',
+  ];
+  if ($secret) $post['secret_token'] = $secret;
+  $res = bots_http_json(bots_tg_method_url($token, 'setWebhook'), $post);
+  $ok = !empty($res['ok']);
+  bots_log('telegram', $ok, $ok ? 'setWebhook' : ($res['description'] ?? 'setWebhook fail'), $res);
+  return $ok ? ['ok' => true, 'description' => $res['description'] ?? 'ok'] : ['ok' => false, 'error' => $res['description'] ?? 'fail'];
+}
+
+function bots_telegram_delete_webhook(): array {
+  $token = bots_tg_token();
+  if ($token === '') return ['ok' => false, 'error' => 'Токен не задан'];
+  $res = bots_http_json(bots_tg_method_url($token, 'deleteWebhook'), [
+    'drop_pending_updates' => '1',
+  ]);
+  return !empty($res['ok']) ? ['ok' => true] : ['ok' => false, 'error' => $res['description'] ?? 'fail'];
+}
+
+function bots_telegram_webhook_info(): array {
+  $token = bots_tg_token();
+  if ($token === '') return ['ok' => false, 'error' => 'Токен не задан'];
+  $res = bots_http_json(bots_tg_method_url($token, 'getWebhookInfo'));
+  if (!empty($res['ok'])) return ['ok' => true, 'result' => $res['result'] ?? []];
+  return ['ok' => false, 'error' => $res['description'] ?? 'fail'];
 }
