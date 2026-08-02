@@ -30,6 +30,7 @@ unset($cat);
   <div style="display:flex;align-items:center;justify-content:space-between;margin:24px 0 6px;flex-wrap:wrap;gap:10px">
     <h1 style="margin:0">Форум</h1>
     <div style="display:flex;gap:8px">
+      <a href="/forum_search.php" class="btn btn-outline btn-sm">Поиск</a>
       <button type="button" class="btn btn-outline btn-sm" onclick="copyRssLink('<?= e(SITE_URL) ?>/rss_forum.php')">📋 RSS-ссылка</button>
       <?php if ($__user && $__user['role'] === 'admin'): ?>
         <a href="/admin/forum.php" class="btn btn-outline btn-sm">Управление категориями</a>

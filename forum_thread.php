@@ -7,6 +7,8 @@ try { user_display_ensure_schema(); } catch (Throwable $e) {}
 
 require_once __DIR__ . '/includes/service_helpers.php';
 require_once __DIR__ . '/includes/bbcode.php';
+require_once __DIR__ . '/includes/forum_engine.php';
+forum_engine_ensure();
 $__user = current_user();
 
 $threadId = (int)($_GET['id'] ?? 0);
@@ -40,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $message = trim(mb_substr($_POST['message'] ?? '', 0, 2000000));
     if ($message !== '') {
       db()->prepare('INSERT INTO forum_posts (thread_id, user_id, message) VALUES (?, ?, ?)')->execute([$threadId, $__user['id'], $message]);
-      db()->prepare('UPDATE forum_threads SET last_post_at = NOW() WHERE id = ?')->execute([$threadId]);
+      forum_bump_reply_stats($threadId, (int)$__user['id']);
     }
   } elseif ($action === 'delete_post' && $isForumModerator) {
     db()->prepare('UPDATE forum_posts SET is_deleted = 1 WHERE id = ? AND thread_id = ?')->execute([(int)$_POST['post_id'], $threadId]);
@@ -79,6 +81,18 @@ try {
   $posts = $stmt->fetchAll();
 }
 
+$postIds = array_map(static function ($row) { return (int)$row['id']; }, $posts);
+$likedIds = ($__user && $postIds) ? forum_user_liked_posts((int)$__user['id'], $postIds) : [];
+$watching = $__user ? forum_thread_is_watching($threadId, (int)$__user['id']) : false;
+if ($__user && $postIds) {
+  forum_mark_read($threadId, (int)$__user['id'], max($postIds));
+}
+// актуальные счётчики лайков из таблицы (не только кэш-колонка)
+$likeCounts = [];
+foreach ($postIds as $pid) {
+  $likeCounts[$pid] = forum_post_like_count($pid);
+}
+
 $pageTitle = $thread['title'] . ' — Форум';
 require_once __DIR__ . '/includes/header.php';
 ?>
@@ -93,6 +107,14 @@ require_once __DIR__ . '/includes/header.php';
       <?php if ($thread['is_locked']): ?><span class="lock-badge">Закрыто</span><?php endif; ?>
       <?= e($thread['title']) ?>
     </h1>
+    <?php if ($__user): ?>
+      <form method="POST" action="/forum_action.php" style="display:inline">
+        <?= csrf_field() ?>
+        <input type="hidden" name="action" value="watch">
+        <input type="hidden" name="thread_id" value="<?= (int)$threadId ?>">
+        <button class="btn btn-outline btn-sm" type="submit"><?= !empty($watching) ? '★ Следите' : '☆ Следить' ?></button>
+      </form>
+    <?php endif; ?>
     <?php if ($isForumModerator): ?>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <form method="POST"><?= csrf_field() ?><input type="hidden" name="action" value="toggle_pin"><button class="btn btn-outline btn-sm" type="submit"><?= $thread['is_pinned'] ? 'Открепить' : 'Закрепить' ?></button></form>
@@ -104,7 +126,7 @@ require_once __DIR__ . '/includes/header.php';
 
   <div id="posts" class="forum-post-list">
     <?php foreach ($posts as $p): ?>
-      <div class="forum-post">
+      <div class="forum-post" id="post-<?= (int)$p['id'] ?>">
         <div class="forum-post-author">
           <?= render_user_badge($p, 28) ?>
           <?php if ($p['role'] === 'admin'): ?><span class="role-badge">админ</span><?php endif; ?>
@@ -115,11 +137,49 @@ require_once __DIR__ . '/includes/header.php';
         </div>
         <?= banned_user_notice($p) ?>
         <div class="forum-post-body"><?= bbcode_to_html($p['message'], (int)$p['id']) ?></div>
-        <div class="forum-post-footer-mini"><?php
-          $__mp = $p;
-          if (!empty($p['user_id'])) $__mp['id'] = (int)$p['user_id'];
-          echo function_exists('user_render_mini_profile') ? user_render_mini_profile($__mp) : '';
-        ?></div>
+        <div class="forum-post-actions" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center">
+          <?php if ($__user): ?>
+            <?php
+              $__pid = (int)$p['id'];
+              $__liked = in_array($__pid, $likedIds ?? [], true);
+              $__lc = (int)($likeCounts[$__pid] ?? $p['like_count'] ?? 0);
+            ?>
+            <form method="POST" action="/forum_action.php" style="display:inline" class="js-forum-like-form">
+              <?= csrf_field() ?>
+              <input type="hidden" name="action" value="like">
+              <input type="hidden" name="post_id" value="<?= $__pid ?>">
+              <input type="hidden" name="redirect" value="/forum_thread.php?id=<?= (int)$threadId ?>#post-<?= $__pid ?>">
+              <button type="submit" class="btn btn-outline btn-sm js-forum-like-btn" data-post-id="<?= $__pid ?>">
+                <?= $__liked ? '♥' : '♡' ?> <?= $__lc ?>
+              </button>
+            </form>
+            <button type="button" class="btn btn-outline btn-sm" onclick="forumQuote(<?= $__pid ?>, <?= json_encode($p['username'] ?? '', JSON_UNESCAPED_UNICODE) ?>)">Цитировать</button>
+            <form method="POST" action="/forum_action.php" style="display:inline" onsubmit="return confirm('Пожаловаться на сообщение?');">
+              <?= csrf_field() ?>
+              <input type="hidden" name="action" value="report">
+              <input type="hidden" name="post_id" value="<?= $__pid ?>">
+              <input type="hidden" name="reason" value="spam">
+              <input type="hidden" name="redirect" value="/forum_thread.php?id=<?= (int)$threadId ?>#post-<?= $__pid ?>">
+              <button class="btn btn-outline btn-sm" type="submit">Жалоба</button>
+            </form>
+            <?php if ((int)$p['user_id'] === (int)$__user['id'] || $isForumModerator): ?>
+              <details>
+                <summary class="btn btn-outline btn-sm" style="cursor:pointer;list-style:none">Изменить</summary>
+                <form method="POST" action="/forum_action.php" style="margin-top:8px">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="action" value="edit">
+                  <input type="hidden" name="post_id" value="<?= $__pid ?>">
+                  <textarea name="message" rows="4" style="width:100%;min-width:240px"><?= e($p['message']) ?></textarea>
+                  <button class="btn btn-primary btn-sm" type="submit">Сохранить</button>
+                </form>
+              </details>
+            <?php endif; ?>
+          <?php endif; ?>
+          <?php if (!empty($p['updated_at'])): ?>
+            <span style="font-size:11px;color:var(--text-dim)">изм. <?= e($p['updated_at']) ?></span>
+          <?php endif; ?>
+        </div>
+        <div class="forum-post-footer-mini"><?php $p['id'] = (int)($p['id'] ?? $p['user_id'] ?? 0); echo user_render_mini_profile($p); ?></div>
         <?php if ($isForumModerator): ?>
           <form method="POST" onsubmit="return confirm('Удалить сообщение?')" style="margin-top:6px">
             <?= csrf_field() ?>
@@ -147,4 +207,45 @@ require_once __DIR__ . '/includes/header.php';
     <p style="color:var(--text-dim);font-size:13px;margin:20px 0"><a href="/auth/login.php" style="color:var(--accent-2)">Войдите</a>, чтобы ответить в теме.</p>
   <?php endif; ?>
 </div>
+
+<script>
+function forumQuote(postId, username) {
+  var ta = document.getElementById('bb-editor');
+  if (!ta) return;
+  var el = document.getElementById('post-' + postId);
+  var text = '';
+  if (el) {
+    var body = el.querySelector('.forum-post-body');
+    text = ((body && body.innerText) || '').trim().slice(0, 1500);
+  }
+  ta.value += (ta.value ? "\n" : '') + '[quote="' + username + '"]' + text + '[/quote]\n';
+  ta.focus();
+}
+document.addEventListener('submit', function (e) {
+  var form = e.target;
+  if (!form || !form.classList || !form.classList.contains('js-forum-like-form')) return;
+  e.preventDefault();
+  var btn = form.querySelector('.js-forum-like-btn');
+  var fd = new FormData(form);
+  fd.set('ajax', '1');
+  fetch('/forum_action.php', {
+    method: 'POST',
+    body: fd,
+    credentials: 'same-origin',
+    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    if (!d || !d.ok) {
+      // fallback: обычный POST без JS
+      form.classList.remove('js-forum-like-form');
+      form.submit();
+      return;
+    }
+    if (btn) btn.textContent = (d.liked ? '♥ ' : '♡ ') + d.count;
+  }).catch(function () {
+    form.classList.remove('js-forum-like-form');
+    form.submit();
+  });
+});
+</script>
+
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

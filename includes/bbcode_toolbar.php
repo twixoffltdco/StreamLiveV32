@@ -1,128 +1,121 @@
-<div class="bb-toolbar">
-  <button type="button" onclick="bbWrap('[b]','[/b]')" title="Жирный"><b>B</b></button>
-  <button type="button" onclick="bbWrap('[i]','[/i]')" title="Курсив"><i>I</i></button>
-  <button type="button" onclick="bbWrap('[u]','[/u]')" title="Подчёркнутый"><u>U</u></button>
-  <button type="button" onclick="bbWrap('[s]','[/s]')" title="Зачёркнутый"><s>S</s></button>
-  <button type="button" onclick="bbWrap('[url=https://]','[/url]')" title="Ссылка">Ссылка</button>
-  <button type="button" onclick="bbWrap('[img]','[/img]')" title="Картинка">Картинка</button>
-  <button type="button" onclick="bbWrap('[quote]','[/quote]')" title="Цитата">Цитата</button>
-  <button type="button" onclick="bbWrap('[code]','[/code]')" title="Код">Код</button>
-  <button type="button" onclick="bbWrap('[php]','[/php]')" title="PHP-код">PHP</button>
-  <button type="button" onclick="bbWrap('[spoiler]','[/spoiler]')" title="Спойлер">Спойлер</button>
-  <button type="button" onclick="bbWrap('[hide]','[/hide]')" title="Скрытый текст">Hide</button>
-  <button type="button" onclick="bbWrap('[list]\n[*]','\n[/list]')" title="Список">Список</button>
-  <button type="button" onclick="bbWrap('[color=red]','[/color]')" title="Цвет">Цвет</button>
-  <button type="button" onclick="bbWrap('[size=3]','[/size]')" title="Размер">Размер</button>
-  <button type="button" onclick="bbWrap('[center]','[/center]')" title="По центру">Центр</button>
-  <button type="button" onclick="bbWrap('[user]','[/user]')" title="Упоминание пользователя">@user</button>
-  <button type="button" onclick="bbWrap('[youtube]','[/youtube]')" title="YouTube">YouTube</button>
-  <button type="button" onclick="bbWrap('[imgur]','[/imgur]')" title="Imgur скрин">Imgur</button>
-  <button type="button" onclick="bbWrap('[iframe]','[/iframe]')" title="Встроить iframe">iframe</button>
-  <button type="button" onclick="bbWrap('[embed]','[/embed]')" title="Embed URL">Embed</button>
-  <button type="button" onclick="bbInsertTableTemplate()" title="Таблица">Таблица</button>
+<div class="bb-toolbar" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">
+  <button type="button" class="bb-btn" onclick="bbWrap('[b]','[/b]')" title="Жирный"><b>B</b></button>
+  <button type="button" class="bb-btn" onclick="bbWrap('[i]','[/i]')" title="Курсив"><i>I</i></button>
+  <button type="button" class="bb-btn" onclick="bbWrap('[u]','[/u]')" title="Подчёркнутый"><u>U</u></button>
+  <button type="button" class="bb-btn" onclick="bbWrap('[s]','[/s]')" title="Зачёркнутый"><s>S</s></button>
+  <button type="button" class="bb-btn" onclick="bbWrap('[url=https://]','[/url]')">URL</button>
+  <button type="button" class="bb-btn" onclick="bbWrap('[img]','[/img]')">IMG</button>
+  <button type="button" class="bb-btn" onclick="bbWrap('[quote]','[/quote]')">Quote</button>
+  <button type="button" class="bb-btn" onclick="bbWrap('[code]','[/code]')">Code</button>
+  <button type="button" class="bb-btn" onclick="bbWrap('[spoiler]','[/spoiler]')">Spoiler</button>
+  <button type="button" class="bb-btn" onclick="bbWrap('[list]\n[*]','\n[/list]')">List</button>
+  <button type="button" class="bb-btn" onclick="bbWrap('[color=#e74c3c]','[/color]')">Color</button>
+  <button type="button" class="bb-btn" onclick="bbWrap('[size=4]','[/size]')">Size</button>
+  <button type="button" class="bb-btn" onclick="bbWrap('[center]','[/center]')">Center</button>
+  <button type="button" class="bb-btn" onclick="bbWrap('[media=youtube]','[/media]')">YT</button>
+  <button type="button" class="bb-btn" onclick="bbWrap('[user]','[/user]')">@user</button>
+  <button type="button" class="bb-btn" onclick="bbInsertTableTemplate()">Table</button>
 </div>
+<style>
+.bb-btn{background:#1e1e28;color:#ddd;border:1px solid #333;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px}
+.bb-btn:hover{border-color:#7c5cff;color:#fff}
+.bb-quote{border-left:3px solid #7c5cff;background:rgba(124,92,255,.08);padding:8px 12px;margin:8px 0;border-radius:0 8px 8px 0}
+.bb-quote-head{font-size:12px;opacity:.7;margin-bottom:4px}
+.bb-spoiler{margin:8px 0;padding:8px;background:#16161e;border-radius:8px}
+.bb-ispoiler{background:#333;color:#333;border-radius:3px;padding:0 4px;cursor:help}
+.bb-ispoiler:hover,.bb-ispoiler:focus{color:inherit;background:transparent}
+.bb-code{background:#0d0d12;padding:10px;border-radius:8px;overflow:auto;font-size:13px}
+.bb-inline-code{background:#1a1a24;padding:1px 5px;border-radius:4px;font-family:ui-monospace,monospace}
+.bb-table-wrap{overflow:auto;margin:8px 0}
+.bb-table{border-collapse:collapse;width:100%}
+.bb-table th,.bb-table td{border:1px solid #333;padding:6px 8px}
+.bb-img{border-radius:8px;margin:6px 0}
+.bb-highlight{background:#f1c40f55;padding:0 2px}
+</style>
 <script>
-  function bbWrap(open, close) {
-    const ta = document.getElementById('bb-editor');
-    if (!ta) return;
-    const start = ta.selectionStart, end = ta.selectionEnd;
-    const selected = ta.value.substring(start, end);
-    const before = ta.value.substring(0, start);
-    const after = ta.value.substring(end);
-    ta.value = before + open + selected + close + after;
+(function(){
+  function bbTa(){ return document.getElementById('bb-editor') || document.querySelector('textarea.bb-editor, textarea[name="message"], textarea[name="body"], textarea[name="content"]'); }
+  window.bbWrap = function(open, close) {
+    var ta = bbTa(); if (!ta) return;
+    var start = ta.selectionStart, end = ta.selectionEnd;
+    var selected = ta.value.substring(start, end);
+    ta.value = ta.value.substring(0, start) + open + selected + close + ta.value.substring(end);
     ta.focus();
     ta.selectionStart = start + open.length;
     ta.selectionEnd = start + open.length + selected.length;
+  };
+  window.bbInsertTableTemplate = function() {
+    bbWrap('', '[table]\n[tr][th]A[/th][th]B[/th][/tr]\n[tr][td]1[/td][td]2[/td][/tr]\n[/table]');
+  };
+
+  function htmlToBbcode(html) {
+    var div = document.createElement('div');
+    div.innerHTML = html;
+    function walk(node) {
+      if (node.nodeType === 3) return node.nodeValue;
+      if (node.nodeType !== 1) return '';
+      var tag = node.tagName.toLowerCase();
+      var inner = '';
+      for (var i = 0; i < node.childNodes.length; i++) inner += walk(node.childNodes[i]);
+      if (tag === 'br') return '\n';
+      if (tag === 'strong' || tag === 'b') return '[b]' + inner + '[/b]';
+      if (tag === 'em' || tag === 'i') return '[i]' + inner + '[/i]';
+      if (tag === 'u') return '[u]' + inner + '[/u]';
+      if (tag === 's' || tag === 'strike' || tag === 'del') return '[s]' + inner + '[/s]';
+      if (tag === 'code') return '[icode]' + inner + '[/icode]';
+      if (tag === 'pre') return '[code]' + inner + '[/code]';
+      if (tag === 'a') {
+        var href = node.getAttribute('href') || '';
+        if (/^https?:\/\//i.test(href)) return '[url=' + href + ']' + (inner || href) + '[/url]';
+        return inner;
+      }
+      if (tag === 'img') {
+        var src = node.getAttribute('src') || '';
+        if (/^https?:\/\//i.test(src)) return '[img]' + src + '[/img]';
+        return '';
+      }
+      if (tag === 'h1' || tag === 'h2') return '[heading=1]' + inner + '[/heading]\n';
+      if (tag === 'h3') return '[heading=2]' + inner + '[/heading]\n';
+      if (tag === 'p' || tag === 'div') return inner + '\n';
+      if (tag === 'li') return '[*]' + inner + '\n';
+      if (tag === 'ul') return '[list]\n' + inner + '[/list]\n';
+      if (tag === 'ol') return '[list=1]\n' + inner + '[/list]\n';
+      if (tag === 'blockquote') return '[quote]' + inner + '[/quote]\n';
+      if (tag === 'span') {
+        var st = node.getAttribute('style') || '';
+        var m = st.match(/color\s*:\s*([^;]+)/i);
+        if (m) return '[color=' + m[1].trim() + ']' + inner + '[/color]';
+        return inner;
+      }
+      if (tag === 'table') {
+        // leave plain text rows
+        return inner + '\n';
+      }
+      return inner;
+    }
+    return walk(div).replace(/\n{3,}/g, '\n\n').trim();
   }
 
-  // Готовый шаблон 2×2 по кнопке "Таблица" — быстрее, чем печатать теги руками.
-  function bbInsertTableTemplate() {
-    bbWrap('', '[table]\n[tr][th]Заголовок 1[/th][th]Заголовок 2[/th][/tr]\n[tr][td]Ячейка[/td][td]Ячейка[/td][/tr]\n[/table]');
-  }
-
-  // Строит BBCode-таблицу из двумерного массива ячеек (строки/столбцы).
-  function bbBuildTable(rows) {
-    if (!rows.length) return '';
-    var out = '[table]\n';
-    rows.forEach(function (row, i) {
-      var tag = (i === 0) ? 'th' : 'td';
-      out += '[tr]' + row.map(function (cell) { return '[' + tag + ']' + cell.trim() + '[/' + tag + ']'; }).join('') + '[/tr]\n';
-    });
-    out += '[/table]';
-    return out;
-  }
-
-  // Разбирает HTML-таблицу (например, скопированную прямо со страницы сайта) в массив ячеек.
-  function bbParseHtmlTable(html) {
-    var doc = new DOMParser().parseFromString(html, 'text/html');
-    var table = doc.querySelector('table');
-    if (!table) return null;
-    var rows = [];
-    table.querySelectorAll('tr').forEach(function (tr) {
-      var cells = [];
-      tr.querySelectorAll('td,th').forEach(function (cell) { cells.push(cell.textContent.replace(/\s+/g, ' ').trim()); });
-      if (cells.length) rows.push(cells);
-    });
-    return rows.length ? rows : null;
-  }
-
-  // Разбирает табличные данные из обычного текста — так Excel/Google Таблицы/Numbers кладут
-  // выделенный диапазон в буфer: строки через перенос строки, столбцы через Tab.
-  function bbParsePlainTable(text) {
-    var lines = text.replace(/\r\n/g, '\n').split('\n').filter(function (l) { return l.length; });
-    if (lines.length < 2) return null;
-    var hasTabs = lines.every(function (l) { return l.indexOf('\t') !== -1; });
-    if (!hasTabs) return null;
-    return lines.map(function (l) { return l.split('\t'); });
-  }
-
-  (function () {
-    var ta = document.getElementById('bb-editor');
-    if (!ta) return;
-
+  function onReady() {
+    var ta = bbTa();
+    if (!ta || ta._bbPasteBound) return;
+    ta._bbPasteBound = true;
     ta.addEventListener('paste', function (e) {
-      var clipboard = e.clipboardData || window.clipboardData;
-      if (!clipboard) return;
-
-      // 1) HTML-таблица в буфере (скопировали кусок веб-страницы или Google Таблицы через браузер)
-      var html = clipboard.getData('text/html');
-      if (html && /<table/i.test(html)) {
-        var rows = bbParseHtmlTable(html);
-        if (rows) {
+      var clip = e.clipboardData || window.clipboardData;
+      if (!clip) return;
+      var html = clip.getData('text/html') || '';
+      if (html && (html.indexOf('<b') !== -1 || html.indexOf('<strong') !== -1 || html.indexOf('<em') !== -1 || html.indexOf('<a ') !== -1 || html.indexOf('<i') !== -1)) {
+        var bb = htmlToBbcode(html);
+        if (bb) {
           e.preventDefault();
-          bbWrap('', bbBuildTable(rows));
-          return;
+          var start = ta.selectionStart, end = ta.selectionEnd;
+          ta.value = ta.value.substring(0, start) + bb + ta.value.substring(end);
+          ta.selectionStart = ta.selectionEnd = start + bb.length;
         }
       }
-
-      var text = clipboard.getData('text/plain') || '';
-
-      // 2) Табличные данные как обычный текст (Excel/Numbers, вставка "как текст")
-      var plainRows = bbParsePlainTable(text);
-      if (plainRows) {
-        e.preventDefault();
-        bbWrap('', bbBuildTable(plainRows));
-        return;
-      }
-
-      // 3) Голая ссылка на картинку — сама оборачивается в [img], чтобы не описывать вручную
-      if (/^https?:\/\/\S+\.(png|jpe?g|gif|webp|svg)(\?\S*)?$/i.test(text.trim())) {
-        e.preventDefault();
-        bbWrap('[img]' + text.trim(), '[/img]');
-        return;
-      }
-
-      // 4) Обычная голая ссылка — в [url], чтобы не расползалась превьюшками где не надо
-      if (/^https?:\/\/\S+$/i.test(text.trim()) && ta.selectionStart !== ta.selectionEnd) {
-        // Вставили ссылку поверх ВЫДЕЛЕННОГО текста — оборачиваем выделенное в [url=...]выделение[/url]
-        e.preventDefault();
-        var start = ta.selectionStart, end = ta.selectionEnd;
-        var selected = ta.value.substring(start, end);
-        ta.value = ta.value.substring(0, start) + '[url=' + text.trim() + ']' + selected + '[/url]' + ta.value.substring(end);
-        ta.focus();
-        return;
-      }
-      // Обычный текст — вставляем как есть, ничего не перехватываем
     });
-  })();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', onReady);
+  else onReady();
+})();
 </script>
