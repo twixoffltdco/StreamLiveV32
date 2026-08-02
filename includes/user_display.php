@@ -39,7 +39,6 @@ function user_display_ensure_schema(): void {
     'nick_decor_pos' => "VARCHAR(10) NOT NULL DEFAULT 'before'",
     'custom_prefix_id' => 'INT UNSIGNED NULL',
     'custom_prefix_changed_at' => 'DATETIME NULL',
-    // note: is_personal lives on user_prefixes table, not users
     'session_started_at' => 'DATETIME NULL',
     'last_seen_at' => 'DATETIME NULL',
     'session_seconds' => 'INT UNSIGNED NOT NULL DEFAULT 0',
@@ -177,25 +176,6 @@ function user_resolve_id(array $user): int {
   return (int)($user['user_id'] ?? 0);
 }
 
-
-/** Только системные (не личные) префиксы — для выдачи модом/админом */
-function user_prefixes_system_list(bool $activeOnly = true): array {
-  user_display_ensure_schema();
-  try {
-    $sql = 'SELECT * FROM user_prefixes WHERE (is_personal = 0 OR is_personal IS NULL)
-              AND (owner_user_id IS NULL OR owner_user_id = 0)';
-    if ($activeOnly) $sql .= ' AND is_active = 1';
-    $sql .= ' ORDER BY sort_order ASC, id ASC';
-    return db()->query($sql)->fetchAll() ?: [];
-  } catch (Throwable $e) {
-    try {
-      return db()->query('SELECT * FROM user_prefixes WHERE is_active = 1 ORDER BY sort_order, id')->fetchAll() ?: [];
-    } catch (Throwable $e2) {
-      return [];
-    }
-  }
-}
-
 function user_get_prefix(?int $prefixId): ?array {
   if (!$prefixId) return null;
   static $cache = [];
@@ -233,7 +213,10 @@ function user_get_prefixes_for_user(array $user): array {
       foreach ($st->fetchAll() as $row) {
         $pid = (int)$row['id'];
         if (isset($seen[$pid])) continue;
+        $titleKey = function_exists('mb_strtolower') ? mb_strtolower(trim((string)($row['title'] ?? ''))) : strtolower(trim((string)($row['title'] ?? '')));
+        if ($titleKey !== '' && isset($seen['t:' . $titleKey])) continue;
         $seen[$pid] = true;
+        if ($titleKey !== '') $seen['t:' . $titleKey] = true;
         $out[] = $row;
       }
     } catch (Throwable $e) {}
@@ -250,9 +233,13 @@ function user_get_prefixes_for_user(array $user): array {
     if ($customId > 0 && empty($seen[$customId])) {
       $p = user_get_prefix($customId);
       if ($p) {
-        array_unshift($out, $p);
-        $seen[$customId] = true;
-        $out = array_slice($out, 0, 3);
+        $titleKey = function_exists('mb_strtolower') ? mb_strtolower(trim((string)($p['title'] ?? ''))) : strtolower(trim((string)($p['title'] ?? '')));
+        if ($titleKey === '' || empty($seen['t:' . $titleKey])) {
+          array_unshift($out, $p);
+          $seen[$customId] = true;
+          if ($titleKey !== '') $seen['t:' . $titleKey] = true;
+          $out = array_slice($out, 0, 3);
+        }
       }
     }
   }
@@ -324,12 +311,17 @@ function user_render_prefix_html(?array $prefix): string {
 function user_render_prefixes_html(array $prefixes): string {
   if (!$prefixes) return '';
   $parts = [];
+  $seenTitles = [];
   foreach ($prefixes as $p) {
+    $tk = function_exists('mb_strtolower') ? mb_strtolower(trim((string)($p['title'] ?? ''))) : strtolower(trim((string)($p['title'] ?? '')));
+    if ($tk !== '' && isset($seenTitles[$tk])) continue;
+    if ($tk !== '') $seenTitles[$tk] = true;
     $h = user_render_prefix_html($p);
     if ($h !== '') $parts[] = $h;
+    if (count($parts) >= 3) break;
   }
   if (!$parts) return '';
-  return '<span class="user-prefixes">' . implode(' ', $parts) . '</span> ';
+  return '<span class="user-prefixes">' . implode('', $parts) . '</span>';
 }
 
 /** Безопасный CSS для ника: inline ИЛИ блок с @keyframes / классами */
@@ -419,7 +411,7 @@ function user_render_nick_decor(?array $user, string $where): string {
   return '<img class="user-nick-decor" src="' . $safe . '" alt="" loading="lazy" style="height:22px;width:auto;vertical-align:middle;margin:0 3px;display:inline-block">';
 }
 
-function user_render_username_html(array $user): string {
+function user_render_username_html(array $user, bool $withPrefixes = true): string {
   $name = htmlspecialchars((string)($user['username'] ?? 'Гость'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
   $uid = function_exists('user_resolve_id') ? user_resolve_id($user) : (int)($user['id'] ?? $user['user_id'] ?? 0);
 
@@ -464,7 +456,7 @@ function user_render_username_html(array $user): string {
     }
   }
 
-  $prefixes = user_get_prefixes_for_user($user);
+  $prefixes = $withPrefixes ? user_get_prefixes_for_user($user) : [];
   $decorBefore = user_render_nick_decor($user, 'before');
   $decorAfter = user_render_nick_decor($user, 'after');
 
@@ -537,8 +529,8 @@ function user_save_custom_prefix(int $userId, string $title, string $textColor, 
         ->execute([$title, $css !== '' ? $css : null, $textColor, $bgColor, $oldId]);
       $pid = $oldId;
     } else {
-      db()->prepare('INSERT INTO user_prefixes (title, css, text_color, bg_color, sort_order, is_active) VALUES (?,?,?,?,0,1)')
-        ->execute([$title, $css !== '' ? $css : null, $textColor, $bgColor]);
+      db()->prepare('INSERT INTO user_prefixes (title, css, text_color, bg_color, sort_order, is_active, is_personal, owner_user_id) VALUES (?,?,?,?,0,1,1,?)')
+        ->execute([$title, $css !== '' ? $css : null, $textColor, $bgColor, $userId]);
       $pid = (int)db()->lastInsertId();
     }
     db()->prepare('UPDATE users SET custom_prefix_id = ?, custom_prefix_changed_at = ?, prefix_id = ? WHERE id = ?')
@@ -612,7 +604,7 @@ function user_render_mini_profile(array $user): string {
   $html .= '</a>';
   $html .= '<div class="xf-mini-meta">';
   $html .= '<div class="xf-mini-name-row">';
-  $html .= '<a href="' . htmlspecialchars($href, ENT_QUOTES) . '" class="xf-mini-name">' . user_render_username_html($user) . '</a>';
+  $html .= '<a href="' . htmlspecialchars($href, ENT_QUOTES) . '" class="xf-mini-name">' . user_render_username_html($user, false) . '</a>';
   if (!empty($user['is_verified']) && function_exists('verify_badge')) {
     $html .= verify_badge(true);
   }

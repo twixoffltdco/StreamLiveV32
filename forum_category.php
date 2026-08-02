@@ -48,7 +48,7 @@ $threads = $stmt->fetchAll();
           <?php if ($t['is_locked']): ?><span class="lock-badge">Закрыто</span><?php endif; ?>
           <a href="/forum_thread.php?id=<?= (int)$t['id'] ?>" class="forum-thread-title"><?= e($t['title']) ?></a>
           <div style="color:var(--text-dim);font-size:12px;display:flex;align-items:center;gap:6px;margin-top:2px">
-            <?= render_user_badge($t, 18) ?> <?php if (!empty($t['prefix_id']) && function_exists('user_get_prefix')): ?><?= user_render_prefix_html(user_get_prefix((int)$t['prefix_id'])) ?><?php endif; ?> · <?= e($t['created_at']) ?>
+            <?= render_user_badge($t, 18) ?> · <?= e($t['created_at']) ?>
             <?= banned_user_notice($t) ?>
           </div>
         </div>

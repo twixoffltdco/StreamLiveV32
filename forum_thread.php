@@ -115,7 +115,11 @@ require_once __DIR__ . '/includes/header.php';
         </div>
         <?= banned_user_notice($p) ?>
         <div class="forum-post-body"><?= bbcode_to_html($p['message'], (int)$p['id']) ?></div>
-        <div class="forum-post-footer-mini"><?php $p['id'] = (int)($p['id'] ?? $p['user_id'] ?? 0); echo user_render_mini_profile($p); ?></div>
+        <div class="forum-post-footer-mini"><?php
+          $__mp = $p;
+          if (!empty($p['user_id'])) $__mp['id'] = (int)$p['user_id'];
+          echo function_exists('user_render_mini_profile') ? user_render_mini_profile($__mp) : '';
+        ?></div>
         <?php if ($isForumModerator): ?>
           <form method="POST" onsubmit="return confirm('Удалить сообщение?')" style="margin-top:6px">
             <?= csrf_field() ?>

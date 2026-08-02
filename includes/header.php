@@ -79,6 +79,7 @@ $__canonical = SITE_URL . ($_SERVER['REQUEST_URI'] ?? '/');
   <link rel="stylesheet" href="/assets/css/light-mode.css?v=<?= file_exists(__DIR__ . '/../assets/css/light-mode.css') ? filemtime(__DIR__ . '/../assets/css/light-mode.css') : time() ?>">
   <?php if (!empty($extraHead)) echo $extraHead; ?>
   <link rel="stylesheet" href="/assets/css/user-display.css?v=20260801everywhere">
+<?php if (is_file(__DIR__ . '/prefix_assets.php')) include __DIR__ . '/prefix_assets.php'; ?>
 </head>
 
 <!-- Seasonal effects -->
@@ -359,34 +360,6 @@ if (month === 12 || month === 1 || month === 2) { // Winter
 <?php foreach ($__flash as $type => $msg): ?>
   <div class="container"><div class="alert alert-<?= e($type) ?>"><?= e($msg) ?></div></div>
 <?php endforeach; ?>
-
-<!-- StreamLive inline Adlook — внутри страницы платформы -->
-<div id="sl-inline-adlook" class="sl-inline-adlook container" style="max-width:1100px;margin:12px auto;min-height:0">
-  <div id="sl-inline-adlook-slot" style="width:100%;min-height:90px;border-radius:12px;overflow:hidden;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06)"></div>
-</div>
-<script>
-(function () {
-  function mountInlineAdlook() {
-    if (!window.UTInventoryCore) { setTimeout(mountInlineAdlook, 120); return; }
-    try {
-      new window.UTInventoryCore({
-        type: "banner",
-        host: 5814,
-        content: false,
-        adaptive: true,
-        width: 728,
-        height: 90,
-        playMode: "autoplay",
-        withoutIframe: true,
-        container: document.getElementById("sl-inline-adlook-slot") || undefined
-      });
-    } catch (e) {}
-  }
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mountInlineAdlook);
-  else mountInlineAdlook();
-})();
-</script>
-
 <?php if ($__gamification_today): ?>
   <div id="streakModal" class="streak-modal-overlay">
     <div class="streak-modal">
@@ -996,36 +969,6 @@ screen.colorDepth:screen.pixelDepth))+";u"+escape(document.URL)+
         </div>
 
     </div>
-
-    <!-- StreamLive во ВКонтакте -->
-    <div class="banner" style="margin-top:12px;background:linear-gradient(135deg,#1a2332 0%,#2787F5 120%)">
-        <div class="banner-content">
-            <div class="badge">НОВОЕ</div>
-            <h1>
-                <span class="highlight" style="color:#fff">StreamLive</span><br>
-                во ВКонтакте
-            </h1>
-            <p class="subtitle" style="color:rgba(255,255,255,.88)">
-                Подписывайтесь на наши сообщества — новости, стримы и зеркала канала. Официальная группа и запасные страницы.
-            </p>
-            <a href="https://vk.com/streamlivetv" target="_blank" rel="noopener" class="cta-button" style="background:#2787F5">
-                Открыть ВК
-                <svg viewBox="0 0 24 24" width="24" height="24"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
-            </a>
-            <div style="margin-top:10px;font-size:12px;opacity:.9;display:flex;flex-wrap:wrap;gap:8px 14px">
-                <a href="https://vk.com/streamlivetv" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline">@streamlivetv</a>
-                <a href="https://vk.com/tvstreamlivetv" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline">@tvstreamlivetv</a>
-                <a href="https://vk.com/tvstreamlive" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline">@tvstreamlive</a>
-            </div>
-        </div>
-        <div class="banner-logo">
-            <div style="width:72px;height:72px;border-radius:18px;background:#2787F5;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:28px;color:#fff;box-shadow:0 8px 24px rgba(0,0,0,.25)">VK</div>
-            <div class="channel-name" style="margin-top:8px">
-                <a href="https://vk.com/streamlivetv" target="_blank" rel="noopener" style="color:#fff">vk.com/streamlivetv</a>
-            </div>
-        </div>
-    </div>
-
  <script src= "https://player.twitch.tv/js/embed/v1.js?version=3.1.1"></script>
  <meta name="yandex-verification" content="ebe89f0ca4c9912c" />
 <!-- Adlook fly -->
