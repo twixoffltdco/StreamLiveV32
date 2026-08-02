@@ -10,6 +10,7 @@ require_admin();
     <a href="/admin/channels.php">Все каналы</a>
     <a href="/admin/forum.php">Форум (категории)</a>
     <a href="/admin/rss.php">RSS-источники</a>
+    <a href="/admin/bots.php">Боты VK / TG</a>
     <a href="/admin/ai.php">ИИ T2000</a>
     <a href="/admin/prefixes.php">Префиксы</a>
     <a href="/admin/sources.php">Источники</a>

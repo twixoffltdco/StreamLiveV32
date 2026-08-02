@@ -31,6 +31,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $pdo->prepare('INSERT INTO forum_posts (thread_id, user_id, message) VALUES (?, ?, ?)')
       ->execute([$threadId, $__user['id'], $message]);
     $pdo->commit();
+    
+    if (is_file(__DIR__ . '/includes/social_bots.php')) {
+      require_once __DIR__ . '/includes/social_bots.php';
+      try {
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'] ?? '';
+        $__botUrl = ($host !== '' ? $scheme . '://' . $host : '') . '/forum_thread?id=' . (int)$threadId;
+        bots_notify_forum_thread((int)$threadId, (string)$title, $__botUrl);
+      } catch (Throwable $e) {}
+    }
+
     redirect('/forum_thread.php?id=' . $threadId);
   }
   flash_set('error', 'Укажите заголовок темы и текст сообщения');

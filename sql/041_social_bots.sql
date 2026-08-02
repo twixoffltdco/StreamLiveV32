@@ -1,0 +1,3 @@
+-- Self-healing также в includes/social_bots.php::bots_ensure_schema()
+-- Таблицы: bots_settings, bots_queue, bots_log создаются автоматически.
+-- Ключ шифрования: storage/bots_secret.key (не в git, chmod 600).
