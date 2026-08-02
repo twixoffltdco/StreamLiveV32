@@ -103,6 +103,15 @@ $BBCODE_SIMPLE_TAGS = [
   'h2'     => '<h2>$1</h2>',
   'h3'     => '<h3>$1</h3>',
   'h4'     => '<h4>$1</h4>',
+  'strike' => '<span style="text-decoration:line-through">$1</span>',
+  'del' => '<del>$1</del>',
+  'ins' => '<ins>$1</ins>',
+  'highlight' => '<mark class="bb-highlight">$1</mark>',
+  'important' => '<strong class="bb-important" style="color:#f59e0b">$1</strong>',
+  'warning' => '<div class="bb-warning" style="padding:10px 12px;border-left:3px solid #f59e0b;background:rgba(245,158,11,.1);border-radius:8px;margin:8px 0">$1</div>',
+  'info' => '<div class="bb-info" style="padding:10px 12px;border-left:3px solid #3b82f6;background:rgba(59,130,246,.1);border-radius:8px;margin:8px 0">$1</div>',
+  'success' => '<div class="bb-success" style="padding:10px 12px;border-left:3px solid #22c55e;background:rgba(34,197,94,.1);border-radius:8px;margin:8px 0">$1</div>',
+  'error' => '<div class="bb-error" style="padding:10px 12px;border-left:3px solid #ef4444;background:rgba(239,68,68,.1);border-radius:8px;margin:8px 0">$1</div>',
   'plain'  => '<span class="bb-plain">$1</span>',
 ];
 
@@ -113,15 +122,36 @@ function bbcode_callback_tags(?int $postId = null): array {
     '/\[font=(.*?)\](.*?)\[\/font\]/is'                  => 'bbcode_render_font',
     '/\[email\](.*?)\[\/email\]/is'                      => 'bbcode_render_email',
     '/\[list(?:=(1))?\](.*?)\[\/list\]/is'                => 'bbcode_render_list',
-    '/\[color=([a-zA-Z]+|#[0-9a-fA-F]{3,6})\](.*?)\[\/color\]/is' => function ($m) {
-      return '<span style="color:' . htmlspecialchars($m[1], ENT_QUOTES) . '">' . $m[2] . '</span>';
+    '/\[color=(?:&quot;|["\']?)(#[0-9a-fA-F]{3,8}|[a-zA-Z]+|rgb\([^)]+\))(?:&quot;|["\']?)\](.*?)\[\/color\]/is' => function ($m) {
+      $c = html_entity_decode($m[1], ENT_QUOTES);
+      if (!preg_match('/^(#[0-9a-fA-F]{3,8}|[a-zA-Z]{1,20}|rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\))$/i', $c)) {
+        return $m[2];
+      }
+      return '<span style="color:' . htmlspecialchars($c, ENT_QUOTES) . '">' . $m[2] . '</span>';
     },
-    '/\[size=([1-6])\](.*?)\[\/size\]/is' => function ($m) {
-      $px = 11 + ((int)$m[1] * 3);
-      return '<span style="font-size:' . $px . 'px">' . $m[2] . '</span>';
+    '/\[size=(?:&quot;|["\']?)([^\]"\']+)(?:&quot;|["\']?)\](.*?)\[\/size\]/is' => function ($m) {
+      $raw = html_entity_decode(trim($m[1]), ENT_QUOTES);
+      $map = [
+        'xx-small' => '9px', 'x-small' => '10px', 'small' => '12px', 'medium' => '14px',
+        'large' => '18px', 'x-large' => '24px', 'xx-large' => '32px',
+      ];
+      if (isset($map[strtolower($raw)])) {
+        $sz = $map[strtolower($raw)];
+      } elseif (preg_match('/^([1-7])$/', $raw)) {
+        $sz = (10 + (int)$raw * 3) . 'px';
+      } elseif (preg_match('/^(\d{1,3})(px|%)$/', $raw, $mm)) {
+        $n = (int)$mm[1];
+        if ($mm[2] === 'px') $n = max(8, min(48, $n));
+        else $n = max(50, min(200, $n));
+        $sz = $n . $mm[2];
+      } else {
+        $sz = '14px';
+      }
+      return '<span style="font-size:' . htmlspecialchars($sz, ENT_QUOTES) . '">' . $m[2] . '</span>';
     },
-    '/\[url=(https?:\/\/[^\]\s]+)\](.*?)\[\/url\]/is' => function ($m) {
-      return '<a href="' . htmlspecialchars($m[1], ENT_QUOTES) . '" target="_blank" rel="noopener noreferrer nofollow">' . $m[2] . '</a>';
+    '/\[url(?:=(?:&quot;|["\']?)(https?:\/\/[^\]"\']+)(?:&quot;|["\']?))\](.*?)\[\/url\]/is' => function ($m) {
+      $href = html_entity_decode($m[1], ENT_QUOTES);
+      return '<a href="' . htmlspecialchars($href, ENT_QUOTES) . '" target="_blank" rel="noopener noreferrer nofollow">' . $m[2] . '</a>';
     },
     '/\[url\](https?:\/\/[^\]\s]+)\[\/url\]/is' => function ($m) {
       return '<a href="' . htmlspecialchars($m[1], ENT_QUOTES) . '" target="_blank" rel="noopener noreferrer nofollow">' . $m[1] . '</a>';
@@ -182,7 +212,35 @@ function bbcode_callback_tags(?int $postId = null): array {
       return '<div class="bb-code-block"><button type="button" class="bb-code-copy" data-target="' . $id . '">Копировать</button><pre class="bb-code bb-html" id="' . $id . '">' . $m[1] . '</pre></div>';
     },
     // Imgur screenshots
-    '/\[imgur\](.*?)\[\/imgur\]/is' => function ($m) {
+    
+    // XenForo-ish extras
+    '/\[code=([a-zA-Z0-9_-]+)\](.*?)\[\/code\]/is' => function ($m) {
+      $lang = htmlspecialchars($m[1], ENT_QUOTES);
+      return '<div class="bb-code-block"><span class="bb-code-lang">' . $lang . '</span><pre class="bb-code">' . $m[2] . '</pre></div>';
+    },
+    '/\[php\](.*?)\[\/php\]/is' => function ($m) {
+      return '<div class="bb-code-block"><span class="bb-code-lang">php</span><pre class="bb-code">' . $m[1] . '</pre></div>';
+    },
+    '/\[html\](.*?)\[\/html\]/is' => function ($m) {
+      return '<div class="bb-code-block"><span class="bb-code-lang">html</span><pre class="bb-code">' . $m[1] . '</pre></div>';
+    },
+    '/\[ispoiler\](.*?)\[\/ispoiler\]/is' => function ($m) {
+      return '<span class="bb-ispoiler" style="background:#333;color:#333;border-radius:3px;padding:0 4px;cursor:pointer" onclick="this.style.color=this.style.color===\'#333\'?\'inherit\':\'#333\'" title="нажми">' . $m[1] . '</span>';
+    },
+    '/\[user=(\d+)\](.*?)\[\/user\]/is' => function ($m) {
+      $name = strip_tags($m[2]);
+      return '<a href="/profile?username=' . rawurlencode($name) . '" class="bb-user">@' . htmlspecialchars($name, ENT_QUOTES) . '</a>';
+    },
+    '/\[heading=([1-3])\](.*?)\[\/heading\]/is' => function ($m) {
+      $h = max(1, min(3, (int)$m[1]));
+      return '<h' . $h . ' class="bb-heading">' . $m[2] . '</h' . $h . '>';
+    },
+    '/\[quote(?:=(?:&quot;|["\']?)([^\]"\']+)(?:&quot;|["\']?))?\](.*?)\[\/quote\]/is' => function ($m) {
+      $who = trim(html_entity_decode($m[1] ?? '', ENT_QUOTES));
+      $head = $who !== '' ? '<div class="bb-quote-author">' . htmlspecialchars($who, ENT_QUOTES) . ' писал(а):</div>' : '';
+      return '<blockquote class="bb-quote">' . $head . '<div class="bb-quote-body">' . $m[2] . '</div></blockquote>';
+    },
+'/\[imgur\](.*?)\[\/imgur\]/is' => function ($m) {
       $raw = trim($m[1]);
       $id = $raw;
       if (preg_match('#imgur\.com/(?:a/|gallery/)?([a-zA-Z0-9]+)(?:\.[a-z]+)?#i', $raw, $mm)) {

@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         db()->prepare('UPDATE user_prefixes SET title=?, css=?, text_color=?, bg_color=?, sort_order=?, is_active=? WHERE id=?')
           ->execute([$title, $css, $tc, $bg, $sort, $active, $id]);
       } else {
-        db()->prepare('INSERT INTO user_prefixes (title, css, text_color, bg_color, sort_order, is_active) VALUES (?,?,?,?,?,?)')
+        db()->prepare('INSERT INTO user_prefixes (title, css, text_color, bg_color, sort_order, is_active, is_personal, owner_user_id) VALUES (?,?,?,?,?,?,0,NULL)')
           ->execute([$title, $css, $tc, $bg, $sort, $active]);
       }
     }
@@ -55,7 +55,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   redirect('/admin/prefixes.php');
 }
 
-$rows = db()->query('SELECT * FROM user_prefixes ORDER BY sort_order ASC, id ASC')->fetchAll();
+$allRows = db()->query('SELECT * FROM user_prefixes ORDER BY sort_order ASC, id ASC')->fetchAll();
+$rows = array_values(array_filter($allRows, static function ($r) {
+  return empty($r['is_personal']) && empty($r['owner_user_id']);
+}));
+$personalRows = array_values(array_filter($allRows, static function ($r) {
+  return !empty($r['is_personal']) || !empty($r['owner_user_id']);
+}));
 $users = db()->query('SELECT id, username, prefix_id FROM users ORDER BY id DESC LIMIT 200')->fetchAll();
 
 // текущие назначения (до 3)
@@ -117,7 +123,7 @@ require_once __DIR__ . '/_layout_start.php';
   <?php endforeach; ?>
 </table>
 
-<h3 style="margin-top:28px">Выдать префиксы (до 3 на аккаунт)</h3>
+<h3 style="margin-top:28px">Выдать префикс (только системные)ы (до 3 на аккаунт)</h3>
 <form method="post" class="form-card" style="max-width:520px">
   <?= csrf_field() ?>
   <input type="hidden" name="action" value="assign">
@@ -164,4 +170,19 @@ function editPfx(r) {
   window.scrollTo(0, 0);
 }
 </script>
+<?php if (!empty($personalRows)): ?>
+<h3 style="margin-top:28px">Личные префиксы пользователей (не выдаются)</h3>
+<p style="color:var(--text-dim);font-size:13px">Созданы юзерами для себя — только на их аккаунте.</p>
+<table class="table" style="width:100%;font-size:13px">
+  <tr><th>ID</th><th>Превью</th><th>owner</th></tr>
+  <?php foreach ($personalRows as $r): ?>
+    <tr>
+      <td><?= (int)$r['id'] ?></td>
+      <td><?= function_exists('user_render_prefix_html') ? user_render_prefix_html($r) : e($r['title']) ?></td>
+      <td><?= (int)($r['owner_user_id'] ?? 0) ?></td>
+    </tr>
+  <?php endforeach; ?>
+</table>
+<?php endif; ?>
 <?php require_once __DIR__ . '/_layout_end.php'; ?>
+

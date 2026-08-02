@@ -48,6 +48,11 @@ $__cur = in_array($__scriptName, ['index.php', 'catalog.php', 'channel.php', 'ch
       <a href="/smotrim">Smotrim</a>
       <a href="/streamtok">StreamTok</a>
       <a href="/platforma/">Платформа</a>
+      <a href="https://t.me/streamliveru" target="_blank" rel="noopener">Telegram</a>
+      <a href="https://max.ru/channel_StreamLive" target="_blank" rel="noopener">MAX</a>
+      <a href="https://vk.com/streamlivetv" target="_blank" rel="noopener">ВК</a>
+      <a href="https://vk.com/tvstreamlivetv" target="_blank" rel="noopener">ВК зеркало</a>
+      <a href="https://vk.com/tvstreamlive" target="_blank" rel="noopener">ВК зеркало 2</a>
     </nav>
   </div>
 </footer>

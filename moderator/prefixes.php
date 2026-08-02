@@ -76,6 +76,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 
   if ($action === 'assign' && $pid > 0) {
+    // Личный префикс чужого/свой custom — нельзя выдавать через мод-панель
+    try {
+      $chk = db()->prepare('SELECT is_personal, owner_user_id FROM user_prefixes WHERE id = ?');
+      $chk->execute([$pid]);
+      $row = $chk->fetch();
+      if ($row && (!empty($row['is_personal']) || (int)($row['owner_user_id'] ?? 0) > 0)) {
+        flash_set('error', 'Это личный префикс пользователя — его нельзя выдавать другим');
+        redirect('/moderator/prefixes.php');
+      }
+    } catch (Throwable $e) {}
+
     $customId = 0;
     try {
       $st = db()->prepare('SELECT custom_prefix_id FROM users WHERE id = ?');
@@ -117,7 +128,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $prefixes = [];
 $users = [];
 try {
-  $prefixes = db()->query('SELECT * FROM user_prefixes WHERE is_active = 1 ORDER BY sort_order, id')->fetchAll() ?: [];
+  $prefixes = function_exists('user_prefixes_system_list') ? user_prefixes_system_list(true) : (db()->query('SELECT * FROM user_prefixes WHERE is_active = 1 AND (is_personal = 0 OR is_personal IS NULL) ORDER BY sort_order, id')->fetchAll() ?: []);
 } catch (Throwable $e) {}
 try {
   $users = db()->query('SELECT id, username, prefix_id FROM users ORDER BY id DESC LIMIT 150')->fetchAll() ?: [];
@@ -127,6 +138,7 @@ $pageTitle = 'Префиксы';
 require_once __DIR__ . '/../includes/header.php';
 ?>
 <div class="container" style="max-width:800px;margin:24px auto">
+  <p style="color:var(--text-dim);font-size:13px;margin:8px 0 12px">Выдаются только <b>системные</b> префиксы. Личные (созданные пользователем для себя) здесь не показываются и не выдаются другим.</p>
   <h1>Префиксы (модерация)</h1>
   <p style="color:var(--text-dim);font-size:13px">
     Одно действие на пользователя раз в <b>24 часа</b> (выдать <i>или</i> снять).

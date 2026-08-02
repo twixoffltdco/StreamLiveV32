@@ -39,6 +39,7 @@ function user_display_ensure_schema(): void {
     'nick_decor_pos' => "VARCHAR(10) NOT NULL DEFAULT 'before'",
     'custom_prefix_id' => 'INT UNSIGNED NULL',
     'custom_prefix_changed_at' => 'DATETIME NULL',
+    // note: is_personal lives on user_prefixes table, not users
     'session_started_at' => 'DATETIME NULL',
     'last_seen_at' => 'DATETIME NULL',
     'session_seconds' => 'INT UNSIGNED NOT NULL DEFAULT 0',
@@ -174,6 +175,25 @@ function user_resolve_id(array $user): int {
   $id = (int)($user['id'] ?? 0);
   if ($id > 0) return $id;
   return (int)($user['user_id'] ?? 0);
+}
+
+
+/** Только системные (не личные) префиксы — для выдачи модом/админом */
+function user_prefixes_system_list(bool $activeOnly = true): array {
+  user_display_ensure_schema();
+  try {
+    $sql = 'SELECT * FROM user_prefixes WHERE (is_personal = 0 OR is_personal IS NULL)
+              AND (owner_user_id IS NULL OR owner_user_id = 0)';
+    if ($activeOnly) $sql .= ' AND is_active = 1';
+    $sql .= ' ORDER BY sort_order ASC, id ASC';
+    return db()->query($sql)->fetchAll() ?: [];
+  } catch (Throwable $e) {
+    try {
+      return db()->query('SELECT * FROM user_prefixes WHERE is_active = 1 ORDER BY sort_order, id')->fetchAll() ?: [];
+    } catch (Throwable $e2) {
+      return [];
+    }
+  }
 }
 
 function user_get_prefix(?int $prefixId): ?array {
