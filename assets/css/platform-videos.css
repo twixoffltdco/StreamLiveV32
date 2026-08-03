@@ -1,0 +1,61 @@
+/* Сетка видео в стиле Platforma / YouTube — только когда body.theme-platform */
+body.theme-platform .platform-videos-shell,
+body[data-theme="platform"] .platform-videos-shell,
+body[data-theme="platforma"] .platform-videos-shell {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 0;
+  min-height: 70vh;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+@media (max-width: 900px) {
+  body.theme-platform .platform-videos-shell,
+  body[data-theme="platform"] .platform-videos-shell {
+    grid-template-columns: 1fr;
+  }
+  body.theme-platform .platform-videos-side { display: none; }
+}
+.platform-videos-side {
+  padding: 16px 12px;
+  border-right: 1px solid rgba(255,255,255,.08);
+}
+.platform-videos-side a {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: inherit;
+  text-decoration: none;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+.platform-videos-side a:hover { background: rgba(255,255,255,.06); }
+.platform-videos-main { padding: 16px 20px 40px; }
+.platform-videos-tabs {
+  display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px;
+}
+.platform-videos-tabs a {
+  padding: 8px 14px; border-radius: 999px; font-size: 13px;
+  background: rgba(255,255,255,.08); color: inherit; text-decoration: none;
+}
+.platform-videos-tabs a.active { background: #f1f1f1; color: #0f0f0f; font-weight: 600; }
+.platform-videos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px 14px;
+}
+.platform-video-card { text-decoration: none; color: inherit; }
+.platform-video-thumb {
+  width: 100%; aspect-ratio: 16/9; border-radius: 12px;
+  background: #111 center/cover no-repeat; position: relative;
+}
+.platform-video-thumb .dur {
+  position: absolute; right: 6px; bottom: 6px;
+  background: rgba(0,0,0,.85); color: #fff; font-size: 11px;
+  padding: 2px 5px; border-radius: 4px;
+}
+.platform-video-title {
+  font-size: 14px; font-weight: 600; margin: 10px 0 4px; line-height: 1.35;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.platform-video-meta { font-size: 12px; color: var(--text-dim, #aaa); }

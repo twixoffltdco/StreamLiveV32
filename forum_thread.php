@@ -108,7 +108,7 @@ require_once __DIR__ . '/includes/header.php';
       <?= e($thread['title']) ?>
     </h1>
     <?php if ($__user): ?>
-      <form method="POST" action="/forum_action.php" style="display:inline">
+      <form method="POST" action="/forum_action" style="display:inline">
         <?= csrf_field() ?>
         <input type="hidden" name="action" value="watch">
         <input type="hidden" name="thread_id" value="<?= (int)$threadId ?>">
@@ -144,7 +144,7 @@ require_once __DIR__ . '/includes/header.php';
               $__liked = in_array($__pid, $likedIds ?? [], true);
               $__lc = (int)($likeCounts[$__pid] ?? $p['like_count'] ?? 0);
             ?>
-            <form method="POST" action="/forum_action.php" style="display:inline" class="js-forum-like-form">
+            <form method="POST" action="/forum_action" style="display:inline" class="js-forum-like-form">
               <?= csrf_field() ?>
               <input type="hidden" name="action" value="like">
               <input type="hidden" name="post_id" value="<?= $__pid ?>">
@@ -153,8 +153,12 @@ require_once __DIR__ . '/includes/header.php';
                 <?= $__liked ? '♥' : '♡' ?> <?= $__lc ?>
               </button>
             </form>
-            <button type="button" class="btn btn-outline btn-sm" onclick="forumQuote(<?= $__pid ?>, <?= json_encode($p['username'] ?? '', JSON_UNESCAPED_UNICODE) ?>)">Цитировать</button>
-            <form method="POST" action="/forum_action.php" style="display:inline" onsubmit="return confirm('Пожаловаться на сообщение?');">
+            <button type="button" class="btn btn-outline btn-sm js-forum-quote"
+              data-post-id="<?= (int)$__pid ?>"
+              data-username="<?= e($p['username'] ?? '') ?>"
+              data-raw="<?= e(mb_substr(preg_replace('/\s+/u', ' ', strip_tags($p['message'] ?? '')), 0, 1200)) ?>"
+            >Цитировать</button>
+            <form method="POST" action="/forum_action" style="display:inline" onsubmit="return confirm('Пожаловаться на сообщение?');">
               <?= csrf_field() ?>
               <input type="hidden" name="action" value="report">
               <input type="hidden" name="post_id" value="<?= $__pid ?>">
@@ -165,7 +169,7 @@ require_once __DIR__ . '/includes/header.php';
             <?php if ((int)$p['user_id'] === (int)$__user['id'] || $isForumModerator): ?>
               <details>
                 <summary class="btn btn-outline btn-sm" style="cursor:pointer;list-style:none">Изменить</summary>
-                <form method="POST" action="/forum_action.php" style="margin-top:8px">
+                <form method="POST" action="/forum_action" style="margin-top:8px">
                   <?= csrf_field() ?>
                   <input type="hidden" name="action" value="edit">
                   <input type="hidden" name="post_id" value="<?= $__pid ?>">
@@ -209,18 +213,32 @@ require_once __DIR__ . '/includes/header.php';
 </div>
 
 <script>
-function forumQuote(postId, username) {
-  var ta = document.getElementById('bb-editor');
-  if (!ta) return;
-  var el = document.getElementById('post-' + postId);
-  var text = '';
-  if (el) {
-    var body = el.querySelector('.forum-post-body');
-    text = ((body && body.innerText) || '').trim().slice(0, 1500);
+(function () {
+  function forumQuoteFromBtn(btn) {
+    var ta = document.getElementById('bb-editor');
+    if (!ta) { alert('Войдите и откройте форму ответа внизу, чтобы цитировать.'); return; }
+    var username = (btn.getAttribute('data-username') || 'user').replace(/"/g, '');
+    var text = btn.getAttribute('data-raw') || '';
+    if (!text) {
+      var id = btn.getAttribute('data-post-id');
+      var el = document.getElementById('post-' + id);
+      if (el) {
+        var body = el.querySelector('.forum-post-body');
+        text = ((body && body.innerText) || '').trim().slice(0, 1200);
+      }
+    }
+    var block = '[quote="' + username + '"]' + text + '[/quote]\n';
+    ta.value = (ta.value ? ta.value.replace(/\s+$/, '') + '\n\n' : '') + block;
+    ta.focus();
+    try { ta.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
   }
-  ta.value += (ta.value ? "\n" : '') + '[quote="' + username + '"]' + text + '[/quote]\n';
-  ta.focus();
-}
+  document.addEventListener('click', function (e) {
+    var btn = e.target && e.target.closest && e.target.closest('.js-forum-quote');
+    if (!btn) return;
+    e.preventDefault();
+    forumQuoteFromBtn(btn);
+  });
+})();
 document.addEventListener('submit', function (e) {
   var form = e.target;
   if (!form || !form.classList || !form.classList.contains('js-forum-like-form')) return;
@@ -228,23 +246,12 @@ document.addEventListener('submit', function (e) {
   var btn = form.querySelector('.js-forum-like-btn');
   var fd = new FormData(form);
   fd.set('ajax', '1');
-  fetch('/forum_action.php', {
-    method: 'POST',
-    body: fd,
-    credentials: 'same-origin',
+  fetch('/forum_action', { method: 'POST', body: fd, credentials: 'same-origin',
     headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
   }).then(function (r) { return r.json(); }).then(function (d) {
-    if (!d || !d.ok) {
-      // fallback: обычный POST без JS
-      form.classList.remove('js-forum-like-form');
-      form.submit();
-      return;
-    }
+    if (!d || !d.ok) { form.classList.remove('js-forum-like-form'); form.submit(); return; }
     if (btn) btn.textContent = (d.liked ? '♥ ' : '♡ ') + d.count;
-  }).catch(function () {
-    form.classList.remove('js-forum-like-form');
-    form.submit();
-  });
+  }).catch(function () { form.classList.remove('js-forum-like-form'); form.submit(); });
 });
 </script>
 

@@ -6,6 +6,16 @@ if (is_file(__DIR__ . '/includes/recommendations.php')) require_once __DIR__ . '
 $q = trim((string)($_GET['q'] ?? ''));
 $pageTitle = $q !== '' ? 'Поиск: ' . $q : 'Видео';
 $extraHead = ($extraHead ?? '') . '<link rel="stylesheet" href="/assets/css/youtube-watch.css?v=1">';
+require_once __DIR__ . '/includes/themes.php';
+$__th = themes_active();
+$__platformStyle = false;
+if ($__th && stripos((string)($__th['slug'] ?? ''), 'platform') !== false) $__platformStyle = true;
+if (!$__platformStyle && !empty($_COOKIE['site_theme']) && stripos((string)$_COOKIE['site_theme'], 'platform') !== false) $__platformStyle = true;
+if (!$__platformStyle && !empty($_COOKIE['sl_style']) && stripos((string)$_COOKIE['sl_style'], 'platform') !== false) $__platformStyle = true;
+if ($__platformStyle) {
+  $extraHead = ($extraHead ?? '') . '<link rel="stylesheet" href="/assets/css/platform-videos.css?v=2">'
+    . '<link rel="stylesheet" href="/assets/css/platform-youtube-shell.css?v=3">';
+}
 require_once __DIR__ . '/includes/header.php';
 
 $page = max(1, (int)($_GET['page'] ?? 1));
@@ -51,6 +61,33 @@ $videos = $stmt->fetchAll();
     </div>
   <?php endif; ?>
 
+  <?php if (!empty($__platformStyle)): ?>
+  <div class="platform-videos-shell">
+    <aside class="platform-videos-side">
+      <a href="/videos">📺 Все видео</a>
+      <a href="/forum_whats_new">🔥 Что нового</a>
+      <a href="/channels">📡 Каналы</a>
+      <?php if (current_user()): ?><a href="/platforma/studio/">🎛 Студия</a><?php endif; ?>
+    </aside>
+    <div class="platform-videos-main">
+      <div class="platform-videos-tabs">
+        <a class="active" href="/videos">Все</a>
+        <a href="/videos?q=музыка">Музыка</a>
+        <a href="/videos?q=новости">Новости</a>
+        <a href="/videos?q=спорт">Спорт</a>
+      </div>
+      <div class="platform-videos-grid">
+        <?php foreach ($videos as $v): ?>
+          <a class="platform-video-card" href="/video.php?slug=<?= e($v['slug']) ?>">
+            <div class="platform-video-thumb" style="background-image:url('<?= e($v['thumbnail_url'] ?: '/assets/img/video-placeholder.png') ?>')"></div>
+            <div class="platform-video-title"><?= e($v['title']) ?></div>
+            <div class="platform-video-meta"><?= e($v['channel_title']) ?> · <?= (int)$v['views_count'] ?> просмотров</div>
+          </a>
+        <?php endforeach; ?>
+      </div>
+    </div>
+  </div>
+  <?php else: ?>
   <div class="video-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px">
     <?php foreach ($videos as $v): ?>
       <a href="/video.php?slug=<?= e($v['slug']) ?>" style="text-decoration:none;color:inherit">
@@ -62,6 +99,7 @@ $videos = $stmt->fetchAll();
       </a>
     <?php endforeach; ?>
   </div>
+  <?php endif; ?>
 
   <div style="margin-top:20px;display:flex;gap:8px">
     <?php if ($page > 1): ?><a class="btn btn-outline btn-sm" href="?q=<?= urlencode($q) ?>&page=<?= $page - 1 ?>">← Назад</a><?php endif; ?>

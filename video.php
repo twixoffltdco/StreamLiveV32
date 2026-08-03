@@ -39,7 +39,7 @@ require_once __DIR__ . '/includes/header.php'; // теперь через общ
 <div class="container" style="max-width:900px">
 
   <div class="player-wrap" style="position:relative;padding-top:56.25%;background:#000;border-radius:10px;overflow:hidden">
-    <?php if ($video['platform'] === 'mp4'): ?>
+    <?php if ($video['platform'] === 'mp4' || $video['platform'] === 'dropbox'): ?>
       <video src="<?= e($video['embed_url']) ?>" controls style="position:absolute;top:0;left:0;width:100%;height:100%"></video>
     <?php elseif ($video['platform'] === 'm3u8'): ?>
       <video id="hlsPlayer" controls style="position:absolute;top:0;left:0;width:100%;height:100%"></video>
@@ -68,7 +68,10 @@ require_once __DIR__ . '/includes/header.php'; // теперь через общ
         style="position:absolute;top:0;left:0;width:100%;height:100%;border:0"></iframe>
     <?php endif; ?>
   
-  <?php if (function_exists('player_ads_render')) player_ads_render('video'); ?>
+  <?php if (($video['platform'] ?? '') === 'instagram'): ?>
+  <p style="font-size:12px;color:var(--text-dim);margin:8px 0">Контент с Instagram. Доступность зависит от сети зрителя.</p>
+<?php endif; ?>
+<?php if (function_exists('player_ads_render')) player_ads_render('video'); ?>
 </div>
 
   <h1 class="yt-title"><?= e($video['title']) ?></h1>

@@ -252,6 +252,45 @@
     buildChrome();
   }
 
+
+  function ensureYtCss() {
+    if (document.getElementById('pl-yt-shell-css')) return;
+    var l = document.createElement('link');
+    l.id = 'pl-yt-shell-css';
+    l.rel = 'stylesheet';
+    l.href = '/assets/css/platform-youtube-shell.css?v=3';
+    document.head.appendChild(l);
+  }
+  function buildBottomNav() {
+    if (document.querySelector('.pl-yt-bottom')) return;
+    var nav = document.createElement('nav');
+    nav.className = 'pl-yt-bottom';
+    var items = [
+      { href: '/', label: 'Главная' },
+      { href: '/shorts', label: 'Shorts' },
+      { href: '/videos', label: 'Видео' },
+      { href: '/catalog', label: 'Каналы' },
+      { href: '/auth/login', label: 'Вы' }
+    ];
+    var path = location.pathname || '/';
+    items.forEach(function (it) {
+      var a = document.createElement('a');
+      a.href = it.href;
+      a.textContent = it.label;
+      if (path === it.href || (it.href.length > 1 && path.indexOf(it.href) === 0)) a.className = 'active';
+      nav.appendChild(a);
+    });
+    document.body.appendChild(nav);
+  }
+  var _boot = boot;
+  boot = function () {
+    ensureBodyClass();
+    if (!isOn()) return;
+    ensureYtCss();
+    if (typeof buildChrome === 'function') buildChrome();
+    buildBottomNav();
+  };
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot);
   } else {

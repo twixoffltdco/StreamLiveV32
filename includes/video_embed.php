@@ -105,6 +105,8 @@ function detect_video_platform(string $url): ?string {
     'streamable.com'     => 'streamable',
     'reddit.com'         => 'reddit',
     'drive.google.com'   => 'gdrive',
+    'instagram.com'      => 'instagram',
+    'www.instagram.com'  => 'instagram',
     'dropbox.com'        => 'dropbox',
     'www.dropbox.com'    => 'dropbox',
     'dl.dropboxusercontent.com' => 'dropbox',
@@ -274,20 +276,29 @@ function normalize_video_embed(string $platform, string $url): string {
 
 
     case 'dropbox':
-      // shared link → direct dl=1 for video tag, or embed preview
-      $u = $url;
-      $u = preg_replace('/[?&]dl=0/', '', $u);
-      if (strpos($u, 'dl=1') === false) {
-        $u .= (strpos($u, '?') !== false ? '&' : '?') . 'dl=1';
-      }
-      // dropboxusercontent is already direct
+      // Прямая ссылка на файл для <video src>, не страница Dropbox
       if (strpos($url, 'dropboxusercontent.com') !== false) {
         return $url;
       }
-      // raw=1 alternative
-      $raw = preg_replace('#www\.dropbox\.com#', 'dl.dropboxusercontent.com', $url);
-      $raw = preg_replace('#\?.*$#', '', $raw);
+      $u = $url;
+      // убрать dl=0
+      $u = preg_replace('/([?&])dl=0(&|$)/', '$1', $u);
+      $u = rtrim($u, '?&');
+      // raw=1 — Dropbox отдаёт файл (лучше для <video>, чем dl=1)
+      if (!preg_match('/[?&]raw=1/', $u)) {
+        $u .= (strpos($u, '?') !== false ? '&' : '?') . 'raw=1';
+      }
       return $u;
+
+    
+    case 'instagram':
+      // Сначала официальный embed; параллельно local_video_embed_url для нашего iframe-парсера
+      if (preg_match('#instagram\.com/(?:p|reel|tv)/([A-Za-z0-9_-]+)#', $url, $m)) {
+        return 'https://www.instagram.com/p/' . $m[1] . '/embed/captioned/';
+      }
+      $local = local_video_embed_url($url);
+      return $local !== null ? $local : $url;
+
 
     case 'iframe':
       // Неизвестный сайт → embedwebsite/index.php?url=…&embed=1 (только плеер)
@@ -518,6 +529,22 @@ function fetch_video_meta(string $url, string $platform): array {
     }
   }
 
+  // Dropbox / без OG — имя файла
+  if ($result['title'] === '' && $platform === 'dropbox') {
+    $path = urldecode((string)(parse_url($url, PHP_URL_PATH) ?? ''));
+    $base = basename($path);
+    if ($base && $base !== 'home') {
+      $result['title'] = trim(str_replace(['+', '_'], ' ', preg_replace('/\.[a-z0-9]{2,5}$/i', '', $base)));
+      $result['meta_source'] = 'filename';
+    }
+  }
+  if ($result['title'] === '' && $platform === 'instagram') {
+    $result['title'] = 'Публикация Instagram';
+    $result['meta_source'] = 'default';
+  }
+  if ($result['tags'] === '' && $result['title'] !== '') {
+    $result['tags'] = guess_video_tags($result['title'], $result['description']);
+  }
   return $result;
 }
 
