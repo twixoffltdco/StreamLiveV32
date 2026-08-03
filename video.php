@@ -10,8 +10,7 @@ $stmt = db()->prepare("SELECT v.*, c.title AS channel_title, c.slug AS channel_s
                         WHERE v.slug = ? AND v.status = 'published'");
 $stmt->execute([$slug]);
 $video = $stmt->fetch();
-if (!$video) { http_response_code(404); $extraHead = ($extraHead ?? '') . '<link rel="stylesheet" href="/assets/css/youtube-watch.css?v=1">';
-require_once __DIR__ . '/includes/header.php'; echo '<div class="container yt-watch-page"><p>Видео не найдено</p></div>'; require_once __DIR__ . '/includes/footer.php'; exit; }
+if (!$video) { http_response_code(404); require_once __DIR__ . '/includes/header.php'; echo '<div class="container"><p>Видео не найдено</p></div>'; require_once __DIR__ . '/includes/footer.php'; exit; }
 
 $user = current_user();
 db()->prepare('UPDATE videos SET views_count = views_count + 1 WHERE id = ?')->execute([$video['id']]);
@@ -39,7 +38,7 @@ require_once __DIR__ . '/includes/header.php'; // теперь через общ
 <div class="container" style="max-width:900px">
 
   <div class="player-wrap" style="position:relative;padding-top:56.25%;background:#000;border-radius:10px;overflow:hidden">
-    <?php if ($video['platform'] === 'mp4' || $video['platform'] === 'dropbox'): ?>
+    <?php if ($video['platform'] === 'mp4'): ?>
       <video src="<?= e($video['embed_url']) ?>" controls style="position:absolute;top:0;left:0;width:100%;height:100%"></video>
     <?php elseif ($video['platform'] === 'm3u8'): ?>
       <video id="hlsPlayer" controls style="position:absolute;top:0;left:0;width:100%;height:100%"></video>
@@ -68,19 +67,16 @@ require_once __DIR__ . '/includes/header.php'; // теперь через общ
         style="position:absolute;top:0;left:0;width:100%;height:100%;border:0"></iframe>
     <?php endif; ?>
   
-  <?php if (($video['platform'] ?? '') === 'instagram'): ?>
-  <p style="font-size:12px;color:var(--text-dim);margin:8px 0">Контент с Instagram. Доступность зависит от сети зрителя.</p>
-<?php endif; ?>
-<?php if (function_exists('player_ads_render')) player_ads_render('video'); ?>
+  <?php if (function_exists('player_ads_render')) player_ads_render('video'); ?>
 </div>
 
-  <h1 class="yt-title"><?= e($video['title']) ?></h1>
+  <h1 style="margin:16px 0 6px;font-size:20px"><?= e($video['title']) ?></h1>
   <p style="color:var(--text-dim);font-size:13px">
     <a href="/channel.php?slug=<?= e($video['channel_slug']) ?>" style="color:var(--accent-2)"><?= e($video['channel_title']) ?></a>
     · <?= (int)$video['views_count'] ?> просмотров
   </p>
 
-  <div class="video-actions yt-actions" style="display:flex;gap:10px;margin:12px 0;flex-wrap:wrap">
+  <div class="video-actions" style="display:flex;gap:10px;margin:12px 0;flex-wrap:wrap">
     <button id="playlistBtn" class="btn btn-outline btn-sm">➕ В плейлист</button>
     <?php if (in_array($video['platform'], ['mp4', 'm3u8'], true) && $user): ?>
     <form method="POST" action="/watch_room?action=create" style="display:inline">
@@ -92,7 +88,7 @@ require_once __DIR__ . '/includes/header.php'; // теперь через общ
     <button id="favBtn" data-id="<?= (int)$video['id'] ?>" class="btn btn-outline btn-sm <?= $fav ? 'active' : '' ?>">⭐ В избранное</button>
   </div>
 
-  <?php if ($video['description']): ?><div class="yt-desc"><?= e($video['description']) ?></div><?php endif; ?>
+  <?php if ($video['description']): ?><p style="font-size:14px;white-space:pre-line"><?= e($video['description']) ?></p><?php endif; ?>
   <?php if ($video['tags']): ?><p class="tags">
     <?php foreach (explode(',', $video['tags']) as $t): ?><span class="tag" style="display:inline-block;background:var(--card);padding:3px 8px;border-radius:20px;font-size:12px;margin:2px">#<?= e(trim($t)) ?></span> <?php endforeach; ?>
   </p><?php endif; ?>
@@ -186,16 +182,5 @@ document.getElementById('playlistBtn').addEventListener('click', function () {
   });
 })();
 <?php endif; ?>
-</script>
-<script>
-(function(){
-  var d = document.querySelector('.yt-desc');
-  if (!d || d.textContent.length < 180) return;
-  d.classList.add('collapsed');
-  var b = document.createElement('button');
-  b.type = 'button'; b.className = 'yt-desc-toggle'; b.textContent = 'Ещё';
-  b.onclick = function(){ d.classList.toggle('collapsed'); b.textContent = d.classList.contains('collapsed') ? 'Ещё' : 'Свернуть'; };
-  d.after(b);
-})();
 </script>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
