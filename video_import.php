@@ -19,12 +19,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $sourceUrl = trim((string)($_POST['source_url'] ?? ''));
 
   if ($sourceUrl === '' || !filter_var($sourceUrl, FILTER_VALIDATE_URL)) {
-    $error = 'Вставьте корректную ссылку на видео';
+    $error = 'Вставьте корректную ссылку на видео (YouTube, VK, Rutube, Dropbox, любой сайт…)';
   } else {
     $platform = detect_video_platform($sourceUrl);
     if (!$platform) {
-      $error = 'Не удалось распознать ссылку на видео';
-    } else {
+      // крайний fallback
+      $platform = 'iframe';
+    }
+    if ($platform) {
       $embedUrl = normalize_video_embed($platform, $sourceUrl);
 
       if ($action === 'preview') {

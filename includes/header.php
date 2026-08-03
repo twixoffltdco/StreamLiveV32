@@ -465,6 +465,35 @@ screen.colorDepth:screen.pixelDepth))+";u"+escape(document.URL)+
     </div>
 </div>
 <head>
+<!-- StreamLive во ВКонтакте -->
+    <div class="banner" style="margin-top:12px;background:linear-gradient(135deg,#1a2332 0%,#2787F5 120%)">
+        <div class="banner-content">
+            <div class="badge">НОВОЕ</div>
+            <h1>
+                <span class="highlight" style="color:#fff">StreamLive</span><br>
+                во ВКонтакте
+            </h1>
+            <p class="subtitle" style="color:rgba(255,255,255,.88)">
+                Подписывайтесь на наши сообщества — новости, стримы и зеркала канала. Официальная группа и запасные страницы.
+            </p>
+            <a href="https://vk.com/streamlivetv" target="_blank" rel="noopener" class="cta-button" style="background:#2787F5">
+                Открыть ВК
+                <svg viewBox="0 0 24 24" width="24" height="24"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
+            </a>
+            <div style="margin-top:10px;font-size:12px;opacity:.9;display:flex;flex-wrap:wrap;gap:8px 14px">
+                <a href="https://vk.com/streamlivetv" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline">@streamlivetv</a>
+                <a href="https://vk.com/tvstreamlivetv" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline">@tvstreamlivetv</a>
+                <a href="https://vk.com/tvstreamlive" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline">@tvstreamlive</a>
+                <a href="https://vk.com/streamliveru" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline">@streamliveru</a>
+            </div>
+        </div>
+        <div class="banner-logo">
+            <div style="width:72px;height:72px;border-radius:18px;background:#2787F5;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:28px;color:#fff;box-shadow:0 8px 24px rgba(0,0,0,.25)">VK</div>
+            <div class="channel-name" style="margin-top:8px">
+                <a href="https://vk.com/streamlivetv" target="_blank" rel="noopener" style="color:#fff">vk.com/streamlivetv</a>
+            </div>
+        </div>
+    </div>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Шрифт Inter (современный гротеск) -->

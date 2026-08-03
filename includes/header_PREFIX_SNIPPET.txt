@@ -1,0 +1,7 @@
+В includes/header.php ПЕРЕД </head> должна быть РОВНО одна строка:
+
+<?php if (is_file(__DIR__ . '/prefix_assets.php')) { include __DIR__ . '/prefix_assets.php'; } ?>
+
+НЕ вставляй код prefix_assets руками в HTML.
+Если в шапке виден текст if (!defined('SL_PREFIX_ASSETS')) — файл prefix_assets.php
+на сервере БЕЗ открывающего <?php в первой строке. Залей этот ZIP.

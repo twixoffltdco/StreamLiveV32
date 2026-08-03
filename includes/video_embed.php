@@ -105,6 +105,10 @@ function detect_video_platform(string $url): ?string {
     'streamable.com'     => 'streamable',
     'reddit.com'         => 'reddit',
     'drive.google.com'   => 'gdrive',
+    'dropbox.com'        => 'dropbox',
+    'www.dropbox.com'    => 'dropbox',
+    'dl.dropboxusercontent.com' => 'dropbox',
+    'dl.dropbox.com'     => 'dropbox',
     'plvideo.base44.app' => 'playtube',
     'russtube.ru'        => 'playtube',
     'нашютуб.рф'         => 'playtube',
@@ -126,6 +130,8 @@ function detect_video_platform(string $url): ?string {
 
   if (preg_match('/\.(mp4|webm|mov)(\?.*)?$/i', $url)) return 'mp4';
   if (preg_match('/\.m3u8(\?.*)?$/i', $url)) return 'm3u8';
+
+  if ($host && (strpos($host, 'dropbox') !== false)) return 'dropbox';
 
   return $host ? 'iframe' : null; // неизвестный хост — попробуем как generic iframe
 }
@@ -265,6 +271,23 @@ function normalize_video_embed(string $platform, string $url): string {
       // Парсер проекта: playersmotrimru.php (не прямой player.smotrim.ru)
       $local = local_video_embed_url($url);
       return $local !== null ? $local : $url;
+
+
+    case 'dropbox':
+      // shared link → direct dl=1 for video tag, or embed preview
+      $u = $url;
+      $u = preg_replace('/[?&]dl=0/', '', $u);
+      if (strpos($u, 'dl=1') === false) {
+        $u .= (strpos($u, '?') !== false ? '&' : '?') . 'dl=1';
+      }
+      // dropboxusercontent is already direct
+      if (strpos($url, 'dropboxusercontent.com') !== false) {
+        return $url;
+      }
+      // raw=1 alternative
+      $raw = preg_replace('#www\.dropbox\.com#', 'dl.dropboxusercontent.com', $url);
+      $raw = preg_replace('#\?.*$#', '', $raw);
+      return $u;
 
     case 'iframe':
       // Неизвестный сайт → embedwebsite/index.php?url=…&embed=1 (только плеер)
@@ -514,7 +537,7 @@ function guess_video_tags(string $title, string $description): string {
 function render_player_embed(string $platform, string $embedUrl, string $sourceUrl, string $domId = 'previewPlayer'): void {
   ?>
   <div class="player-wrap" style="position:relative;padding-top:56.25%;background:#000;border-radius:10px;overflow:hidden">
-    <?php if ($platform === 'mp4'): ?>
+    <?php if ($platform === 'mp4' || $platform === 'dropbox'): ?>
       <video src="<?= e($embedUrl) ?>" controls style="position:absolute;top:0;left:0;width:100%;height:100%"></video>
     <?php elseif ($platform === 'm3u8'): ?>
       <video id="<?= e($domId) ?>" controls style="position:absolute;top:0;left:0;width:100%;height:100%"></video>

@@ -5,6 +5,7 @@ if (is_file(__DIR__ . '/includes/recommendations.php')) require_once __DIR__ . '
 
 $q = trim((string)($_GET['q'] ?? ''));
 $pageTitle = $q !== '' ? 'Поиск: ' . $q : 'Видео';
+$extraHead = ($extraHead ?? '') . '<link rel="stylesheet" href="/assets/css/youtube-watch.css?v=1">';
 require_once __DIR__ . '/includes/header.php';
 
 $page = max(1, (int)($_GET['page'] ?? 1));
