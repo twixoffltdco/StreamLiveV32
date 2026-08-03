@@ -1,290 +1,426 @@
 <?php
-// embed.php – универсальный плеер для любого сайта
-$url = isset($_GET['url']) ? trim($_GET['url']) : '';
-if (!$url) {
-    die('<h1 style="text-align:center;margin:100px;color:#eee">Укажи ссылку на страницу с видео: ?url=https://example.com/video</h1>');
+/**
+ * Универсальный плеер StreamLive / embedwebsite
+ *
+ * ?url=https://...           — страница с плеером + meta
+ * ?url=...&embed=1           — только плеер (для iframe на video.php)
+ * ?url=...&meta=1            — JSON {title,description,thumbnail,tags,player_type,player_src}
+ *
+ * Спец-обработчики: Dropbox, Instagram.
+ * Остальное — парсинг og:/iframe/video/hls.
+ * Сеть: NETWORK_PROXY_URL из config (cors-anywhere / query).
+ */
+declare(strict_types=1);
+
+// ---- config (прокси) ----
+$configCandidates = [
+  dirname(__DIR__) . '/config/config.php',
+  dirname(__DIR__) . '/includes/db.php',
+];
+foreach ($configCandidates as $cfg) {
+  if (is_file($cfg)) {
+    // config.php может требовать константы — подключаем мягко
+    try { @require_once $cfg; } catch (Throwable $e) {}
+    break;
+  }
+}
+// fallback: подтянуть functions если есть
+$fn = dirname(__DIR__) . '/includes/functions.php';
+if (is_file($fn)) {
+  try { @require_once $fn; } catch (Throwable $e) {}
 }
 
-// Загрузка страницы
-$ch = curl_init();
-curl_setopt($ch, CURLOPT_URL, $url);
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-curl_setopt($ch, CURLOPT_TIMEOUT, 15);
-$html = curl_exec($ch);
-curl_close($ch);
+$url = isset($_GET['url']) ? trim((string)$_GET['url']) : '';
+$embedMode = !empty($_GET['embed']);
+$metaMode = !empty($_GET['meta']);
 
-if (!$html) {
-    die('Не удалось загрузить страницу');
+if ($url === '' || !preg_match('#^https?://#i', $url)) {
+  http_response_code(400);
+  if ($metaMode) {
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['ok' => false, 'error' => 'Укажи ?url=https://...'], JSON_UNESCAPED_UNICODE);
+    exit;
+  }
+  die('<h1 style="text-align:center;margin:80px;color:#eee;font-family:sans-serif">Укажи ссылку: ?url=https://example.com/video</h1>');
 }
 
-// Функция для преобразования относительных ссылок в абсолютные
-function to_absolute($rel, $base_url) {
-    if (strpos($rel, 'http') === 0) return $rel;
-    if (strpos($rel, '//') === 0) return 'https:' . $rel;
-    if (strpos($rel, '/') === 0) {
-        $parsed = parse_url($base_url);
-        return $parsed['scheme'] . '://' . $parsed['host'] . $rel;
+// SSRF guard: только http(s), не localhost/private
+$host = strtolower((string)(parse_url($url, PHP_URL_HOST) ?? ''));
+$host = preg_replace('/^www\./', '', $host) ?: '';
+if ($host === '' || $host === 'localhost' || preg_match('/^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/', $host)) {
+  http_response_code(403);
+  die($metaMode ? json_encode(['ok'=>false,'error'=>'host blocked']) : 'Host blocked');
+}
+
+// ---- HTTP fetch with proxy ----
+function ew_proxy_wrap(string $target): string {
+  if (!defined('NETWORK_PROXY_URL') || NETWORK_PROXY_URL === '') return $target;
+  $base = rtrim((string)NETWORK_PROXY_URL, '/');
+  $style = defined('NETWORK_PROXY_STYLE') ? strtolower((string)NETWORK_PROXY_STYLE) : '';
+  if ($style === '' && strpos($base, '?') === false && (
+      strpos($base, 'tatnet.app') !== false ||
+      strpos($base, 'cors-anywhere') !== false ||
+      strpos($base, 'corsanywhere') !== false
+  )) {
+    $style = 'cors_anywhere';
+  }
+  if (in_array($style, ['cors_anywhere', 'path', 'cors'], true)) {
+    return $base . '/' . $target;
+  }
+  $sep = (strpos($base, '?') !== false) ? '&' : '?';
+  return $base . $sep . 'url=' . rawurlencode($target);
+}
+
+function ew_http_get(string $target, int $timeout = 15): ?string {
+  $headers = [
+    'Accept: text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8',
+    'Accept-Language: ru-RU,ru;q=0.9,en;q=0.7',
+    'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+  ];
+  $fetch = ew_proxy_wrap($target);
+  if ($fetch !== $target) {
+    $headers[] = 'X-Requested-With: XMLHttpRequest';
+    $headers[] = 'Origin: ' . (defined('SITE_URL') ? (string)SITE_URL : 'https://localhost');
+  }
+  $ch = curl_init($fetch);
+  curl_setopt_array($ch, [
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_FOLLOWLOCATION => true,
+    CURLOPT_MAXREDIRS => 5,
+    CURLOPT_TIMEOUT => $timeout,
+    CURLOPT_CONNECTTIMEOUT => 8,
+    CURLOPT_SSL_VERIFYPEER => false,
+    CURLOPT_ENCODING => '',
+    CURLOPT_HTTPHEADER => $headers,
+  ]);
+  $body = curl_exec($ch);
+  $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+  curl_close($ch);
+  if (!is_string($body) || $body === '' || $code >= 400) return null;
+  return $body;
+}
+
+function ew_to_absolute(string $rel, string $base): string {
+  $rel = trim($rel);
+  if ($rel === '') return $rel;
+  if (preg_match('#^https?://#i', $rel)) return $rel;
+  if (strpos($rel, '//') === 0) return 'https:' . $rel;
+  $p = parse_url($base);
+  $scheme = $p['scheme'] ?? 'https';
+  $h = $p['host'] ?? '';
+  if ($rel[0] === '/') return $scheme . '://' . $h . $rel;
+  $dir = dirname($p['path'] ?? '/');
+  if ($dir === '\\' || $dir === '.') $dir = '/';
+  if (substr($dir, -1) !== '/') $dir .= '/';
+  return $scheme . '://' . $h . $dir . $rel;
+}
+
+function ew_extract_og(string $html): array {
+  $get = function (string $attr, string $name) use ($html): string {
+    if (preg_match('#<meta[^>]+' . $attr . '=["\']' . preg_quote($name, '#') . '["\'][^>]+content=["\']([^"\']*)["\']#i', $html, $m)) {
+      return html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
     }
-    $parsed = parse_url($base_url);
-    $path = $parsed['path'];
-    $dir = dirname($path);
-    if ($dir !== '/') $dir .= '/';
-    return $parsed['scheme'] . '://' . $parsed['host'] . $dir . $rel;
+    if (preg_match('#<meta[^>]+content=["\']([^"\']*)["\'][^>]+' . $attr . '=["\']' . preg_quote($name, '#') . '["\']#i', $html, $m)) {
+      return html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+    return '';
+  };
+  $title = $get('property', 'og:title') ?: $get('name', 'twitter:title');
+  if ($title === '' && preg_match('#<title>(.*?)</title>#is', $html, $m)) {
+    $title = trim(html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+  }
+  $desc = $get('property', 'og:description') ?: $get('name', 'description') ?: $get('name', 'twitter:description');
+  $image = $get('property', 'og:image') ?: $get('name', 'twitter:image');
+  $video = $get('property', 'og:video') ?: $get('property', 'og:video:url');
+  return compact('title', 'desc', 'image', 'video');
 }
 
-$base_url = $url;
-$parsed = parse_url($base_url);
-$host = $parsed['host'];
+// ---- Special handlers ----
+$result = [
+  'title' => '',
+  'description' => '',
+  'thumbnail' => '',
+  'tags' => '',
+  'player_type' => '', // iframe | video | hls
+  'player_src' => '',
+];
 
-// ====== Извлечение метаданных ======
-$title = '';
-$description = '';
-$image = '';
+// DROPBOX
+if (strpos($host, 'dropbox') !== false) {
+  $direct = $url;
+  // /s/HASH/file
+  if (preg_match('#dropbox\.com/s/([a-zA-Z0-9]+)/([^?\s]+)#i', $url, $m)) {
+    $direct = 'https://dl.dropboxusercontent.com/s/' . $m[1] . '/' . $m[2] . '?raw=1';
+  } elseif (preg_match('#dropbox\.com/scl/fi/([a-zA-Z0-9]+)/([^?\s]+)#i', $url, $m)) {
+    $qs = [];
+    parse_str((string)(parse_url($url, PHP_URL_QUERY) ?: ''), $qs);
+    $params = ['raw' => '1'];
+    if (!empty($qs['rlkey'])) $params['rlkey'] = $qs['rlkey'];
+    if (!empty($qs['st'])) $params['st'] = $qs['st'];
+    $direct = 'https://dl.dropboxusercontent.com/scl/fi/' . $m[1] . '/' . $m[2] . '?' . http_build_query($params);
+  } elseif (stripos($url, 'dropboxusercontent.com') !== false) {
+    if (!preg_match('/[?&](raw|dl)=1/', $url)) {
+      $direct = $url . (strpos($url, '?') !== false ? '&' : '?') . 'raw=1';
+    }
+  } else {
+    $direct = preg_replace('/([?&])dl=0(&|$)/', '$1', $url);
+    $direct = rtrim($direct, '?&');
+    if (!preg_match('/[?&](raw|dl)=1/', $direct)) {
+      $direct .= (strpos($direct, '?') !== false ? '&' : '?') . 'raw=1';
+    }
+    $direct = preg_replace('#://www\.dropbox\.com/#i', '://dl.dropboxusercontent.com/', $direct);
+  }
 
-// Title
-if (preg_match('/<meta\s+property=["\']og:title["\']\s+content=["\']([^"\']*)["\']/i', $html, $m)) {
-    $title = $m[1];
-} elseif (preg_match('/<meta\s+name=["\']twitter:title["\']\s+content=["\']([^"\']*)["\']/i', $html, $m)) {
-    $title = $m[1];
-} elseif (preg_match('/<title>(.*?)<\/title>/i', $html, $m)) {
-    $title = trim($m[1]);
+  $path = urldecode((string)(parse_url($url, PHP_URL_PATH) ?? ''));
+  $base = basename($path);
+  $title = $base && $base !== 'home' ? trim(str_replace(['+', '_'], ' ', preg_replace('/\.[a-z0-9]{2,5}$/i', '', $base))) : 'Видео Dropbox';
+  $result['title'] = $title;
+  $result['player_type'] = 'video';
+  $result['player_src'] = $direct;
+
+  // meta с share-страницы
+  $share = preg_replace('/([?&])(raw|dl)=[01]/', '$1', $url);
+  $share = rtrim($share, '?&');
+  $html = ew_http_get($share, 12);
+  if ($html) {
+    $og = ew_extract_og($html);
+    if ($og['title'] !== '') $result['title'] = $og['title'];
+    if ($og['desc'] !== '') $result['description'] = $og['desc'];
+    if ($og['image'] !== '') $result['thumbnail'] = $og['image'];
+  }
 }
 
-// Description
-if (preg_match('/<meta\s+property=["\']og:description["\']\s+content=["\']([^"\']*)["\']/i', $html, $m)) {
-    $description = $m[1];
-} elseif (preg_match('/<meta\s+name=["\']description["\']\s+content=["\']([^"\']*)["\']/i', $html, $m)) {
-    $description = $m[1];
-} elseif (preg_match('/<meta\s+name=["\']twitter:description["\']\s+content=["\']([^"\']*)["\']/i', $html, $m)) {
-    $description = $m[1];
+// INSTAGRAM
+elseif (strpos($host, 'instagram.com') !== false) {
+  $code = '';
+  if (preg_match('#instagram\.com/(?:p|reel|tv)/([A-Za-z0-9_-]+)#i', $url, $m)) {
+    $code = $m[1];
+  }
+  $embedIg = $code !== ''
+    ? 'https://www.instagram.com/p/' . $code . '/embed/captioned/'
+    : $url;
+
+  $result['player_type'] = 'iframe';
+  $result['player_src'] = $embedIg;
+  $result['title'] = 'Публикация Instagram';
+
+  // oEmbed
+  $oeUrl = 'https://api.instagram.com/oembed?omitscript=true&url=' . rawurlencode(
+    $code !== '' ? 'https://www.instagram.com/p/' . $code . '/' : $url
+  );
+  $raw = ew_http_get($oeUrl, 12);
+  if ($raw) {
+    $j = json_decode($raw, true);
+    if (is_array($j)) {
+      if (!empty($j['title'])) $result['title'] = (string)$j['title'];
+      if (!empty($j['thumbnail_url'])) $result['thumbnail'] = (string)$j['thumbnail_url'];
+      if (!empty($j['author_name'])) $result['description'] = '@' . $j['author_name'];
+    }
+  }
+  // OG / mirror
+  if ($result['thumbnail'] === '' || $result['title'] === 'Публикация Instagram') {
+    foreach (array_filter([
+      $code ? 'https://www.instagram.com/p/' . $code . '/' : null,
+      $code ? 'https://www.ddinstagram.com/p/' . $code . '/' : null,
+      $embedIg,
+    ]) as $try) {
+      $html = ew_http_get($try, 12);
+      if (!$html) continue;
+      $og = ew_extract_og($html);
+      if ($og['title'] !== '' && $result['title'] === 'Публикация Instagram') {
+        $result['title'] = preg_replace('/\s*[•|].*$/u', '', $og['title']);
+      }
+      if ($og['desc'] !== '' && $result['description'] === '') $result['description'] = $og['desc'];
+      if ($og['image'] !== '' && $result['thumbnail'] === '') $result['thumbnail'] = $og['image'];
+      if ($result['thumbnail'] !== '' && $result['title'] !== 'Публикация Instagram') break;
+    }
+  }
 }
 
-// Image
-if (preg_match('/<meta\s+property=["\']og:image["\']\s+content=["\']([^"\']*)["\']/i', $html, $m)) {
-    $image = $m[1];
-} elseif (preg_match('/<meta\s+property=["\']og:image:url["\']\s+content=["\']([^"\']*)["\']/i', $html, $m)) {
-    $image = $m[1];
-} elseif (preg_match('/<link\s+rel=["\']image_src["\']\s+href=["\']([^"\']*)["\']/i', $html, $m)) {
-    $image = $m[1];
-}
+// GENERIC
+else {
+  $html = ew_http_get($url, 15);
+  if (!$html) {
+    if ($metaMode) {
+      header('Content-Type: application/json; charset=utf-8');
+      echo json_encode(['ok' => false, 'error' => 'Не удалось загрузить страницу (прокси/сеть)'], JSON_UNESCAPED_UNICODE);
+      exit;
+    }
+    die('<div style="color:#eee;font-family:sans-serif;padding:40px;text-align:center">Не удалось загрузить страницу. Проверь NETWORK_PROXY_URL в config.</div>');
+  }
+  $og = ew_extract_og($html);
+  $result['title'] = $og['title'];
+  $result['description'] = $og['desc'];
+  $result['thumbnail'] = $og['image'];
 
-if ($image) $image = to_absolute($image, $base_url);
-if (!$title) $title = 'Видео';
-if (!$description) $description = 'Видео с сайта ' . $host;
-if (!$image) $image = 'https://via.placeholder.com/800x450/0f172a/ffffff?text=Video';
+  $iframe_url = $video_url = $hls_url = '';
 
-// ====== Поиск плеера ======
-$iframe_url = '';
-$video_url = '';
-$hls_url = '';
-
-// 1. Ищем iframe
-preg_match_all('/<iframe[^>]+src=["\']([^"\']+)["\'][^>]*>/i', $html, $matches);
-if (!empty($matches[1])) {
+  if (preg_match_all('/<iframe[^>]+src=["\']([^"\']+)["\']/i', $html, $matches)) {
     foreach ($matches[1] as $src) {
-        $src = to_absolute($src, $base_url);
-        // Предпочтение iframe с ключевыми словами в src
-        if (preg_match('/(player|embed|video|rutube|youtube|youtu\.be|vimeo|vk\.com|smotrim|1tv|ntv|tvzvezda|matchtv|ok\.ru)/i', $src)) {
-            $iframe_url = $src;
-            break;
-        }
+      $src = ew_to_absolute($src, $url);
+      if (preg_match('/(player|embed|video|rutube|youtube|youtu\.be|vimeo|vk\.com|ok\.ru|instagram)/i', $src)) {
+        $iframe_url = $src;
+        break;
+      }
     }
-    if (!$iframe_url) {
-        $iframe_url = to_absolute($matches[1][0], $base_url);
+    if ($iframe_url === '' && !empty($matches[1][0])) {
+      $iframe_url = ew_to_absolute($matches[1][0], $url);
     }
+  }
+  if ($iframe_url === '' && preg_match('/<video[^>]+src=["\']([^"\']+)["\']/i', $html, $m)) {
+    $video_url = ew_to_absolute($m[1], $url);
+  }
+  if ($iframe_url === '' && $video_url === '') {
+    if (preg_match_all('/<source[^>]+src=["\']([^"\']+)["\']/i', $html, $matches)) {
+      foreach ($matches[1] as $src) {
+        $src = ew_to_absolute($src, $url);
+        if (preg_match('/\.m3u8/i', $src)) $hls_url = $src;
+        else $video_url = $src;
+      }
+    }
+  }
+  if ($iframe_url === '' && $video_url === '' && $hls_url === '') {
+    if (preg_match('/(https?:\/\/[^\s"\']+\.m3u8[^\s"\']*)/i', $html, $m)) {
+      $hls_url = html_entity_decode($m[1]);
+    } elseif (preg_match('/(https?:\/\/[^\s"\']+\.(?:mp4|webm)[^\s"\']*)/i', $html, $m)) {
+      $video_url = html_entity_decode($m[1]);
+    }
+  }
+  if ($og['video'] !== '' && $iframe_url === '' && $video_url === '' && $hls_url === '') {
+    $maybe = ew_to_absolute($og['video'], $url);
+    if (preg_match('/\.m3u8/i', $maybe)) $hls_url = $maybe;
+    elseif (preg_match('/embed|player/i', $maybe)) $iframe_url = $maybe;
+    else $video_url = $maybe;
+  }
+
+  if ($iframe_url !== '') {
+    $result['player_type'] = 'iframe';
+    $result['player_src'] = $iframe_url;
+  } elseif ($hls_url !== '') {
+    $result['player_type'] = 'hls';
+    $result['player_src'] = $hls_url;
+  } elseif ($video_url !== '') {
+    $result['player_type'] = 'video';
+    $result['player_src'] = $video_url;
+  }
 }
 
-// 2. Ищем video
-if (!$iframe_url) {
-    if (preg_match('/<video[^>]+src=["\']([^"\']+)["\'][^>]*>/i', $html, $m)) {
-        $video_url = to_absolute($m[1], $base_url);
-    } else {
-        preg_match_all('/<source[^>]+src=["\']([^"\']+)["\'][^>]*>/i', $html, $matches);
-        if (!empty($matches[1])) {
-            foreach ($matches[1] as $src) {
-                $src = to_absolute($src, $base_url);
-                if (preg_match('/\.m3u8$/i', $src)) {
-                    $hls_url = $src;
-                } else {
-                    $video_url = $src;
-                }
-            }
-        }
-    }
+// Manual overrides
+if (!empty($_GET['title'])) $result['title'] = trim((string)$_GET['title']);
+if (!empty($_GET['description'])) $result['description'] = trim((string)$_GET['description']);
+if (!empty($_GET['image'])) $result['thumbnail'] = trim((string)$_GET['image']);
+if (!empty($_GET['iframe'])) { $result['player_type'] = 'iframe'; $result['player_src'] = trim((string)$_GET['iframe']); }
+if (!empty($_GET['hls'])) { $result['player_type'] = 'hls'; $result['player_src'] = trim((string)$_GET['hls']); }
+if (!empty($_GET['video'])) { $result['player_type'] = 'video'; $result['player_src'] = trim((string)$_GET['video']); }
+
+// tags from title
+if ($result['tags'] === '' && $result['title'] !== '') {
+  $stop = ['для','это','как','что','видео','смотреть','онлайн','the','and','for','with','instagram','dropbox'];
+  preg_match_all('/[а-яa-z0-9]{4,}/u', mb_strtolower($result['title'] . ' ' . $result['description']), $wm);
+  $words = array_values(array_diff(array_unique($wm[0] ?? []), $stop));
+  $result['tags'] = implode(', ', array_slice($words, 0, 8));
 }
 
-// 3. Ищем HLS в JSON или атрибутах
-if (!$iframe_url && !$video_url && !$hls_url) {
-    if (preg_match('/data-(?:video|hls|src)["\']?\s*=\s*["\']([^"\']+\.m3u8)["\']/i', $html, $m)) {
-        $hls_url = to_absolute($m[1], $base_url);
-    } elseif (preg_match('/"video"\s*:\s*"([^"]+\.m3u8)"/i', $html, $m)) {
-        $hls_url = to_absolute($m[1], $base_url);
-    } elseif (preg_match('/"hls"\s*:\s*"([^"]+\.m3u8)"/i', $html, $m)) {
-        $hls_url = to_absolute($m[1], $base_url);
-    } elseif (preg_match('/"src"\s*:\s*"([^"]+\.m3u8)"/i', $html, $m)) {
-        $hls_url = to_absolute($m[1], $base_url);
-    } elseif (preg_match('/"url"\s*:\s*"([^"]+\.m3u8)"/i', $html, $m)) {
-        $hls_url = to_absolute($m[1], $base_url);
-    }
+if ($metaMode) {
+  header('Content-Type: application/json; charset=utf-8');
+  header('Access-Control-Allow-Origin: *');
+  echo json_encode([
+    'ok' => $result['player_src'] !== '' || $result['title'] !== '',
+    'title' => $result['title'],
+    'description' => $result['description'],
+    'thumbnail_url' => $result['thumbnail'],
+    'tags' => $result['tags'],
+    'player_type' => $result['player_type'],
+    'player_src' => $result['player_src'],
+    'meta_source' => 'embedwebsite',
+  ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+  exit;
 }
 
-// 4. Если ничего нет – ищем mp4/webm/ogg
-if (!$iframe_url && !$video_url && !$hls_url) {
-    preg_match_all('/(https?:\/\/[^\s"\']+\.(?:mp4|webm|ogg))/i', $html, $matches);
-    if (!empty($matches[1])) {
-        $video_url = $matches[1][0];
-    }
+if ($result['player_src'] === '') {
+  http_response_code(422);
+  die('<div style="color:#eee;font-family:sans-serif;padding:40px;text-align:center">Не удалось найти плеер на странице</div>');
 }
 
-// 5. Если есть og:video
-if (!$iframe_url && !$video_url && !$hls_url) {
-    if (preg_match('/<meta\s+property=["\']og:video["\']\s+content=["\']([^"\']+)["\']/i', $html, $m)) {
-        $maybe = to_absolute($m[1], $base_url);
-        if (preg_match('/\.m3u8$/i', $maybe)) {
-            $hls_url = $maybe;
-        } else {
-            $video_url = $maybe;
-        }
-    }
-}
+$title = $result['title'] ?: 'Видео';
+$description = $result['description'];
+$image = $result['thumbnail'];
+$player_type = $result['player_type'];
+$player_src = $result['player_src'];
 
-// Определяем тип плеера
-$player_type = '';
-$player_src = '';
-if ($iframe_url) {
-    $player_type = 'iframe';
-    $player_src = $iframe_url;
-} elseif ($hls_url) {
-    $player_type = 'hls';
-    $player_src = $hls_url;
-} elseif ($video_url) {
-    $player_type = 'video';
-    $player_src = $video_url;
-} else {
-    die('Не удалось найти плеер на странице');
-}
-
-// Ручное переопределение
-if (!empty($_GET['title'])) $title = trim($_GET['title']);
-if (!empty($_GET['description'])) $description = trim($_GET['description']);
-if (!empty($_GET['image'])) $image = trim($_GET['image']);
-if (!empty($_GET['iframe'])) { $player_type = 'iframe'; $player_src = trim($_GET['iframe']); }
-if (!empty($_GET['hls'])) { $player_type = 'hls'; $player_src = trim($_GET['hls']); }
-if (!empty($_GET['video'])) { $player_type = 'video'; $player_src = trim($_GET['video']); }
-
-$embed = isset($_GET['embed']) ? 1 : 0;
-$current_url = 'https://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
-$embed_url = $current_url . '&embed=1';
+// ---- HTML ----
+if ($embedMode):
 ?>
 <!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?=htmlspecialchars($title)?></title>
-    <meta name="description" content="<?=htmlspecialchars($description)?>">
-    <meta property="og:title" content="<?=htmlspecialchars($title)?>">
-    <meta property="og:description" content="<?=htmlspecialchars($description)?>">
-    <meta property="og:image" content="<?=htmlspecialchars($image)?>">
-    <meta property="og:image:secure_url" content="<?=htmlspecialchars($image)?>">
-    <meta property="og:image:width" content="800">
-    <meta property="og:image:height" content="450">
-    <meta property="og:url" content="<?=htmlspecialchars($current_url)?>">
-    <meta property="og:type" content="video.other">
-    <meta property="og:site_name" content="Универсальный плеер">
-    <meta property="og:video" content="<?=htmlspecialchars($embed_url)?>">
-    <meta property="og:video:type" content="text/html">
-    <meta property="og:video:width" content="640">
-    <meta property="og:video:height" content="360">
-    <link rel="image_src" href="<?=htmlspecialchars($image)?>">
-    <style>
-        * { margin:0; padding:0; box-sizing:border-box; }
-        body { background:#0f172a; color:#e2e8f0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; display:flex; flex-direction:column; min-height:100vh; }
-        .player-wrapper { position:relative; padding-bottom:56.25%; height:0; background:#000; }
-        .player-wrapper iframe, .player-wrapper video { position:absolute; top:0; left:0; width:100%; height:100%; border:0; background:#000; }
-        .content { max-width:900px; margin:0 auto; padding:20px 25px; flex:1; width:100%; }
-        .content h1 { font-size:1.5rem; margin-bottom:0.5rem; font-weight:500; }
-        .content .desc { color:#94a3b8; margin-bottom:1.2rem; line-height:1.5; }
-        .actions { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-top:10px; }
-        .btn { display:inline-flex; align-items:center; gap:8px; background:#1e293b; color:#e2e8f0; padding:10px 20px; border-radius:30px; text-decoration:none; font-size:0.9rem; transition:background 0.2s; border:1px solid #334155; cursor:pointer; }
-        .btn:hover { background:#334155; }
-        .btn-vk { background:#2787F5; border-color:#2787F5; color:#fff; }
-        .btn-vk:hover { background:#1a6ecf; }
-        .btn-original { background:transparent; border-color:#475569; }
-        .btn-original:hover { background:#1e293b; }
-        .footer { text-align:center; padding:20px; color:#475569; font-size:0.8rem; border-top:1px solid #1e293b; }
-        code { background:#1e293b; padding:2px 8px; border-radius:4px; }
-        <?php if ($embed): ?>
-        .content, .footer { display:none !important; }
-        <?php endif; ?>
-    </style>
-</head>
-<body>
-    <div class="player-wrapper">
-        <?php if ($player_type == 'iframe'): ?>
-            <iframe src="<?=htmlspecialchars($player_src)?>" allowfullscreen allow="autoplay;fullscreen;encrypted-media"></iframe>
-        <?php elseif ($player_type == 'hls'): ?>
-            <video id="hls-video" controls playsinline preload="metadata"></video>
-        <?php elseif ($player_type == 'video'): ?>
-            <video controls playsinline preload="metadata">
-                <source src="<?=htmlspecialchars($player_src)?>" type="video/mp4">
-                Ваш браузер не поддерживает видео.
-            </video>
-        <?php endif; ?>
-    </div>
-    <div class="content">
-        <h1><?=htmlspecialchars($title)?></h1>
-        <div class="desc"><?=htmlspecialchars($description)?></div>
-        <div class="actions">
-            <a href="https://vk.com/share.php?url=<?=urlencode($current_url)?>&title=<?=urlencode($title)?>&description=<?=urlencode($description)?>&image=<?=urlencode($image)?>" target="_blank" class="btn btn-vk">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M21.64 5.16c.25-.44.28-1.06-.75-1.06h-2.48c-.7 0-1.02.37-1.2.77 0 0-1.42 3.44-3.42 5.68-.65.65-.95.85-1.3.85-.25 0-.62-.2-.62-.78V5.16c0-.66.19-1.06-.83-1.06h-3.9c-.46 0-.75.34-.75.67 0 .7 1.06.86 1.17 2.82v4.24c0 .94-.17 1.11-.54 1.11-.95 0-3.26-3.48-4.63-7.45-.27-.78-.54-1.09-1.24-1.09H2.2c-.7 0-.84.37-.84.77 0 .72.99 4.3 4.63 9.05 2.42 3.49 5.83 5.36 8.94 5.36 1.87 0 2.1-.42 2.1-1.14v-2.63c0-.7.15-.84.65-.84.37 0 1 .18 2.48 1.32 1.69 1.69 1.96 2.44 2.9 2.44h2.48c.7 0 1.05-.37.84-1.06-.22-.68-1.03-1.67-2.1-2.84-.65-.77-1.62-1.6-1.92-2.01-.4-.5-.28-.73 0-1.18 0 0 3.38-4.76 3.74-6.37z"/></svg>
-                Поделиться ВК
-            </a>
-            <a href="<?=htmlspecialchars($url)?>" target="_blank" class="btn btn-original">Открыть оригинал →</a>
-            <button class="btn" onclick="copyEmbed()" id="copyBtn">📋 Копировать embed-код</button>
-        </div>
-    </div>
-    <div class="footer">Универсальный плеер • Для вставки используй <code>?embed=1</code></div>
+<html lang="ru"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title><?= htmlspecialchars($title) ?></title>
+<style>
+html,body{margin:0;padding:0;width:100%;height:100%;background:#000;overflow:hidden}
+.player{position:absolute;inset:0}
+.player iframe,.player video{width:100%;height:100%;border:0;background:#000}
+</style>
+</head><body><div class="player">
+<?php if ($player_type === 'iframe'): ?>
+<iframe src="<?= htmlspecialchars($player_src) ?>" allowfullscreen allow="autoplay; encrypted-media; picture-in-picture"></iframe>
+<?php elseif ($player_type === 'hls'): ?>
+<video id="v" controls playsinline></video>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.15/hls.min.js"></script>
+<script>
+(function(){var s=<?= json_encode($player_src) ?>,v=document.getElementById('v');
+if(window.Hls&&Hls.isSupported()){var h=new Hls();h.loadSource(s);h.attachMedia(v);}else{v.src=s;}})();
+</script>
+<?php else: ?>
+<video src="<?= htmlspecialchars($player_src) ?>" controls playsinline<?= $image ? ' poster="'.htmlspecialchars($image).'"' : '' ?>></video>
+<?php endif; ?>
+</div></body></html>
+<?php
+exit;
+endif;
 
-    <?php if ($player_type == 'hls'): ?>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+// full page (preview / share)
+$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$hostHdr = $_SERVER['HTTP_HOST'] ?? 'localhost';
+$reqUri = $_SERVER['REQUEST_URI'] ?? '';
+$current = $scheme . '://' . $hostHdr . $reqUri;
+$embedLink = (strpos($current, 'embed=') !== false) ? $current : ($current . (strpos($current, '?') !== false ? '&' : '?') . 'embed=1');
+?>
+<!DOCTYPE html>
+<html lang="ru"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title><?= htmlspecialchars($title) ?></title>
+<meta name="description" content="<?= htmlspecialchars($description) ?>">
+<meta property="og:title" content="<?= htmlspecialchars($title) ?>">
+<meta property="og:description" content="<?= htmlspecialchars($description) ?>">
+<meta property="og:image" content="<?= htmlspecialchars($image) ?>">
+<meta property="og:type" content="video.other">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0f0f0f;color:#f1f1f1;font-family:Roboto,system-ui,sans-serif;min-height:100vh}
+.wrap{max-width:960px;margin:0 auto;padding:16px}
+.player{position:relative;padding-top:56.25%;background:#000;border-radius:12px;overflow:hidden}
+.player iframe,.player video{position:absolute;inset:0;width:100%;height:100%;border:0}
+h1{font-size:20px;font-weight:600;margin:16px 0 8px;line-height:1.35}
+.meta{color:#aaa;font-size:14px;margin-bottom:12px}
+.desc{background:#272727;border-radius:12px;padding:12px 14px;font-size:14px;line-height:1.5;white-space:pre-wrap}
+</style>
+</head><body>
+<div class="wrap">
+  <div class="player">
+<?php if ($player_type === 'iframe'): ?>
+    <iframe src="<?= htmlspecialchars($player_src) ?>" allowfullscreen allow="autoplay; encrypted-media; picture-in-picture"></iframe>
+<?php elseif ($player_type === 'hls'): ?>
+    <video id="v" controls playsinline></video>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.15/hls.min.js"></script>
     <script>
-        (function() {
-            var video = document.getElementById('hls-video');
-            var hlsUrl = '<?=addslashes($player_src)?>';
-            if (Hls.isSupported()) {
-                var hls = new Hls({ enableWorker: true, lowLatencyMode: true });
-                hls.loadSource(hlsUrl);
-                hls.attachMedia(video);
-                hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                    video.play().catch(function(e) {});
-                });
-                hls.on(Hls.Events.ERROR, function(event, data) {
-                    if (data.fatal) console.error('HLS error:', data);
-                });
-            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                video.src = hlsUrl;
-                video.play().catch(function(e) {});
-            } else {
-                video.parentNode.innerHTML = '<div style="color:red;text-align:center;padding:20px;">Ваш браузер не поддерживает HLS-потоки</div>';
-            }
-        })();
+    (function(){var s=<?= json_encode($player_src) ?>,v=document.getElementById('v');
+    if(window.Hls&&Hls.isSupported()){var h=new Hls();h.loadSource(s);h.attachMedia(v);}else{v.src=s;}})();
     </script>
-    <?php endif; ?>
-
-    <script>
-        function copyEmbed() {
-            var url = window.location.href.split('?')[0] + '?url=<?=urlencode($url)?>&embed=1';
-            var code = '<iframe src="' + url + '" width="640" height="360" frameborder="0" allowfullscreen allow="autoplay;fullscreen"></iframe>';
-            navigator.clipboard.writeText(code).then(function() {
-                var btn = document.getElementById('copyBtn');
-                btn.textContent = '✅ Скопировано!';
-                setTimeout(function() { btn.textContent = '📋 Копировать embed-код'; }, 3000);
-            });
-        }
-    </script>
-</body>
-</html>
+<?php else: ?>
+    <video src="<?= htmlspecialchars($player_src) ?>" controls playsinline<?= $image ? ' poster="'.htmlspecialchars($image).'"' : '' ?>></video>
+<?php endif; ?>
+  </div>
+  <h1><?= htmlspecialchars($title) ?></h1>
+  <?php if ($description): ?><div class="desc"><?= htmlspecialchars($description) ?></div><?php endif; ?>
+</div>
+</body></html>
