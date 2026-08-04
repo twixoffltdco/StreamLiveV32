@@ -190,6 +190,28 @@ if (strpos($host, 'dropbox') !== false) {
   }
 }
 
+
+// DROPBOX THUMB: картинки = сам файл; видео — preview если доступен
+if (strpos($host, 'dropbox') !== false || strpos($host, 'dropboxusercontent') !== false) {
+  $path = parse_url($result['player_src'] ?: $url, PHP_URL_PATH) ?: '';
+  $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+  if (in_array($ext, ['jpg','jpeg','png','gif','webp','bmp'], true)) {
+    $result['thumbnail'] = $result['player_src'] ?: $direct ?? $url;
+    if (($result['player_type'] ?? '') === '') {
+      $result['player_type'] = 'image';
+      $result['player_src'] = $result['thumbnail'];
+    }
+  } elseif (in_array($ext, ['mp4','webm','mov','m4v'], true)) {
+    // Dropbox не отдаёт кадр — ставим data-uri placeholder или og если был
+    if ($result['thumbnail'] === '') {
+      // пробуем raw=1 → dl=1 preview не работает; оставляем пусто + клиент покажет video poster
+      $result['thumbnail'] = '';
+    }
+    $result['player_type'] = 'video';
+    if (empty($result['player_src']) && !empty($direct)) $result['player_src'] = $direct;
+  }
+}
+
 // INSTAGRAM
 elseif (strpos($host, 'instagram.com') !== false) {
   $code = '';
@@ -234,6 +256,72 @@ elseif (strpos($host, 'instagram.com') !== false) {
       if ($og['image'] !== '' && $result['thumbnail'] === '') $result['thumbnail'] = $og['image'];
       if ($result['thumbnail'] !== '' && $result['title'] !== 'Публикация Instagram') break;
     }
+  }
+}
+
+
+// VK VIDEO
+elseif (strpos($host, 'vk.com') !== false || strpos($host, 'vkvideo.ru') !== false || strpos($host, 'vk.ru') !== false) {
+  $result['title'] = 'Видео VK';
+  $oid = $vid = '';
+  if (preg_match('#(?:video|clip)(-?\d+)_(\d+)#i', $url, $m)) {
+    $oid = $m[1];
+    $vid = $m[2];
+  } elseif (preg_match('#[?&]z=video(-?\d+)_(\d+)#i', $url, $m)) {
+    $oid = $m[1];
+    $vid = $m[2];
+  }
+  if ($oid !== '' && $vid !== '') {
+    $result['player_type'] = 'iframe';
+    $result['player_src'] = 'https://vk.com/video_ext.php?oid=' . rawurlencode($oid) . '&id=' . rawurlencode($vid) . '&hd=2';
+  }
+  $html = ew_http_get($url, 12);
+  if ($html) {
+    $og = ew_extract_og($html);
+    if ($og['title'] !== '') $result['title'] = $og['title'];
+    if ($og['desc'] !== '') $result['description'] = $og['desc'];
+    if ($og['image'] !== '') $result['thumbnail'] = $og['image'];
+    if ($og['video'] !== '' && ($result['player_src'] ?? '') === '') {
+      $result['player_type'] = 'iframe';
+      $result['player_src'] = $og['video'];
+    }
+  }
+  // oEmbed-ish mobile
+  if ($result['thumbnail'] === '' && $oid !== '' && $vid !== '') {
+    $try = 'https://vk.com/video' . $oid . '_' . $vid;
+    $html2 = ew_http_get($try, 10);
+    if ($html2) {
+      $og2 = ew_extract_og($html2);
+      if ($og2['image'] !== '') $result['thumbnail'] = $og2['image'];
+      if ($og2['title'] !== '' && $result['title'] === 'Видео VK') $result['title'] = $og2['title'];
+    }
+  }
+}
+
+// TWITCH
+elseif (strpos($host, 'twitch.tv') !== false) {
+  $result['title'] = 'Twitch';
+  $channel = $videoId = '';
+  if (preg_match('#twitch\.tv/videos/(\d+)#i', $url, $m)) {
+    $videoId = $m[1];
+    $result['player_type'] = 'iframe';
+    $result['player_src'] = 'https://player.twitch.tv/?video=' . $videoId . '&parent=' . rawurlencode($_SERVER['HTTP_HOST'] ?? 'localhost') . '&autoplay=false';
+  } elseif (preg_match('#twitch\.tv/([A-Za-z0-9_]+)/clip/([A-Za-z0-9_-]+)#i', $url, $m)) {
+    $result['player_type'] = 'iframe';
+    $result['player_src'] = 'https://clips.twitch.tv/embed?clip=' . rawurlencode($m[2]) . '&parent=' . rawurlencode($_SERVER['HTTP_HOST'] ?? 'localhost');
+    $result['title'] = 'Twitch Clip';
+  } elseif (preg_match('#twitch\.tv/([A-Za-z0-9_]+)/?$#i', $url, $m)) {
+    $channel = $m[1];
+    $result['player_type'] = 'iframe';
+    $result['player_src'] = 'https://player.twitch.tv/?channel=' . rawurlencode($channel) . '&parent=' . rawurlencode($_SERVER['HTTP_HOST'] ?? 'localhost') . '&autoplay=false';
+    $result['title'] = 'Twitch: ' . $channel;
+  }
+  $html = ew_http_get($url, 12);
+  if ($html) {
+    $og = ew_extract_og($html);
+    if ($og['title'] !== '') $result['title'] = $og['title'];
+    if ($og['desc'] !== '') $result['description'] = $og['desc'];
+    if ($og['image'] !== '') $result['thumbnail'] = $og['image'];
   }
 }
 

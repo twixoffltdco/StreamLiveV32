@@ -127,3 +127,103 @@ body.pl-theme-telegram .xf-mini-profile {
   text-transform: uppercase; color: #fff; background: var(--tg-blue);
   border-radius: 4px; vertical-align: middle;
 }
+
+/* ===== Telegram LIGHT ===== */
+html.pl-theme-telegram[data-pl-skin="light"],
+body.pl-theme-telegram[data-pl-skin="light"] {
+  --tg-bg: #ffffff;
+  --tg-elev: #f4f4f5;
+  --tg-card: #ffffff;
+  --tg-hover: #e8e8ea;
+  --tg-text: #0f0f0f;
+  --tg-muted: #707579;
+  --tg-blue: #2AABEE;
+  --tg-blue-dark: #1e96d1;
+  --tg-green: #4fae4e;
+  --tg-border: #e4e4e4;
+  --tg-bubble: #eeffde;
+  --bg: #ffffff;
+  --bg-elevated: #f4f4f5;
+  --card: #ffffff;
+  --border: #e4e4e4;
+  --text: #0f0f0f;
+  --text-dim: #707579;
+  background: #ffffff !important;
+  color: #0f0f0f !important;
+  color-scheme: light;
+}
+
+body.pl-theme-telegram[data-pl-skin="light"] .site-header,
+body.pl-theme-telegram[data-pl-skin="light"] header,
+body.pl-theme-telegram[data-pl-skin="light"] .header,
+body.pl-theme-telegram[data-pl-skin="light"] nav.top-nav,
+body.pl-theme-telegram[data-pl-skin="light"] .navbar {
+  background: #ffffff !important;
+  border-bottom: 1px solid #e4e4e4 !important;
+  color: #0f0f0f !important;
+  box-shadow: none !important;
+}
+
+body.pl-theme-telegram[data-pl-skin="light"] .tg-sidebar,
+body.pl-theme-telegram[data-pl-skin="light"] .tg-bottom {
+  background: #ffffff !important;
+  border-color: #e4e4e4 !important;
+  color: #0f0f0f !important;
+}
+
+body.pl-theme-telegram[data-pl-skin="light"] .tg-nav-item,
+body.pl-theme-telegram[data-pl-skin="light"] .tg-bottom-item {
+  color: #0f0f0f !important;
+}
+body.pl-theme-telegram[data-pl-skin="light"] .tg-nav-item:hover,
+body.pl-theme-telegram[data-pl-skin="light"] .tg-nav-item.active {
+  background: #f0f0f0 !important;
+}
+
+body.pl-theme-telegram[data-pl-skin="light"] .card,
+body.pl-theme-telegram[data-pl-skin="light"] .video-card,
+body.pl-theme-telegram[data-pl-skin="light"] .channel-card,
+body.pl-theme-telegram[data-pl-skin="light"] .post-card,
+body.pl-theme-telegram[data-pl-skin="light"] .forum-post,
+body.pl-theme-telegram[data-pl-skin="light"] .comment {
+  background: #f7f7f8 !important;
+  border: 1px solid #e4e4e4 !important;
+  color: #0f0f0f !important;
+  box-shadow: none !important;
+}
+
+body.pl-theme-telegram[data-pl-skin="light"] input,
+body.pl-theme-telegram[data-pl-skin="light"] textarea,
+body.pl-theme-telegram[data-pl-skin="light"] select {
+  background: #ffffff !important;
+  border: 1px solid #d0d0d0 !important;
+  color: #0f0f0f !important;
+}
+
+body.pl-theme-telegram[data-pl-skin="light"] .btn-outline {
+  background: #f0f0f0 !important;
+  color: #0f0f0f !important;
+  border-color: #d0d0d0 !important;
+}
+
+body.pl-theme-telegram[data-pl-skin="light"] h1,
+body.pl-theme-telegram[data-pl-skin="light"] h2,
+body.pl-theme-telegram[data-pl-skin="light"] h3 {
+  color: #0f0f0f !important;
+}
+
+body.pl-theme-telegram[data-pl-skin="light"] .tg-menu-btn {
+  color: #0f0f0f !important;
+  background: transparent !important;
+}
+
+body.pl-theme-telegram[data-pl-skin="light"] footer,
+body.pl-theme-telegram[data-pl-skin="light"] .footer {
+  background: #ffffff !important;
+  color: #707579 !important;
+  border-color: #e4e4e4 !important;
+}
+
+body.pl-theme-telegram[data-pl-skin="light"] .tg-section-title {
+  color: #707579 !important;
+}

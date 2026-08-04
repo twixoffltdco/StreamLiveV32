@@ -7,6 +7,7 @@ try { user_display_ensure_schema(); } catch (Throwable $e) {}
 
 require_once __DIR__ . '/includes/service_helpers.php';
 require_once __DIR__ . '/includes/bbcode.php';
+if (is_file(__DIR__ . '/includes/share.php')) require_once __DIR__ . '/includes/share.php';
 require_once __DIR__ . '/includes/forum_engine.php';
 forum_engine_ensure();
 $__user = current_user();
@@ -62,7 +63,7 @@ db()->prepare('UPDATE forum_threads SET views = views + 1 WHERE id = ?')->execut
 try {
   $stmt = db()->prepare(
     'SELECT fp.*, u.username, u.role, u.avatar, u.is_verified, u.is_banned, u.gravatar_email,
-            u.prefix_id, u.username_css, u.profile_cover, u.profile_status, u.session_started_at, u.last_seen_at, u.session_seconds
+            u.id AS id, u.prefix_id, u.username_css, u.profile_cover, u.profile_status, u.session_started_at, u.last_seen_at, u.session_seconds
      FROM forum_posts fp
      JOIN users u ON u.id = fp.user_id
      WHERE fp.thread_id = ? AND fp.is_deleted = 0 ORDER BY fp.created_at ASC LIMIT 500'
@@ -124,11 +125,16 @@ require_once __DIR__ . '/includes/header.php';
     <?php endif; ?>
   </div>
 
+  <?php if (function_exists('share_buttons')): echo share_buttons('/forum_thread.php?id=' . (int)$threadId, (string)($thread['title'] ?? 'Тема')); endif; ?>
   <div id="posts" class="forum-post-list">
     <?php foreach ($posts as $p): ?>
       <div class="forum-post" id="post-<?= (int)$p['id'] ?>">
         <div class="forum-post-author">
-          <?= render_user_badge($p, 28) ?>
+          <?php
+            if (empty($p['id']) && !empty($p['user_id'])) $p['id'] = (int)$p['user_id'];
+            if (function_exists('user_display_ensure_schema')) user_display_ensure_schema();
+            echo render_user_badge($p, 28);
+          ?>
           <?php if ($p['role'] === 'admin'): ?><span class="role-badge">админ</span><?php endif; ?>
           <span style="color:var(--text-dim);font-size:12px"><?= e($p['created_at']) ?></span>
           <?php if ($__user && (int)$p['user_id'] !== (int)$__user['id']): ?>
@@ -156,7 +162,7 @@ require_once __DIR__ . '/includes/header.php';
             <button type="button" class="btn btn-outline btn-sm js-forum-quote"
               data-post-id="<?= (int)$__pid ?>"
               data-username="<?= e($p['username'] ?? '') ?>"
-              data-raw="<?= e(mb_substr(preg_replace('/\s+/u', ' ', strip_tags($p['message'] ?? '')), 0, 1200)) ?>"
+              data-raw-b64="<?= e(base64_encode(mb_substr(preg_replace('/\s+/u', ' ', (string)($p['message'] ?? '')), 0, 1200))) ?>"
             >Цитировать</button>
             <form method="POST" action="/forum_action" style="display:inline" onsubmit="return confirm('Пожаловаться на сообщение?');">
               <?= csrf_field() ?>
@@ -215,10 +221,19 @@ require_once __DIR__ . '/includes/header.php';
 <script>
 (function () {
   function forumQuoteFromBtn(btn) {
-    var ta = document.getElementById('bb-editor');
+    var ta = document.getElementById('bb-editor') || document.querySelector('textarea[name="message"]');
     if (!ta) { alert('Войдите и откройте форму ответа внизу, чтобы цитировать.'); return; }
     var username = (btn.getAttribute('data-username') || 'user').replace(/"/g, '');
-    var text = btn.getAttribute('data-raw') || '';
+    var text = '';
+    var b64 = btn.getAttribute('data-raw-b64') || '';
+    if (b64) {
+      try {
+        text = decodeURIComponent(escape(atob(b64)));
+      } catch (err) {
+        try { text = atob(b64); } catch (e2) { text = ''; }
+      }
+    }
+    if (!text) text = btn.getAttribute('data-raw') || '';
     if (!text) {
       var id = btn.getAttribute('data-post-id');
       var el = document.getElementById('post-' + id);
@@ -227,6 +242,7 @@ require_once __DIR__ . '/includes/header.php';
         text = ((body && body.innerText) || '').trim().slice(0, 1200);
       }
     }
+    text = (text || '').replace(/\[\/?quote[^\]]*\]/gi, '').trim();
     var block = '[quote="' + username + '"]' + text + '[/quote]\n';
     ta.value = (ta.value ? ta.value.replace(/\s+$/, '') + '\n\n' : '') + block;
     ta.focus();

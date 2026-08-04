@@ -17,12 +17,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $sort = (int)($_POST['sort_order'] ?? 0);
     $active = !empty($_POST['is_active']) ? 1 : 0;
     if ($title !== '') {
-      if ($id > 0) {
-        db()->prepare('UPDATE user_prefixes SET title=?, css=?, text_color=?, bg_color=?, sort_order=?, is_active=? WHERE id=?')
-          ->execute([$title, $css, $tc, $bg, $sort, $active, $id]);
-      } else {
-        db()->prepare('INSERT INTO user_prefixes (title, css, text_color, bg_color, sort_order, is_active, is_personal, owner_user_id) VALUES (?,?,?,?,?,?,0,NULL)')
-          ->execute([$title, $css, $tc, $bg, $sort, $active]);
+      try {
+        user_display_ensure_schema();
+        if ($id > 0) {
+          db()->prepare('UPDATE user_prefixes SET title=?, css=?, text_color=?, bg_color=?, sort_order=?, is_active=? WHERE id=?')
+            ->execute([$title, $css, $tc, $bg, $sort, $active, $id]);
+        } else {
+          try {
+            db()->prepare('INSERT INTO user_prefixes (title, css, text_color, bg_color, sort_order, is_active, is_personal, owner_user_id) VALUES (?,?,?,?,?,?,0,NULL)')
+              ->execute([$title, $css, $tc, $bg, $sort, $active]);
+          } catch (Throwable $eIns) {
+            // fallback без is_personal (старая схема)
+            db()->prepare('INSERT INTO user_prefixes (title, css, text_color, bg_color, sort_order, is_active) VALUES (?,?,?,?,?,?)')
+              ->execute([$title, $css, $tc, $bg, $sort, $active]);
+          }
+        }
+        if (function_exists('flash_set')) flash_set('success', 'Префикс сохранён');
+      } catch (Throwable $e) {
+        if (function_exists('flash_set')) flash_set('error', 'Ошибка префикса: ' . $e->getMessage());
+        else error_log('[prefixes] ' . $e->getMessage());
       }
     }
   } elseif ($action === 'delete') {

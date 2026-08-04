@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
+if (is_file(__DIR__ . '/includes/bbcode.php')) require_once __DIR__ . '/includes/bbcode.php';
 $__user = require_login();
 
 $categoryId = (int)($_GET['category_id'] ?? $_POST['category_id'] ?? 0);

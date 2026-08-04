@@ -10,13 +10,16 @@
 
   # ---- 1) Точечные "человеческие" маршруты для страниц с параметром в URL ----
   # /video/nazvanie-slug     → video.php?slug=nazvanie-slug
-  RewriteRule ^video/([a-z0-9-]+)/?$ video.php?slug=$1 [L,QSA]
+  RewriteRule ^video/([a-zA-Z0-9_-]+)/?$ video.php?slug=$1 [L,QSA]
 
   # /channel/nazvanie-slug   → channel.php?slug=nazvanie-slug
-  RewriteRule ^channel/([a-z0-9-]+)/?$ channel.php?slug=$1 [L,QSA]
+  RewriteRule ^channel/([a-zA-Z0-9_-]+)/?$ channel.php?slug=$1 [L,QSA]
+
+  # short links
+  RewriteRule ^g/([a-zA-Z0-9]+)/?$ g.php?c=$1 [L,QSA]
 
   # /s/nazvanie-slug         → s.php?slug=nazvanie-slug (задеплоенные GitHub-сервисы)
-  RewriteRule ^s/([a-z0-9-]+)/?$ s.php?slug=$1 [L,QSA]
+  RewriteRule ^s/([a-zA-Z0-9_-]+)/?$ s.php?slug=$1 [L,QSA]
 
   # /u/username              → profile.php?username=username
   RewriteRule ^u/([a-zA-Z0-9_-]+)/?$ profile.php?username=$1 [L,QSA]

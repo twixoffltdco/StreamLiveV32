@@ -1016,3 +1016,88 @@ img, video, iframe, canvas, svg { max-width: 100%; }
 .streak-toast { position: fixed; bottom: 20px; right: 20px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; max-width: 300px; font-size: 13px; box-shadow: 0 10px 30px rgba(0,0,0,.4); z-index: 9998; transition: opacity .4s, transform .4s; }
 .streak-toast-hide { opacity: 0; transform: translateY(10px); pointer-events: none; }
 @media (max-width: 480px) { .streak-toast { left: 16px; right: 16px; max-width: none; } }
+
+/* ===== Forum thread: actions must not "float"/overlap ===== */
+.forum-post {
+  overflow: hidden;
+  clear: both;
+  position: relative;
+}
+.forum-post-actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  margin-top: 12px !important;
+  align-items: center !important;
+  clear: both;
+  width: 100%;
+  max-width: 100%;
+}
+.forum-post-actions form {
+  display: inline-flex !important;
+  margin: 0 !important;
+  float: none !important;
+  position: static !important;
+}
+.forum-post-actions .btn,
+.forum-post-actions button {
+  float: none !important;
+  position: static !important;
+  white-space: nowrap;
+}
+.forum-post-actions details {
+  display: inline-block;
+  position: relative;
+  max-width: 100%;
+}
+.forum-post-actions details[open] {
+  display: block;
+  width: 100%;
+}
+.forum-post-actions details textarea {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.forum-post-footer-mini {
+  margin-top: 10px;
+  clear: both;
+  width: 100%;
+  overflow: hidden;
+}
+.forum-post-body {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
+}
+.forum-post-body img,
+.forum-post-body iframe,
+.forum-post-body video {
+  max-width: 100% !important;
+  height: auto;
+}
+
+
+/* forum post actions — no float/jitter */
+.forum-post-actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  margin-top: 12px !important;
+  position: relative !important;
+  clear: both !important;
+  float: none !important;
+  z-index: 1;
+}
+.forum-post-actions form { display: inline-flex; margin: 0; }
+.forum-post-actions details { display: inline-block; }
+.forum-post-actions .btn, .forum-post-actions button {
+  position: static !important;
+  float: none !important;
+}
+.forum-post { overflow: visible; }
+
+/* Mini-profile prefixes compact */
+.xf-mini-name .user-prefixes { display: inline-flex; flex-wrap: wrap; gap: 3px; margin-right: 4px; vertical-align: middle; }
+.xf-mini-name .user-prefix { font-size: 10px !important; padding: 0 5px !important; line-height: 1.35 !important; margin: 0 !important; }
+.xf-mini-name-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }

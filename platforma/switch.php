@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 $mode = strtolower(trim((string)($_GET['mode'] ?? 'streamlife')));
-$allowed = ['streamlife', 'platforma', 'telegram'];
+$allowed = ['streamlife', 'platforma', 'telegram', 'prohub'];
 if (!in_array($mode, $allowed, true)) {
   $mode = 'streamlife';
 }
