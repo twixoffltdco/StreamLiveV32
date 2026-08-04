@@ -9,6 +9,7 @@ require_once __DIR__ . '/includes/service_helpers.php';
 require_once __DIR__ . '/includes/bbcode.php';
 if (is_file(__DIR__ . '/includes/share.php')) require_once __DIR__ . '/includes/share.php';
 require_once __DIR__ . '/includes/forum_engine.php';
+require_once __DIR__ . '/includes/notify.php';
 forum_engine_ensure();
 $__user = current_user();
 
@@ -44,6 +45,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($message !== '') {
       db()->prepare('INSERT INTO forum_posts (thread_id, user_id, message) VALUES (?, ?, ?)')->execute([$threadId, $__user['id'], $message]);
       forum_bump_reply_stats($threadId, (int)$__user['id']);
+      // Уведомить автора темы + подписчиков темы
+      try {
+        $authorId = (int)($thread['user_id'] ?? 0);
+        $tTitle = mb_substr((string)($thread['title'] ?? 'тема'), 0, 60);
+        $link = '/forum_thread?id=' . (int)$threadId;
+        $msg = '@' . ($__user['username'] ?? 'user') . ' ответил(а) в «' . $tTitle . '»';
+        if (function_exists('notify_user')) {
+          notify_user($authorId, 'forum_reply', $msg, $link, null, (int)$__user['id']);
+        }
+        if (function_exists('forum_thread_watchers')) {
+          // optional
+        } else {
+          try {
+            $ws = db()->prepare('SELECT user_id FROM forum_thread_watch WHERE thread_id = ?');
+            $ws->execute([(int)$threadId]);
+            $ids = [];
+            while ($w = $ws->fetch()) $ids[] = (int)$w['user_id'];
+            if (function_exists('notify_users')) notify_users($ids, 'forum_reply', $msg, $link, null, (int)$__user['id']);
+          } catch (Throwable $e) {}
+        }
+      } catch (Throwable $e) {}
     }
   } elseif ($action === 'delete_post' && $isForumModerator) {
     db()->prepare('UPDATE forum_posts SET is_deleted = 1 WHERE id = ? AND thread_id = ?')->execute([(int)$_POST['post_id'], $threadId]);

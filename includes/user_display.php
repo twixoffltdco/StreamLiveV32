@@ -21,6 +21,14 @@ function user_display_ensure_schema(): void {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
   } catch (Throwable $e) {}
 
+  foreach ([
+    'is_personal' => 'TINYINT(1) NOT NULL DEFAULT 0',
+    'owner_user_id' => 'INT UNSIGNED NULL',
+    'is_system' => 'TINYINT(1) NOT NULL DEFAULT 0',
+  ] as $col => $def) {
+    try { db()->exec("ALTER TABLE user_prefixes ADD COLUMN `{$col}` {$def}"); } catch (Throwable $e) {}
+  }
+
   // До 3 префиксов на пользователя (связь many-to-many)
   try {
     db()->exec("CREATE TABLE IF NOT EXISTS user_prefix_map (
@@ -174,6 +182,63 @@ function user_resolve_id(array $user): int {
   $id = (int)($user['id'] ?? 0);
   if ($id > 0) return $id;
   return (int)($user['user_id'] ?? 0);
+}
+
+
+/**
+ * Только официальные системные префиксы (созданные в админке).
+ * Каналы и личные — никогда.
+ */
+function user_prefixes_system_list(bool $onlyActive = true): array {
+  user_display_ensure_schema();
+  $rows = [];
+  try {
+    // Предпочтительно is_system=1
+    $sql = "SELECT * FROM user_prefixes WHERE COALESCE(is_system,0)=1 AND COALESCE(is_personal,0)=0
+            AND (owner_user_id IS NULL OR owner_user_id=0)";
+    if ($onlyActive) $sql .= " AND is_active=1";
+    $sql .= " ORDER BY sort_order ASC, id ASC";
+    $rows = db()->query($sql)->fetchAll() ?: [];
+  } catch (Throwable $e) {
+    $rows = [];
+  }
+  // Если is_system ещё ни у кого не проставлен — fallback: не personal + не title канала
+  if (!$rows) {
+    try {
+      $sql = "SELECT * FROM user_prefixes WHERE COALESCE(is_personal,0)=0 AND (owner_user_id IS NULL OR owner_user_id=0)";
+      if ($onlyActive) $sql .= " AND is_active=1";
+      $sql .= " ORDER BY sort_order ASC, id ASC";
+      $all = db()->query($sql)->fetchAll() ?: [];
+    } catch (Throwable $e) {
+      $all = [];
+    }
+    $ch = [];
+    try {
+      foreach (db()->query("SELECT title FROM channels")->fetchAll(PDO::FETCH_COLUMN) ?: [] as $ct) {
+        $k = function_exists('mb_strtolower') ? mb_strtolower(trim((string)$ct)) : strtolower(trim((string)$ct));
+        if ($k !== '') $ch[$k] = true;
+      }
+    } catch (Throwable $e) {}
+    foreach ($all as $r) {
+      $tk = function_exists('mb_strtolower') ? mb_strtolower(trim((string)($r['title'] ?? ''))) : strtolower(trim((string)($r['title'] ?? '')));
+      if ($tk !== '' && !empty($ch[$tk])) continue;
+      $rows[] = $r;
+    }
+  } else {
+    // даже с is_system — выкинуть title=канал на всякий
+    $ch = [];
+    try {
+      foreach (db()->query("SELECT title FROM channels")->fetchAll(PDO::FETCH_COLUMN) ?: [] as $ct) {
+        $k = function_exists('mb_strtolower') ? mb_strtolower(trim((string)$ct)) : strtolower(trim((string)$ct));
+        if ($k !== '') $ch[$k] = true;
+      }
+    } catch (Throwable $e) {}
+    $rows = array_values(array_filter($rows, static function ($r) use ($ch) {
+      $tk = function_exists('mb_strtolower') ? mb_strtolower(trim((string)($r['title'] ?? ''))) : strtolower(trim((string)($r['title'] ?? '')));
+      return $tk === '' || empty($ch[$tk]);
+    }));
+  }
+  return $rows;
 }
 
 function user_get_prefix(?int $prefixId): ?array {

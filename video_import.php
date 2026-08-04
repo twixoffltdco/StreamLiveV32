@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/notify.php';
 require_once __DIR__ . '/includes/video_embed.php';
 $__user = require_login();
 
@@ -58,6 +59,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
           );
           $stmt->execute([$channelId, $__user['id'], $slug, $sourceUrl, $platform, $embedUrl, $title, $description, $tags, $thumbnail ?: null, $metaSource, 'published']);
+          // Пуш аудитории канала
+          try {
+            $chTitle = (string)($channel['title'] ?? 'канал');
+            $link = '/video?slug=' . $slug;
+            $msg = 'Новое видео: «' . mb_substr($title, 0, 80) . '» на «' . mb_substr($chTitle, 0, 40) . '»';
+            if (function_exists('notify_channel_audience')) {
+              notify_channel_audience((int)$channelId, 'video_new', $msg, $link, (int)$__user['id']);
+            }
+          } catch (Throwable $e) {}
           redirect('/video.php?slug=' . $slug);
         }
       }

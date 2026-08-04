@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/contacts.php';
+require_once __DIR__ . '/includes/notify.php';
 header('Content-Type: application/json; charset=utf-8');
 
 $user = current_user();
@@ -55,6 +56,17 @@ try {
     ->execute([$convId, $user['id'], $body]);
   $id = (int)db()->lastInsertId();
   db()->prepare('UPDATE conversations SET updated_at = NOW() WHERE id = ?')->execute([$convId]);
+  // Push / in-app уведомление собеседнику
+  $preview = mb_substr($body, 0, 80);
+  $uname = (string)($user['username'] ?? 'Пользователь');
+  notify_user(
+    $peerId,
+    'message',
+    $uname . ': ' . $preview,
+    '/messages?conv=' . $convId,
+    null,
+    (int)$user['id']
+  );
   echo json_encode(['ok' => true, 'id' => $id]);
 } catch (Throwable $e) {
   http_response_code(200);

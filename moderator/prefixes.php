@@ -75,29 +75,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('/moderator/prefixes.php');
   }
 
-  if ($action === 'assign' && $pid > 0) {
-    // Личный префикс чужого/свой custom — нельзя выдавать через мод-панель
-    try {
-      $chk = db()->prepare('SELECT is_personal, owner_user_id FROM user_prefixes WHERE id = ?');
-      $chk->execute([$pid]);
-      $row = $chk->fetch();
-      if ($row && (!empty($row['is_personal']) || (int)($row['owner_user_id'] ?? 0) > 0)) {
-        flash_set('error', 'Это личный префикс пользователя — его нельзя выдавать другим');
-        redirect('/moderator/prefixes.php');
-      }
-    } catch (Throwable $e) {}
+  // До 3 системных префиксов
+  $pids = [];
+  if (isset($_POST['prefix_ids']) && is_array($_POST['prefix_ids'])) {
+    foreach ($_POST['prefix_ids'] as $x) {
+      $x = (int)$x;
+      if ($x > 0) $pids[] = $x;
+    }
+  }
+  if ($pid > 0) $pids[] = $pid;
+  $pids = array_values(array_unique($pids));
 
+  if ($action === 'assign' && $pids) {
+    $clean = [];
+    foreach ($pids as $one) {
+      try {
+        $chk = db()->prepare('SELECT is_personal, owner_user_id, is_system, title FROM user_prefixes WHERE id = ?');
+        $chk->execute([$one]);
+        $row = $chk->fetch();
+        if (!$row) continue;
+        if (!empty($row['is_personal']) || (int)($row['owner_user_id'] ?? 0) > 0) continue;
+        // только system если колонка есть
+        if (array_key_exists('is_system', $row) && (int)$row['is_system'] === 0) {
+          // fallback: не канал
+          $skip = false;
+          try {
+            $c = db()->prepare('SELECT id FROM channels WHERE LOWER(TRIM(title)) = LOWER(TRIM(?)) LIMIT 1');
+            $c->execute([$row['title'] ?? '']);
+            if ($c->fetch()) $skip = true;
+          } catch (Throwable $e) {}
+          if ($skip) continue;
+        }
+        $clean[] = $one;
+      } catch (Throwable $e) {}
+    }
     $customId = 0;
     try {
       $st = db()->prepare('SELECT custom_prefix_id FROM users WHERE id = ?');
       $st->execute([$uid]);
       $customId = (int)($st->fetchColumn() ?: 0);
     } catch (Throwable $e) {}
-    $ids = [$pid];
-    if ($customId > 0 && $customId !== $pid) $ids[] = $customId;
+    $ids = $clean;
+    if ($customId > 0 && !in_array($customId, $ids, true)) $ids[] = $customId;
     user_set_prefixes($uid, array_slice($ids, 0, 3));
-    mod_prefix_log_act($modId, $uid, 'assign', $pid);
-    flash_set('success', 'Префикс выдан (следующее действие на этого юзера через 24ч)');
+    mod_prefix_log_act($modId, $uid, 'assign', $clean[0] ?? 0);
+    flash_set('success', 'Префиксы выданы (до 3; следующее действие на этого юзера через 24ч)');
   } elseif ($action === 'remove') {
     $customId = 0;
     try {
@@ -128,7 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $prefixes = [];
 $users = [];
 try {
-  $prefixes = function_exists('user_prefixes_system_list') ? user_prefixes_system_list(true) : (db()->query('SELECT * FROM user_prefixes WHERE is_active = 1 AND (is_personal = 0 OR is_personal IS NULL) ORDER BY sort_order, id')->fetchAll() ?: []);
+  $prefixes = function_exists('user_prefixes_system_list') ? user_prefixes_system_list(true) : [];
 } catch (Throwable $e) {}
 try {
   $users = db()->query('SELECT id, username, prefix_id FROM users ORDER BY id DESC LIMIT 150')->fetchAll() ?: [];
@@ -157,14 +179,17 @@ require_once __DIR__ . '/../includes/header.php';
           <?php endforeach; ?>
         </select>
       </label>
-      <label>Префикс
-        <select name="prefix_id" required style="width:100%;padding:8px">
+      <?php for ($slot = 1; $slot <= 3; $slot++): ?>
+      <label>Префикс <?= $slot ?>
+        <select name="prefix_ids[]" style="width:100%;padding:8px">
+          <option value="0">— пусто —</option>
           <?php foreach ($prefixes as $p): ?>
             <option value="<?= (int)$p['id'] ?>"><?= e($p['title']) ?></option>
           <?php endforeach; ?>
         </select>
       </label>
-      <button class="btn btn-primary" type="submit">Выдать</button>
+      <?php endfor; ?>
+      <button class="btn btn-primary" type="submit">Выдать (до 3)</button>
     </form>
   </div>
 

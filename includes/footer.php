@@ -138,5 +138,6 @@ document.addEventListener('click', function (e) {
     </script>
  <!-- Клавиатура для тв -->
 <?php if (function_exists('themes_active')) { $__activeTheme = themes_active(); if (!empty($__activeTheme['footer'])) theme_safe_include(themes_dir() . '/' . $__activeTheme['footer']); } ?>
+<script src="/assets/js/push-notify.js?v=6" defer></script>
 </body>
 </html>
