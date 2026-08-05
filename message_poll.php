@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/contacts.php';
+require_once __DIR__ . '/includes/poll_throttle.php';
+if (!poll_throttle_check('message_poll', 30, 60)) { exit; }
 header('Content-Type: application/json; charset=utf-8');
 
 $user = current_user();

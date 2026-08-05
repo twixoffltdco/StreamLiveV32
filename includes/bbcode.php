@@ -122,12 +122,72 @@ $BBCODE_SIMPLE_TAGS = [
   'h4'      => '<h4>$1</h4>',
   'plain'   => '<span class="bb-plain">$1</span>',
   'highlight' => '<span class="bb-highlight">$1</span>',
+  'tt'      => '<code class="bb-tt">$1</code>',
+  'del'     => '<del>$1</del>',
+  'ins'     => '<ins>$1</ins>',
+  'small'   => '<small>$1</small>',
+  'big'     => '<span style="font-size:1.25em">$1</span>',
 ];
 
 function bbcode_callback_tags(?int $postId = null): array {
   return [
     '/\[youtube\](.*?)\[\/youtube\]/is' => 'bbcode_render_youtube',
     '/\[media=youtube\](.*?)\[\/media\]/is' => 'bbcode_render_youtube',
+
+    // XenForo-ish media
+    '/\[media=vimeo\](\d+)\[\/media\]/is' => function ($m) {
+      $id = preg_replace('/\D/', '', $m[1]);
+      if ($id === '') return '';
+      return '<div class="bb-media" style="position:relative;padding-bottom:56.25%;height:0;max-width:100%;margin:10px 0">'
+        . '<iframe src="https://player.vimeo.com/video/' . $id . '" loading="lazy" allowfullscreen '
+        . 'style="position:absolute;inset:0;width:100%;height:100%;border:0"></iframe></div>';
+    },
+    '/\[media=twitter\](.*?)\[\/media\]/is' => function ($m) {
+      $u = trim($m[1]);
+      if (!preg_match('#^https?://#i', $u)) return htmlspecialchars($u, ENT_QUOTES);
+      return '<blockquote class="twitter-tweet"><a href="' . htmlspecialchars($u, ENT_QUOTES) . '"></a></blockquote>';
+    },
+    '/\[code(?:=([a-z0-9_+-]+))?\](.*?)\[\/code\]/is' => function ($m) {
+      $lang = $m[1] !== '' ? $m[1] : '';
+      $code = htmlspecialchars($m[2], ENT_QUOTES, 'UTF-8');
+      $cls = $lang !== '' ? ' language-' . htmlspecialchars($lang, ENT_QUOTES) : '';
+      return '<div class="bb-code-block"><pre class="bb-code' . $cls . '"><code>' . $code . '</code></pre></div>';
+    },
+    '/\[php\](.*?)\[\/php\]/is' => function ($m) {
+      $code = htmlspecialchars($m[1], ENT_QUOTES, 'UTF-8');
+      return '<div class="bb-code-block"><pre class="bb-code language-php"><code>' . $code . '</code></pre></div>';
+    },
+    '/\[html\](.*?)\[\/html\]/is' => function ($m) {
+      $code = htmlspecialchars($m[1], ENT_QUOTES, 'UTF-8');
+      return '<div class="bb-code-block"><pre class="bb-code language-html"><code>' . $code . '</code></pre></div>';
+    },
+    '/\[attach(?:=full)?\](\d+)\[\/attach\]/i' => function ($m) {
+      $id = (int)$m[1];
+      return '<a class="bb-attach" href="/forum_attachment.php?id=' . $id . '">Вложение #' . $id . '</a>';
+    },
+    '/\[user=(\d+)\](.*?)\[\/user\]/is' => function ($m) {
+      $id = (int)$m[1];
+      $name = trim(strip_tags($m[2])) ?: ('user' . $id);
+      return '<a class="bb-user" href="/user.php?id=' . $id . '">@' . htmlspecialchars($name, ENT_QUOTES) . '</a>';
+    },
+    '/\[thread=(\d+)\](.*?)\[\/thread\]/is' => function ($m) {
+      $id = (int)$m[1];
+      $title = trim(strip_tags($m[2])) ?: ('Тема #' . $id);
+      return '<a class="bb-thread" href="/forum_thread.php?id=' . $id . '">' . htmlspecialchars($title, ENT_QUOTES) . '</a>';
+    },
+    '/\[post=(\d+)\](.*?)\[\/post\]/is' => function ($m) {
+      $id = (int)$m[1];
+      $title = trim(strip_tags($m[2])) ?: ('Сообщение #' . $id);
+      return '<a class="bb-post" href="/forum_thread.php?post_id=' . $id . '#post-' . $id . '">' . htmlspecialchars($title, ENT_QUOTES) . '</a>';
+    },
+    '/\[anchor\]([a-zA-Z0-9_-]+)\[\/anchor\]/i' => function ($m) {
+      $a = preg_replace('/[^a-zA-Z0-9_-]/', '', $m[1]);
+      return '<a id="bb-' . $a . '" class="bb-anchor"></a>';
+    },
+    '/\[goto=([a-zA-Z0-9_-]+)\](.*?)\[\/goto\]/is' => function ($m) {
+      $a = preg_replace('/[^a-zA-Z0-9_-]/', '', $m[1]);
+      return '<a href="#bb-' . $a . '">' . $m[2] . '</a>';
+    },
     '/\[font=(.*?)\](.*?)\[\/font\]/is' => 'bbcode_render_font',
     '/\[email\](.*?)\[\/email\]/is' => 'bbcode_render_email',
     '/\[email=(.*?)\](.*?)\[\/email\]/is' => function ($m) {

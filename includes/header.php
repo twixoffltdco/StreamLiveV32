@@ -324,6 +324,19 @@ if (month === 12 || month === 1 || month === 2) { // Winter
         }
       ?>
       <a href="/messages" class="nav-messages">Сообщения<?php if ($__unreadCount > 0): ?><span class="nav-badge"><?= $__unreadCount ?></span><?php endif; ?></a>
+
+      <?php
+        $__notifUnread = 0;
+        try {
+          if (is_file(__DIR__ . '/notify.php')) require_once __DIR__ . '/notify.php';
+          if (function_exists('notify_ensure_schema')) notify_ensure_schema();
+          $stN = db()->prepare('SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0');
+          $stN->execute([(int)$__user['id']]);
+          $__notifUnread = (int)$stN->fetchColumn();
+        } catch (Throwable $e) { $__notifUnread = 0; }
+      ?>
+      <a href="/notifications" class="nav-messages" title="Уведомления">🔔<?php if ($__notifUnread > 0): ?><span class="nav-badge"><?= $__notifUnread > 99 ? '99+' : $__notifUnread ?></span><?php endif; ?></a>
+
       <a href="/profile?username=<?= e($__user['username']) ?>">Профиль</a>
       <a href="/sticker_packs">Стикеры</a>
       <a href="/favorites">⭐ Избранное</a>

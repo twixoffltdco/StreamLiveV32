@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 /**
- * Детальная аналитика канала (YouTube Studio–style).
+ * Детальная аналитика канала (Студия–style).
  * Работает и в режиме Платформа, и в Telegram.
  */
 require_once dirname(__DIR__, 2) . '/includes/functions.php';
@@ -264,7 +264,7 @@ body.pl-theme-telegram .an-range a.on, .tg-an .an-range a.on{background:#2AABEE;
   <?php endif; ?>
 
   <div class="st-panel">
-    <h2>Что ещё как на YouTube</h2>
+    <h2>Что ещё как на Студия</h2>
     <ul class="muted" style="line-height:1.7;padding-left:18px;font-size:13px">
       <li>Сводка за 7 / 28 / 90 / 365 дней</li>
       <li>Просмотры · лайки · комментарии · каналы</li>

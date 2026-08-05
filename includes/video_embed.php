@@ -276,21 +276,19 @@ function normalize_video_embed(string $platform, string $url): string {
 
 
     case 'dropbox':
-      // Прямая ссылка на файл для <video src>, не страница Dropbox
+      // Прямой файл для <video>, не HTML-страница Dropbox
       if (strpos($url, 'dropboxusercontent.com') !== false) {
         return $url;
       }
-      $u = $url;
-      // убрать dl=0
-      $u = preg_replace('/([?&])dl=0(&|$)/', '$1', $u);
+      $u = preg_replace('/([?&])dl=0(&|$)/', '$1', $url);
       $u = rtrim($u, '?&');
-      // raw=1 — Dropbox отдаёт файл (лучше для <video>, чем dl=1)
-      if (!preg_match('/[?&]raw=1/', $u)) {
-        $u .= (strpos($u, '?') !== false ? '&' : '?') . 'raw=1';
-      }
+      // raw=1 отдаёт бинарник; dl=1 тоже, но raw надёжнее для video src
+      $u = preg_replace('/([?&])(dl|raw)=1/', '', $u);
+      $u = rtrim($u, '?&');
+      $u .= (strpos($u, '?') !== false ? '&' : '?') . 'raw=1';
       return $u;
 
-    
+
     case 'instagram':
       // Сначала официальный embed; параллельно local_video_embed_url для нашего iframe-парсера
       if (preg_match('#instagram\.com/(?:p|reel|tv)/([A-Za-z0-9_-]+)#', $url, $m)) {

@@ -8,6 +8,7 @@ $stmt->execute([$slug]);
 $channel = $stmt->fetch();
 
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/paid_access.php';
 $__user = current_user();
 
 if (!$channel) {
@@ -39,6 +40,8 @@ if ($__user && is_user_banned_on_channel($channel['id'], $__user['id'])) {
   require_once __DIR__ . '/includes/footer.php';
   exit;
 }
+
+paid_require_access($channel, $__user);
 
 db()->prepare('UPDATE channels SET views = views + 1 WHERE id = ?')->execute([$channel['id']]);
 

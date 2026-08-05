@@ -1,173 +1,140 @@
 <?php
-// Включите отображение ошибок для отладки (при необходимости)
-// error_reporting(E_ALL);
-// ini_set('display_errors', 1);
-
+/**
+ * Единый RSS: видео, каналы, форум, ресурсы, сервисы.
+ * VK-совместимый: абсолютные URL, guid, pubDate RFC822, enclosure.
+ * ?limit=200 — сколько элементов (по умолчанию 150, макс 300)
+ */
 require_once __DIR__ . '/includes/db.php';
-require_once __DIR__ . '/includes/functions.php'; // для функции e()
+require_once __DIR__ . '/includes/functions.php';
 
-$base = defined('SITE_URL') ? SITE_URL : 'https://streamlive.freedev.app';
+$base = rtrim(defined('SITE_URL') ? SITE_URL : ('https://' . ($_SERVER['HTTP_HOST'] ?? 'localhost')), '/');
 $siteName = defined('SITE_NAME') ? SITE_NAME : 'StreamLive';
+$limit = (int)($_GET['limit'] ?? 150);
+if ($limit < 10) $limit = 10;
+if ($limit > 300) $limit = 300;
+$per = max(20, (int)ceil($limit / 5));
+
+function rss_abs(string $url, string $base): string {
+  $url = trim($url);
+  if ($url === '') return '';
+  if (preg_match('#^https?://#i', $url)) return $url;
+  return $base . '/' . ltrim($url, '/');
+}
+
+function rss_date($v): string {
+  $ts = is_numeric($v) ? (int)$v : strtotime((string)$v);
+  if (!$ts) $ts = time();
+  return date('r', $ts);
+}
 
 $pdo = db();
 $items = [];
 
-// 1. Ресурсы (как в rss_resources.php)
-$stmt = $pdo->prepare("SELECT * FROM resources WHERE status = 'published' ORDER BY id DESC LIMIT 50");
-$stmt->execute();
-$resources = $stmt->fetchAll();
-$emojis = ['📦','🆕','📢','💻','🔧','🛠️','📁','🎯','⚡','🚀','🔥','💡','📚','🖥️','📀','🎮','📱','🔗','📎','⭐','🌟','✨','💾','🖱️','⌨️','📂','🔍','🧩','🛡️','📌'];
-
-foreach ($resources as $r) {
-    $emoji = $emojis[array_rand($emojis)];
-    $desc = $r['summary'] ?? $r['readme'] ?? '';
-    $desc = mb_substr($desc, 0, 60);
-    if (mb_strlen($desc) == 60) $desc .= '…';
-    $description = $desc . ' Скачать на ' . $siteName . ' Без вирусов Бесплатно без СМС';
-    $img = !empty($r['screenshot']) ? $r['screenshot'] : null;
+// Videos — все published (не только «новые»)
+try {
+  $st = $pdo->query("SELECT * FROM videos WHERE status = 'published' ORDER BY COALESCE(created_at, id) DESC LIMIT " . (int)$per);
+  foreach ($st->fetchAll() ?: [] as $v) {
+    $link = $base . '/video.php?slug=' . rawurlencode((string)$v['slug']);
+    $thumb = rss_abs((string)($v['thumbnail_url'] ?? ''), $base);
     $items[] = [
-        'title'       => $emoji . ' НОВЫЙ РЕСУРС: ' . $r['title'],
-        'link'        => $base . '/resource.php?slug=' . urlencode($r['slug']),
-        'description' => $description,
-        'pub_date'    => $r['created_at'],
-        'enclosure'   => $img ? ['url' => $img, 'type' => 'image/jpeg', 'length' => 0] : null,
+      'title' => (string)$v['title'],
+      'link' => $link,
+      'guid' => $link,
+      'description' => mb_substr(strip_tags((string)($v['description'] ?? $v['title'])), 0, 400),
+      'pub_date' => $v['created_at'] ?? null,
+      'image' => $thumb,
     ];
-}
+  }
+} catch (Throwable $e) {}
 
-// 2. Видео (как в rss_videos.php)
-$stmt = $pdo->prepare("SELECT * FROM videos WHERE status = 'published' ORDER BY created_at DESC LIMIT 50");
-$stmt->execute();
-$videos = $stmt->fetchAll();
-foreach ($videos as $v) {
-    $desc = $v['description'] ?? '';
-    $desc = mb_substr($desc, 0, 100);
-    if (mb_strlen($desc) == 100) $desc .= '…';
-    $description = $desc . ' Смотреть на ' . $siteName;
-    $img = !empty($v['thumbnail_url']) ? $v['thumbnail_url'] : null;
+// Channels
+try {
+  $st = $pdo->query("SELECT * FROM channels WHERE status = 'approved' ORDER BY COALESCE(created_at, id) DESC LIMIT " . (int)$per);
+  foreach ($st->fetchAll() ?: [] as $c) {
+    $link = $base . '/channel.php?slug=' . rawurlencode((string)$c['slug']);
+    $thumb = rss_abs((string)($c['logo_url'] ?? ''), $base);
     $items[] = [
-        'title'       => 'Смотреть Новые видео без регистрации без SMS Опубликованное Пользователем (' . $v['title'] . ') Смотреть на ' . $siteName,
-        'link'        => $base . '/video.php?slug=' . urlencode($v['slug']),
-        'description' => $description,
-        'pub_date'    => $v['created_at'],
-        'enclosure'   => $img ? ['url' => $img, 'type' => 'image/jpeg', 'length' => 0] : null,
+      'title' => 'Канал: ' . $c['title'],
+      'link' => $link,
+      'guid' => $link,
+      'description' => mb_substr(strip_tags((string)($c['description'] ?? $c['title'])), 0, 400),
+      'pub_date' => $c['created_at'] ?? null,
+      'image' => $thumb,
     ];
-}
+  }
+} catch (Throwable $e) {}
 
-// 3. OAuth-сервисы (как в rss_services.php)
-$oauth = $pdo->query(
-    "SELECT oa.*, u.username 
-     FROM oauth_apps oa 
-     JOIN users u ON u.id = oa.owner_id 
-     WHERE oa.is_public_service = 1 AND oa.service_url IS NOT NULL 
-     ORDER BY oa.id DESC"
-)->fetchAll();
-foreach ($oauth as $s) {
-    $desc = $s['description'] ?? 'Сервис от ' . $s['username'];
-    $desc = mb_substr($desc, 0, 60);
-    if (mb_strlen($desc) == 60) $desc .= '…';
-    $description = $desc . ' Исследовать в ' . $siteName;
-    $img = !empty($s['logo_url']) ? $s['logo_url'] : null;
+// Forum threads
+try {
+  $st = $pdo->query(
+    "SELECT t.id, t.title, t.created_at, t.slug FROM forum_threads t
+     ORDER BY t.id DESC LIMIT " . (int)$per
+  );
+  foreach ($st->fetchAll() ?: [] as $t) {
+    $link = $base . '/forum_thread.php?id=' . (int)$t['id'];
     $items[] = [
-        'title'       => 'Добавлен новый пользовательский сервис: ' . $s['name'],
-        'link'        => $base . '/oauth2/authorize.php?client_id=' . urlencode($s['client_id']),
-        'description' => $description,
-        'pub_date'    => $s['created_at'],
-        'enclosure'   => $img ? ['url' => $img, 'type' => 'image/png', 'length' => 0] : null,
+      'title' => 'Форум: ' . $t['title'],
+      'link' => $link,
+      'guid' => $link,
+      'description' => (string)$t['title'],
+      'pub_date' => $t['created_at'] ?? null,
+      'image' => '',
     ];
-}
+  }
+} catch (Throwable $e) {}
 
-// 4. Задеплоенные сервисы (как в rss_services.php)
-$deployed = $pdo->query(
-    "SELECT ds.*, u.username 
-     FROM deployed_services ds 
-     JOIN users u ON u.id = ds.user_id 
-     WHERE ds.is_public = 1 AND ds.status = 'live' 
-     ORDER BY ds.id DESC"
-)->fetchAll();
-foreach ($deployed as $s) {
-    $desc = $s['description'] ?? 'Сервис от ' . $s['username'];
-    $desc = mb_substr($desc, 0, 60);
-    if (mb_strlen($desc) == 60) $desc .= '…';
-    $description = $desc . ' Исследовать в ' . $siteName;
-    $img = !empty($s['logo_url']) ? $s['logo_url'] : (!empty($s['screenshot']) ? $s['screenshot'] : null);
+// Resources
+try {
+  $st = $pdo->query("SELECT * FROM resources WHERE status = 'published' ORDER BY id DESC LIMIT " . (int)$per);
+  foreach ($st->fetchAll() ?: [] as $r) {
+    $link = $base . '/resource.php?slug=' . rawurlencode((string)$r['slug']);
+    $thumb = rss_abs((string)($r['screenshot'] ?? ''), $base);
     $items[] = [
-        'title'       => 'Задеплоен новый проект: ' . $s['name'],
-        'link'        => $base . '/s.php?slug=' . urlencode($s['slug']),
-        'description' => $description,
-        'pub_date'    => $s['created_at'],
-        'enclosure'   => $img ? ['url' => $img, 'type' => 'image/png', 'length' => 0] : null,
+      'title' => 'Ресурс: ' . $r['title'],
+      'link' => $link,
+      'guid' => $link,
+      'description' => mb_substr(strip_tags((string)($r['summary'] ?? $r['readme'] ?? $r['title'])), 0, 400),
+      'pub_date' => $r['created_at'] ?? null,
+      'image' => $thumb,
     ];
-}
+  }
+} catch (Throwable $e) {}
 
-// 5. Каналы (ТВ и радио) – как в rss_channels.php, но объединяем оба типа
-$channels = $pdo->query("SELECT * FROM channels WHERE status = 'approved' ORDER BY created_at DESC LIMIT 50")->fetchAll();
-foreach ($channels as $c) {
-    $typeLabel = ($c['type'] == 'radio') ? 'Радио' : 'ТВ';
-    $template = "Смотрим в хорошем качестве HD Без VPN В России с провайдера Ростелеком и др - {$c['title']} (HD) Смотреть в {$siteName}";
-    $description = mb_substr($template, 0, 100);
-    if (mb_strlen($template) > 100) $description .= '…';
-    $img = !empty($c['logo_url']) ? $c['logo_url'] : null;
-    $items[] = [
-        'title'       => $c['title'],
-        'link'        => $base . '/channel-pc.php?slug=' . urlencode($c['slug']),
-        'description' => $description,
-        'pub_date'    => $c['created_at'],
-        'enclosure'   => $img ? ['url' => $img, 'type' => 'image/png', 'length' => 0] : null,
-    ];
-}
-
-// 6. Форум (как в rss_forum.php, но с avatar)
-$forum = $pdo->query(
-    "SELECT t.*, u.username, u.avatar,
-        (SELECT message FROM forum_posts WHERE thread_id = t.id AND is_deleted = 0 ORDER BY created_at ASC LIMIT 1) AS first_post_message
-     FROM forum_threads t
-     JOIN users u ON u.id = t.user_id
-     WHERE t.is_deleted = 0
-     ORDER BY t.id DESC LIMIT 100"
-)->fetchAll();
-foreach ($forum as $t) {
-    $raw = $t['first_post_message'] ?? $t['title'];
-    $short = mb_substr($raw, 0, 100);
-    if (mb_strlen($raw) > 100) $short .= '…';
-    $description = $short . ' Читать на ' . $siteName;
-    $img = !empty($t['avatar']) ? $t['avatar'] : null;
-    $items[] = [
-        'title'       => $t['title'],
-        'link'        => $base . '/forum_thread.php?id=' . (int)$t['id'],
-        'description' => $description,
-        'pub_date'    => $t['created_at'],
-        'enclosure'   => $img ? ['url' => $img, 'type' => 'image/jpeg', 'length' => 0] : null,
-    ];
-}
-
-// Сортировка по дате (новые сверху)
-usort($items, function($a, $b) {
-    return strtotime($b['pub_date']) - strtotime($a['pub_date']);
+// Sort by date desc
+usort($items, static function ($a, $b) {
+  $ta = strtotime((string)($a['pub_date'] ?? '')) ?: 0;
+  $tb = strtotime((string)($b['pub_date'] ?? '')) ?: 0;
+  return $tb <=> $ta;
 });
-$items = array_slice($items, 0, 100); // ограничиваем 100 записями
+$items = array_slice($items, 0, $limit);
 
-// Вывод RSS
 header('Content-Type: application/rss+xml; charset=utf-8');
+header('Cache-Control: public, max-age=300');
 echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
 ?>
-<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/">
+<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/" xmlns:atom="http://www.w3.org/2005/Atom">
 <channel>
-    <title><?= e($siteName) ?> — Все новости</title>
-    <link><?= e($base) ?></link>
-    <description>Свежие ресурсы, видео, сервисы, каналы и форум на <?= e($siteName) ?></description>
-    <language>ru</language>
-    <lastBuildDate><?= date('r') ?></lastBuildDate>
-    <?php foreach ($items as $item): ?>
-    <item>
-        <title><?= e($item['title']) ?></title>
-        <link><?= e($item['link']) ?></link>
-        <guid isPermaLink="true"><?= e($item['link']) ?></guid>
-        <pubDate><?= date('r', strtotime($item['pub_date'])) ?></pubDate>
-        <description><![CDATA[<?= $item['description'] ?>]]></description>
-        <?php if (!empty($item['enclosure'])): ?>
-        <enclosure url="<?= e($item['enclosure']['url']) ?>" type="<?= e($item['enclosure']['type']) ?>" length="<?= (int)$item['enclosure']['length'] ?>" />
-        <?php endif; ?>
-    </item>
-    <?php endforeach; ?>
+  <title><?= htmlspecialchars($siteName, ENT_XML1) ?> — лента</title>
+  <link><?= htmlspecialchars($base, ENT_XML1) ?>/</link>
+  <description>Видео, каналы, форум и ресурсы <?= htmlspecialchars($siteName, ENT_XML1) ?></description>
+  <language>ru</language>
+  <lastBuildDate><?= date('r') ?></lastBuildDate>
+  <atom:link href="<?= htmlspecialchars($base . '/rss.php', ENT_XML1) ?>" rel="self" type="application/rss+xml"/>
+<?php foreach ($items as $item):
+  $img = $item['image'] ?? '';
+?>
+  <item>
+    <title><?= htmlspecialchars((string)$item['title'], ENT_XML1) ?></title>
+    <link><?= htmlspecialchars((string)$item['link'], ENT_XML1) ?></link>
+    <guid isPermaLink="true"><?= htmlspecialchars((string)$item['guid'], ENT_XML1) ?></guid>
+    <pubDate><?= rss_date($item['pub_date'] ?? null) ?></pubDate>
+    <description><![CDATA[<?= $item['description'] ?>]]></description>
+<?php if ($img !== ''): ?>
+    <enclosure url="<?= htmlspecialchars($img, ENT_XML1) ?>" type="image/jpeg" length="0"/>
+    <media:thumbnail url="<?= htmlspecialchars($img, ENT_XML1) ?>"/>
+    <media:content url="<?= htmlspecialchars($img, ENT_XML1) ?>" medium="image"/>
+<?php endif; ?>
+  </item>
+<?php endforeach; ?>
 </channel>
 </rss>

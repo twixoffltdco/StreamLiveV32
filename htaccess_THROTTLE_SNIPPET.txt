@@ -1,0 +1,36 @@
+# === StreamLive: троттлинг на shared Apache (InfinityFree / freedev) ===
+# Вставить в КОРНЕВОЙ .htaccess ПОСЛЕ RewriteEngine On / основных rewrite.
+# На части хостов mod_ratelimit / mod_reqtimeout нет — тогда сработает только PHP poll_throttle.
+
+# Не отдавать листинг
+Options -Indexes
+
+# Таймаут долгих запросов (если модуль есть)
+<IfModule mod_reqtimeout.c>
+  RequestReadTimeout header=10 body=20
+</IfModule>
+
+# Ограничение скорости отдачи тяжёлым клиентам (если модуль есть)
+<IfModule mod_ratelimit.c>
+  <LocationMatch "(message_poll|api_notifications_poll|chat_poll|comments_poll|forum_poll|watch_room_poll|watch_room_chat_poll)">
+    SetOutputFilter RATE_LIMIT
+    SetEnv rate-limit 200
+  </LocationMatch>
+</IfModule>
+
+# Кеш статики — меньше hits на PHP
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 7 days"
+  ExpiresByType application/javascript "access plus 7 days"
+  ExpiresByType image/png "access plus 30 days"
+  ExpiresByType image/jpeg "access plus 30 days"
+  ExpiresByType image/webp "access plus 30 days"
+  ExpiresByType image/svg+xml "access plus 30 days"
+</IfModule>
+
+<IfModule mod_headers.c>
+  <FilesMatch "\.(css|js|png|jpg|jpeg|gif|webp|svg|woff2)$">
+    Header set Cache-Control "public, max-age=604800, immutable"
+  </FilesMatch>
+</IfModule>

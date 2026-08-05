@@ -75,7 +75,8 @@
     } catch (e) { /* ignore */ }
   }
 
-  setInterval(poll, 10000);
+  function pollSafe(){if(document.visibilityState==='hidden')return;try{poll();}catch(e){}}
+  setInterval(pollSafe, 45000);
   // первый poll через 8 сек
   setTimeout(poll, 8000);
 })();

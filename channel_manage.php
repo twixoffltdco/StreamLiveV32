@@ -1,7 +1,9 @@
 <?php
 require_once __DIR__ . '/includes/header.php';
 require_once __DIR__ . '/includes/video_embed.php';
+require_once __DIR__ . '/includes/paid_access.php';
 require_login();
+paid_ensure_schema();
 
 $id = (int)($_GET['id'] ?? 0);
 $stmt = db()->prepare('SELECT * FROM channels WHERE id = ? AND owner_id = ?');
@@ -13,6 +15,69 @@ if (!$channel) {
   require_once __DIR__ . '/includes/footer.php';
   exit;
 }
+
+// ---- Статистика подписчиков ----
+$favCount = 0;
+$paidActiveCount = 0;
+$paidEverCount = 0;
+try {
+  $st = db()->prepare('SELECT COUNT(*) FROM favorites WHERE channel_id = ?');
+  $st->execute([$id]);
+  $favCount = (int)$st->fetchColumn();
+} catch (Throwable $e) {}
+try {
+  // активный платный доступ (не отозван, access_until в будущем или без срока + is_revoked=0)
+  $st = db()->prepare(
+    "SELECT COUNT(DISTINCT a.user_id) FROM promo_activations a
+     JOIN promo_codes p ON p.id = a.promo_id
+     WHERE a.is_revoked = 0
+       AND (p.channel_id IS NULL OR p.channel_id = ?)
+       AND (a.channel_id IS NULL OR a.channel_id = ?)
+       AND (a.access_until IS NULL OR a.access_until > NOW())
+       AND p.is_active = 1"
+  );
+  $st->execute([$id, $id]);
+  $paidActiveCount = (int)$st->fetchColumn();
+} catch (Throwable $e) {
+  try {
+    $st = db()->prepare(
+      "SELECT COUNT(DISTINCT a.user_id) FROM promo_activations a
+       JOIN promo_codes p ON p.id = a.promo_id
+       WHERE a.is_revoked = 0 AND (p.channel_id IS NULL OR p.channel_id = ? OR a.channel_id = ?)"
+    );
+    $st->execute([$id, $id]);
+    $paidActiveCount = (int)$st->fetchColumn();
+  } catch (Throwable $e2) {}
+}
+try {
+  // когда-либо активировали (включая истёкшие и тех, кто потом добавил в избранное)
+  $st = db()->prepare(
+    "SELECT COUNT(DISTINCT a.user_id) FROM promo_activations a
+     JOIN promo_codes p ON p.id = a.promo_id
+     WHERE (p.channel_id IS NULL OR p.channel_id = ? OR a.channel_id = ?)"
+  );
+  $st->execute([$id, $id]);
+  $paidEverCount = (int)$st->fetchColumn();
+} catch (Throwable $e) {}
+// всего «подписчиков» для публичного: избранное ∪ кто платил (unique)
+$totalSubs = $favCount;
+try {
+  $st = db()->prepare(
+    "SELECT COUNT(*) FROM (
+       SELECT user_id FROM favorites WHERE channel_id = ?
+       UNION
+       SELECT a.user_id FROM promo_activations a
+       JOIN promo_codes p ON p.id = a.promo_id
+       WHERE p.channel_id IS NULL OR p.channel_id = ? OR a.channel_id = ?
+     ) t"
+  );
+  $st->execute([$id, $id, $id]);
+  $totalSubs = (int)$st->fetchColumn();
+} catch (Throwable $e) {
+  $totalSubs = max($favCount, $paidEverCount);
+}
+$isPaid = !empty($channel['paid_content']);
+
 
 // ---- Обработка форм ----
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -27,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('/channel_manage.php?id=' . $id);
   } elseif ($action === 'update_settings') {
     $stmt = db()->prepare(
-      'UPDATE channels SET title=?, description=?, logo_url=?, default_source_id=?, seo_title=?, seo_description=?, seo_keywords=?, is_public=?
+      'UPDATE channels SET title=?, description=?, logo_url=?, default_source_id=?, seo_title=?, seo_description=?, seo_keywords=?, is_public=?, paid_content=?
        WHERE id = ? AND owner_id = ?'
     );
     $stmt->execute([
@@ -35,6 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $_POST['default_source_id'] !== '' ? (int)$_POST['default_source_id'] : null,
       trim($_POST['seo_title']), trim($_POST['seo_description']), trim($_POST['seo_keywords']),
       !empty($_POST['is_public']) ? 1 : 0,
+      !empty($_POST['paid_content']) ? 1 : 0,
       $id, $__user['id']
     ]);
     maybe_auto_approve_channel($id);
@@ -167,6 +233,42 @@ try {
   <h2 style="margin-top:24px">Управление: <?= e($channel['title']) ?>
     <span class="status-pill status-<?= e($channel['status']) ?>"><?= e($channel['status']) ?></span>
   </h2>
+
+  <div class="form-card form-wide" style="margin:16px 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px">
+    <?php if ($isPaid): ?>
+      <div style="padding:14px;border-radius:12px;background:rgba(254,44,85,.08);border:1px solid rgba(254,44,85,.25)">
+        <div style="font-size:12px;opacity:.75">Платный доступ (активен)</div>
+        <div style="font-size:28px;font-weight:700;margin-top:4px"><?= (int)$paidActiveCount ?></div>
+        <div style="font-size:11px;opacity:.65">оформили промокод, доступ не истёк</div>
+      </div>
+      <div style="padding:14px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)">
+        <div style="font-size:12px;opacity:.75">Платили когда-либо</div>
+        <div style="font-size:28px;font-weight:700;margin-top:4px"><?= (int)$paidEverCount ?></div>
+        <div style="font-size:11px;opacity:.65">включая истёкшие</div>
+      </div>
+      <div style="padding:14px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)">
+        <div style="font-size:12px;opacity:.75">В избранном</div>
+        <div style="font-size:28px;font-weight:700;margin-top:4px"><?= (int)$favCount ?></div>
+      </div>
+    <?php else: ?>
+      <div style="padding:14px;border-radius:12px;background:rgba(62,166,255,.1);border:1px solid rgba(62,166,255,.25)">
+        <div style="font-size:12px;opacity:.75">Подписчики (всего)</div>
+        <div style="font-size:28px;font-weight:700;margin-top:4px"><?= (int)$totalSubs ?></div>
+        <div style="font-size:11px;opacity:.65">избранное + кто раньше оформлял платный доступ</div>
+      </div>
+      <div style="padding:14px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)">
+        <div style="font-size:12px;opacity:.75">В избранном</div>
+        <div style="font-size:28px;font-weight:700;margin-top:4px"><?= (int)$favCount ?></div>
+      </div>
+      <?php if ($paidEverCount > 0): ?>
+      <div style="padding:14px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)">
+        <div style="font-size:12px;opacity:.75">Раньше платили</div>
+        <div style="font-size:28px;font-weight:700;margin-top:4px"><?= (int)$paidEverCount ?></div>
+      </div>
+      <?php endif; ?>
+    <?php endif; ?>
+  </div>
+
   <p style="color:var(--text-dim);font-size:13px">
     Публичная страница: <a href="/channel.php?slug=<?= e($channel['slug']) ?>" style="color:var(--accent-2)">/channel.php?slug=<?= e($channel['slug']) ?></a> ·
     Embed-код: <code style="color:var(--accent-2);word-break:break-all;white-space:normal;display:inline-block">&lt;iframe src="<?= e(SITE_URL) ?>/embed.php?slug=<?= e($channel['slug']) ?>"&gt;&lt;/iframe&gt;</code>
@@ -243,6 +345,11 @@ try {
         <input type="checkbox" name="is_public" value="1" style="width:auto" <?= $channel['is_public'] ? 'checked' : '' ?>>
         Показывать канал в моём публичном профиле
       </label>
+      <label style="margin-top:14px;display:flex;align-items:center;gap:8px;font-weight:400">
+        <input type="checkbox" name="paid_content" value="1" style="width:auto" <?= !empty($channel['paid_content']) ? 'checked' : '' ?>>
+        Платный / закрытый контент (доступ по промокоду)
+      </label>
+      <p style="font-size:12px;color:var(--text-dim);margin:6px 0 0">При включении зрители без активированного промокода не увидят плеер (channel / embed).</p>
       <button class="btn btn-primary" style="margin-top:20px" type="submit">Сохранить</button>
     </form>
   </div>

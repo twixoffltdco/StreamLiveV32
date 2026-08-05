@@ -413,7 +413,7 @@ try {
 
 $pageTitle = '@' . $profileUser['username'];
 $seoImage = $avatarUrl;
-$extraHead = '<link rel="stylesheet" href="/assets/css/profile-glass.css?v=20260801edit1';
+$extraHead = '<link rel="stylesheet" href="/assets/css/profile-glass.css?v=20260804layout';
 
 require_once __DIR__ . '/includes/header.php';
 // если шаблон не выводит $extraHead — подстрахуемся

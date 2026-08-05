@@ -59,13 +59,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
           );
           $stmt->execute([$channelId, $__user['id'], $slug, $sourceUrl, $platform, $embedUrl, $title, $description, $tags, $thumbnail ?: null, $metaSource, 'published']);
-          // Пуш аудитории канала
           try {
-            $chTitle = (string)($channel['title'] ?? 'канал');
-            $link = '/video?slug=' . $slug;
-            $msg = 'Новое видео: «' . mb_substr($title, 0, 80) . '» на «' . mb_substr($chTitle, 0, 40) . '»';
-            if (function_exists('notify_channel_audience')) {
-              notify_channel_audience((int)$channelId, 'video_new', $msg, $link, (int)$__user['id']);
+            if (function_exists('notify_event')) {
+              notify_event('video_new', [
+                'message' => 'Новое видео: «' . mb_substr($title, 0, 80) . '»',
+                'link' => '/video?slug=' . $slug,
+                'channel_id' => (int)$channelId,
+                'except_user_id' => (int)$__user['id'],
+              ]);
             }
           } catch (Throwable $e) {}
           redirect('/video.php?slug=' . $slug);

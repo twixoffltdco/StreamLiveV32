@@ -191,6 +191,20 @@ function user_resolve_id(array $user): int {
  */
 function user_prefixes_system_list(bool $onlyActive = true): array {
   user_display_ensure_schema();
+  // Снять is_system с названий каналов (мусор)
+  try {
+    $chTitles = [];
+    foreach (db()->query("SELECT title FROM channels")->fetchAll(PDO::FETCH_COLUMN) ?: [] as $ct) {
+      $k = function_exists('mb_strtolower') ? mb_strtolower(trim((string)$ct)) : strtolower(trim((string)$ct));
+      if ($k !== '') $chTitles[$k] = true;
+    }
+    foreach (db()->query("SELECT id, title FROM user_prefixes")->fetchAll() ?: [] as $r) {
+      $tk = function_exists('mb_strtolower') ? mb_strtolower(trim((string)($r['title'] ?? ''))) : strtolower(trim((string)($r['title'] ?? '')));
+      if ($tk !== '' && !empty($chTitles[$tk])) {
+        db()->prepare('UPDATE user_prefixes SET is_system=0 WHERE id=?')->execute([(int)$r['id']]);
+      }
+    }
+  } catch (Throwable $e) {}
   $rows = [];
   try {
     // Предпочтительно is_system=1

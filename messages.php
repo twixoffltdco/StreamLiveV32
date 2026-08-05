@@ -425,6 +425,10 @@ require_once __DIR__ . '/includes/header.php';
   });
 
   function poll() {
+    if (document.visibilityState === 'hidden') {
+      setTimeout(poll, 8000);
+      return;
+    }
     fetch('/message_poll?conversation_id=' + convId + '&after=' + thread.dataset.after)
       .then(function (r) { return r.json(); })
       .then(function (data) {
@@ -435,9 +439,9 @@ require_once __DIR__ . '/includes/header.php';
         if ((data.messages || []).length) scrollToBottom();
       })
       .catch(function () {})
-      .finally(function () { setTimeout(poll, 3000); });
+      .finally(function () { setTimeout(poll, 8000); }); // было 3с
   }
-  setTimeout(poll, 3000);
+  setTimeout(poll, 5000);
 })();
 </script>
 <?php endif; ?>

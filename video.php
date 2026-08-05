@@ -3,6 +3,7 @@ require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/recommendations.php';
 require_once __DIR__ . '/includes/player_ads.php';
+if (is_file(__DIR__ . '/includes/paid_access.php')) require_once __DIR__ . '/includes/paid_access.php';
 
 $slug = trim((string)($_GET['slug'] ?? ''));
 $stmt = db()->prepare("SELECT v.*, c.title AS channel_title, c.slug AS channel_slug
@@ -13,6 +14,7 @@ $video = $stmt->fetch();
 if (!$video) { http_response_code(404); require_once __DIR__ . '/includes/header.php'; echo '<div class="container"><p>Видео не найдено</p></div>'; require_once __DIR__ . '/includes/footer.php'; exit; }
 
 $user = current_user();
+if (function_exists('paid_require_video_access')) { paid_require_video_access($video, $user); }
 db()->prepare('UPDATE videos SET views_count = views_count + 1 WHERE id = ?')->execute([$video['id']]);
 record_video_view((int)$video['id'], $user['id'] ?? null);
 
@@ -33,15 +35,16 @@ $comments = $comments->fetchAll();
 $pageTitle = $video['title'];
 $seoDescription = mb_substr($video['description'] ?: $video['title'], 0, 200);
 $seoImage = $video['thumbnail_url'];
-require_once __DIR__ . '/includes/header.php'; // теперь через общий шаблон — та же шапка/меню/мобильная адаптация, что и везде на сайте
+require_once __DIR__ . '/includes/header.php';
 ?>
-<div class="container" style="max-width:900px">
+<link rel="stylesheet" href="/assets/css/youtube-watch.css?v=3">
+<div class="container yt-watch" style="max-width:1100px">
 
-  <div class="player-wrap" style="position:relative;padding-top:56.25%;background:#000;border-radius:10px;overflow:hidden">
+  <div class="yt-player-box player-wrap">
     <?php if ($video['platform'] === 'mp4'): ?>
-      <video src="<?= e($video['embed_url']) ?>" controls style="position:absolute;top:0;left:0;width:100%;height:100%"></video>
+      <video src="<?= e($video['embed_url']) ?>" controls playsinline webkit-playsinline></video>
     <?php elseif ($video['platform'] === 'm3u8'): ?>
-      <video id="hlsPlayer" controls style="position:absolute;top:0;left:0;width:100%;height:100%"></video>
+      <video id="hlsPlayer" controls playsinline webkit-playsinline></video>
       <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.15/hls.min.js"></script>
       <script>
         var src = <?= json_encode($video['embed_url']) ?>;
@@ -63,8 +66,7 @@ require_once __DIR__ . '/includes/header.php'; // теперь через общ
       </blockquote>
       <script async src="https://embed.reddit.com/widgets.js"></script>
     <?php else: ?>
-      <iframe src="<?= e($video['embed_url']) ?>" allowfullscreen loading="lazy"
-        style="position:absolute;top:0;left:0;width:100%;height:100%;border:0"></iframe>
+      <iframe src="<?= e($video['embed_url']) ?>" allowfullscreen loading="lazy"></iframe>
     <?php endif; ?>
   
   <?php if (function_exists('player_ads_render')) player_ads_render('video'); ?>
@@ -78,6 +80,7 @@ require_once __DIR__ . '/includes/header.php'; // теперь через общ
 
   <div class="video-actions" style="display:flex;gap:10px;margin:12px 0;flex-wrap:wrap">
     <button id="playlistBtn" class="btn btn-outline btn-sm">➕ В плейлист</button>
+    <button type="button" id="embedBtn" class="btn btn-outline btn-sm">⛶ Встроить</button>
     <?php if (in_array($video['platform'], ['mp4', 'm3u8'], true) && $user): ?>
     <form method="POST" action="/watch_room?action=create" style="display:inline">
       <?= csrf_field() ?><input type="hidden" name="video_id" value="<?= (int)$video['id'] ?>">
@@ -183,4 +186,37 @@ document.getElementById('playlistBtn').addEventListener('click', function () {
 })();
 <?php endif; ?>
 </script>
+
+<?php
+$__site = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? '');
+$__embedUrl = $__site . '/embed_video.php?slug=' . rawurlencode($video['slug']);
+$__embedCode = '<iframe width="560" height="315" src="' . htmlspecialchars($__embedUrl, ENT_QUOTES, 'UTF-8') . '" title="' . htmlspecialchars($video['title'], ENT_QUOTES, 'UTF-8') . '" frameborder="0" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" style="width:100%;aspect-ratio:16/9;border:0"></iframe>';
+?>
+<div class="yt-embed-modal" id="embedModal">
+  <div class="box">
+    <h3 style="margin:0 0 10px">Встроить видео</h3>
+    <textarea id="embedCode" readonly><?= htmlspecialchars($__embedCode, ENT_QUOTES, 'UTF-8') ?></textarea>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <button type="button" class="btn btn-primary btn-sm" id="embedCopy">Копировать</button>
+      <a class="btn btn-outline btn-sm" href="<?= htmlspecialchars($__embedUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">Открыть</a>
+      <button type="button" class="btn btn-outline btn-sm" id="embedClose">Закрыть</button>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var m = document.getElementById('embedModal');
+  var b = document.getElementById('embedBtn');
+  if (!b || !m) return;
+  b.addEventListener('click', function(){ m.classList.add('open'); });
+  document.getElementById('embedClose').onclick = function(){ m.classList.remove('open'); };
+  m.addEventListener('click', function(e){ if (e.target === m) m.classList.remove('open'); });
+  document.getElementById('embedCopy').onclick = function(){
+    var t = document.getElementById('embedCode'); t.select();
+    try { navigator.clipboard.writeText(t.value); this.textContent = 'Скопировано'; }
+    catch (e) { document.execCommand('copy'); }
+  };
+})();
+</script>
+
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

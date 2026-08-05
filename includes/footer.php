@@ -139,5 +139,10 @@ document.addEventListener('click', function (e) {
  <!-- Клавиатура для тв -->
 <?php if (function_exists('themes_active')) { $__activeTheme = themes_active(); if (!empty($__activeTheme['footer'])) theme_safe_include(themes_dir() . '/' . $__activeTheme['footer']); } ?>
 <script src="/assets/js/push-notify.js?v=6" defer></script>
+
+<div class="site-legal-note" style="text-align:center;font-size:11px;color:var(--text-dim,#888);padding:10px 16px 18px;max-width:720px;margin:0 auto;line-height:1.45">
+  Сайт не осуществляет трансляцию теле- и радиоэфиров. Материалы публикуют пользователи (владельцы каналов); администрация платформы не является вещателем и не несёт ответственности за контент вне платформы.
+</div>
+
 </body>
 </html>

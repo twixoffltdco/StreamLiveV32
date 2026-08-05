@@ -1,12 +1,14 @@
 <?php
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/paid_access.php';
 require_once __DIR__ . '/includes/player_ads.php';
 
 $slug = $_GET['slug'] ?? '';
 $stmt = db()->prepare("SELECT * FROM channels WHERE slug = ? AND status = 'approved'");
 $stmt->execute([$slug]);
 $channel = $stmt->fetch();
+
 
 if (!$channel) {
   http_response_code(404);
@@ -15,11 +17,14 @@ if (!$channel) {
 }
 
 $__user = current_user();
+
 if ($__user && is_user_banned_on_channel($channel['id'], $__user['id'])) {
   http_response_code(403);
   echo 'УВЫ, ВАС ЗАБЛОКИРОВАЛИ';
   exit;
 }
+
+paid_require_access($channel, $__user);
 
 db()->prepare('UPDATE channels SET views = views + 1 WHERE id = ?')->execute([$channel['id']]);
 $activeSource = resolve_active_source($channel);

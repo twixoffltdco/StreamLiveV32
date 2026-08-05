@@ -2,6 +2,7 @@
 require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/paid_access.php';
 
 // ===== ВСТРОЕННОЕ API ДЛЯ ИНФОРМАЦИИ О КАНАЛЕ =====
 if (isset($_GET['action']) && $_GET['action'] === 'info' && isset($_GET['channel_id'])) {
@@ -100,6 +101,8 @@ if ($__user && is_user_banned_on_channel($channel['id'], $__user['id'])) {
     require_once __DIR__ . '/includes/footer.php';
     exit;
 }
+
+paid_require_access($channel, $__user);
 
 // Увеличиваем просмотры для текущего канала
 db()->prepare('UPDATE channels SET views = views + 1 WHERE id = ?')->execute([$channel['id']]);

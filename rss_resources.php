@@ -1,44 +1,27 @@
 <?php
 require_once __DIR__ . '/includes/db.php';
-require_once __DIR__ . '/includes/rss.php';
-
-$base = defined('SITE_URL') ? SITE_URL : 'https://streamlive.freedev.app';
-$siteName = defined('SITE_NAME') ? SITE_NAME : 'StreamLive';
-
-// Большой набор смайликов, подходящих для ресурсов
-$emojis = [
-    '📦', '🆕', '📢', '💻', '🔧', '🛠️', '📁', '🎯', '⚡', '🚀',
-    '🔥', '💡', '📚', '🖥️', '📀', '🎮', '📱', '🔗', '📎', '⭐',
-    '🌟', '✨', '💾', '🖱️', '⌨️', '📂', '🔍', '🧩', '🛡️', '📌'
-];
-
-$stmt = db()->prepare("SELECT * FROM resources WHERE status = 'published' ORDER BY id DESC LIMIT 50");
-$stmt->execute();
-$resources = $stmt->fetchAll();
-
-$items = array_map(function ($r) use ($base, $siteName, $emojis) {
-    // Случайный смайлик для этого ресурса
-    $emoji = $emojis[array_rand($emojis)];
-
-    $desc = $r['summary'] ?: $r['readme'];
-    if (mb_strlen($desc) > 60) {
-        $description = mb_substr($desc, 0, 60) . '…';
-    } else {
-        $description = $desc ?: '';
-    }
-    $description .= ' Скачать на ' . $siteName . ' Без вирусов Бесплатно без СМС';
-
-    return [
-        'title'       => $emoji . ' НОВЫЙ РЕСУРС: ' . $r['title'],
-        'link'        => $base . '/resource.php?slug=' . urlencode($r['slug']),
-        'description' => $description,
-        'pub_date'    => $r['created_at'],
+require_once __DIR__ . '/includes/functions.php';
+require_once __DIR__ . '/includes/rss_vk.php';
+$base = rss_vk_base();
+$site = defined('SITE_NAME') ? SITE_NAME : 'StreamLive';
+$limit = min(300, max(20, (int)($_GET['limit'] ?? 200)));
+$items = [];
+try {
+  $st = db()->query("SELECT * FROM resources WHERE status='published' ORDER BY id DESC LIMIT $limit");
+  foreach ($st->fetchAll() ?: [] as $r) {
+    $link = $base . '/resource.php?slug=' . rawurlencode((string)$r['slug']);
+    $items[] = [
+      'title' => (string)$r['title'],
+      'link' => $link,
+      'guid' => $link,
+      'description' => mb_substr(strip_tags((string)($r['summary'] ?? $r['readme'] ?? $r['title'])), 0, 400),
+      'pub_date' => $r['created_at'] ?? null,
+      'image' => (string)($r['screenshot'] ?? ''),
     ];
-}, $resources);
-
-render_rss_xml(
-    $siteName . ' — Новые ресурсы',
-    $base . '/resources.php',
-    'Новые ресурсы на ' . $siteName,
-    $items
-);
+  }
+} catch (Throwable $e) {}
+rss_vk_render([
+  'title' => $site . ' — Ресурсы',
+  'link' => $base . '/resources.php',
+  'description' => 'Ресурсы ' . $site,
+], $items);

@@ -389,3 +389,69 @@ html.light-mode .pg-tabs { background: rgba(0,0,0,.05); }
 .pg-hero-bg {
   pointer-events: none;
 }
+
+
+/* === FIX: аватар и ник внизу hero, не уезжают наверх === */
+.pg-wrap {
+  max-width: 520px !important;
+  margin: 0 auto 40px !important;
+  padding: 0 12px 24px !important;
+  position: relative !important;
+}
+.pg-hero {
+  position: relative !important;
+  height: 340px !important;
+  min-height: 340px !important;
+  border-radius: 0 0 28px 28px !important;
+  overflow: visible !important;
+  margin-top: 0 !important;
+}
+.pg-hero-bg {
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 0 !important;
+}
+.pg-hero-top {
+  position: absolute !important;
+  top: 12px !important;
+  left: 12px !important;
+  right: 12px !important;
+  z-index: 3 !important;
+}
+.pg-hero-main {
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 18px !important;
+  top: auto !important;
+  text-align: center !important;
+  z-index: 2 !important;
+  padding: 0 16px !important;
+  margin: 0 !important;
+  transform: none !important;
+}
+.pg-avatar {
+  display: block !important;
+  width: 96px !important;
+  height: 96px !important;
+  margin: 0 auto 0 !important;
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  float: none !important;
+}
+.pg-name-row {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  margin: 12px 0 2px !important;
+}
+.pg-tabs, .pg-panel, .pg-body {
+  position: relative !important;
+  margin-top: 12px !important;
+}
+@media (max-width: 600px) {
+  .pg-hero { height: 320px !important; min-height: 320px !important; }
+  .pg-hero-main { bottom: 14px !important; }
+}

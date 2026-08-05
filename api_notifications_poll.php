@@ -6,6 +6,8 @@
  */
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/notify.php';
+require_once __DIR__ . '/includes/poll_throttle.php';
+if (!poll_throttle_check('notif_poll', 12, 60)) { exit; }
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 

@@ -1,38 +1,27 @@
 <?php
 require_once __DIR__ . '/includes/db.php';
-require_once __DIR__ . '/includes/rss.php';
-
-$type = ($_GET['type'] ?? 'tv') === 'radio' ? 'radio' : 'tv';
-$base = defined('SITE_URL') ? SITE_URL : 'https://streamlive.freedev.app';
-$siteName = defined('SITE_NAME') ? SITE_NAME : 'StreamLive';
-
-$stmt = db()->prepare("SELECT * FROM channels WHERE status = 'approved' AND type = ? ORDER BY id DESC LIMIT 50");
-$stmt->execute([$type]);
-$channels = $stmt->fetchAll();
-
-$items = array_map(function ($c) use ($base, $siteName) {
-    // Формируем описание по шаблону
-    $template = "Смотрим в хорошем качестве HD Без VPN В России - {$c['title']} (HD) Смотреть в {$siteName}";
-    
-    // Обрезаем до 100 символов (с учётом многобайтовости)
-    if (mb_strlen($template) > 100) {
-        $description = mb_substr($template, 0, 100) . '…';
-    } else {
-        $description = $template;
-    }
-
-    return [
-        'title'     => $c['title'],
-        'link'      => $base . '/channel.php?slug=' . urlencode($c['slug']),
-        'description' => $description,
-        'pub_date'  => $c['created_at'],
+require_once __DIR__ . '/includes/functions.php';
+require_once __DIR__ . '/includes/rss_vk.php';
+$base = rss_vk_base();
+$site = defined('SITE_NAME') ? SITE_NAME : 'StreamLive';
+$limit = min(300, max(20, (int)($_GET['limit'] ?? 200)));
+$items = [];
+try {
+  $st = db()->query("SELECT * FROM channels WHERE status='approved' ORDER BY COALESCE(created_at,id) DESC LIMIT $limit");
+  foreach ($st->fetchAll() ?: [] as $c) {
+    $link = $base . '/channel.php?slug=' . rawurlencode((string)$c['slug']);
+    $items[] = [
+      'title' => (string)$c['title'],
+      'link' => $link,
+      'guid' => $link,
+      'description' => mb_substr(strip_tags((string)($c['description'] ?? $c['title'])), 0, 400),
+      'pub_date' => $c['created_at'] ?? null,
+      'image' => (string)($c['logo_url'] ?? ''),
     ];
-}, $channels);
-
-$typeLabel = $type === 'radio' ? 'Радио' : 'ТВ';
-render_rss_xml(
-    (defined('SITE_NAME') ? SITE_NAME : 'StreamLive') . ' — ' . $typeLabel . '-каналы',
-    $base . '/catalog.php?type=' . $type,
-    'Новые ' . ($type === 'radio' ? 'радиостанции' : 'телеканалы') . ' на ' . (defined('SITE_NAME') ? SITE_NAME : 'StreamLive'),
-    $items
-);
+  }
+} catch (Throwable $e) {}
+rss_vk_render([
+  'title' => $site . ' — Каналы',
+  'link' => $base . '/catalog.php',
+  'description' => 'Каналы ' . $site,
+], $items);

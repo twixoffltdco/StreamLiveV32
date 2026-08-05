@@ -87,7 +87,7 @@ require_once __DIR__ . '/includes/header.php';
         method: 'POST', headers: {'Content-Type':'application/json'},
         body: JSON.stringify({room_code: roomCode, is_playing: !video.paused, position: video.currentTime})
       });
-    }, 2000);
+    }, 5000);
   } else {
     setInterval(function () {
       fetch('/watch_room_poll?code=' + roomCode).then(function (r) { return r.json(); }).then(function (d) {
@@ -97,7 +97,7 @@ require_once __DIR__ . '/includes/header.php';
         if (d.is_playing && video.paused) video.play().catch(function(){});
         if (!d.is_playing && !video.paused) video.pause();
       });
-    }, 2000);
+    }, 5000);
   }
 
   // Чат комнаты (тот же polling-паттерн, что у тебя в остальном сайте)
