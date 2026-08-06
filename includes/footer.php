@@ -138,11 +138,49 @@ document.addEventListener('click', function (e) {
     </script>
  <!-- Клавиатура для тв -->
 <?php if (function_exists('themes_active')) { $__activeTheme = themes_active(); if (!empty($__activeTheme['footer'])) theme_safe_include(themes_dir() . '/' . $__activeTheme['footer']); } ?>
-<script src="/assets/js/push-notify.js?v=6" defer></script>
 
-<div class="site-legal-note" style="text-align:center;font-size:11px;color:var(--text-dim,#888);padding:10px 16px 18px;max-width:720px;margin:0 auto;line-height:1.45">
-  Сайт не осуществляет трансляцию теле- и радиоэфиров. Материалы публикуют пользователи (владельцы каналов); администрация платформы не является вещателем и не несёт ответственности за контент вне платформы.
+<?php
+  $__lf = (($_COOKIE['site_color_mode'] ?? '') === 'light') || (($_COOKIE['pl_skin'] ?? '') === 'light');
+  if ($__lf):
+?>
+<link rel="stylesheet" href="/assets/css/light-force.css?v=20260803lf2<?= @filemtime(__DIR__ . '/../assets/css/light-force.css') ?: time() ?>">
+<script>
+(function(){
+  document.documentElement.classList.add('light-mode');
+  document.documentElement.setAttribute('data-pl-skin','light');
+  if(document.body){
+    document.body.setAttribute('data-pl-skin','light');
+    document.body.style.setProperty('background','#ffffff','important');
+    document.body.style.setProperty('color','#0f0f0f','important');
+  }
+})();
+</script>
+<?php endif; ?>
+<script src="/assets/js/live-theme.js?v=20260803lt1"></script>
+
+<div id="sl-cookie-tip" style="display:none;position:fixed;bottom:70px;left:50%;transform:translateX(-50%);z-index:10050;max-width:min(520px,92vw);background:#1c1c1e;color:#f2f2f7;border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:12px 14px;box-shadow:0 8px 28px rgba(0,0,0,.35);font-size:13px;line-height:1.45;display:none;align-items:flex-start;gap:10px">
+  <div style="flex:1">
+    Если интерфейс отображается криво (тема, меню, цвета) — <b>сбросьте cookies</b> этого сайта в настройках браузера и обновите страницу.
+  </div>
+  <button type="button" id="sl-cookie-tip-close" title="Закрыть" style="flex-shrink:0;border:none;background:rgba(255,255,255,.1);color:#fff;width:28px;height:28px;border-radius:8px;cursor:pointer;font-size:16px;line-height:1">×</button>
 </div>
+<script>
+(function () {
+  try {
+    if (localStorage.getItem('sl_cookie_tip_hide') === '1') return;
+  } catch (e) { return; }
+  var el = document.getElementById('sl-cookie-tip');
+  var btn = document.getElementById('sl-cookie-tip-close');
+  if (!el || !btn) return;
+  el.style.display = 'flex';
+  btn.addEventListener('click', function () {
+    el.style.display = 'none';
+    try { localStorage.setItem('sl_cookie_tip_hide', '1'); } catch (e) {}
+  });
+})();
+</script>
 
+<script src="/assets/js/push-notify.js?v=1" defer></script>
+<?php if (is_file(__DIR__ . '/pwa_register.php')) require __DIR__ . '/pwa_register.php'; ?>
 </body>
 </html>

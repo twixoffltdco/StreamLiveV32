@@ -1,13 +1,22 @@
-RSS (VK):
-  /rss.php
-  /rss_videos.php
-  /rss_channels.php
-  /rss_forum.php
-  /rss_resources.php
-  /rss_services.php
-  /rss_profile.php?user=NAME
+StreamLive — расширение (PHP) + PWA + header с кнопкой сверху
 
-Короткие ссылки: /g/vxxxxx  (создаются при «Поделиться»)
-Max: копирует текст+ссылку (у Max нет нормального share URL)
+ЗАЛИТЬ В КОРЕНЬ (поверх):
+  extension.php
+  extension_download.php
+  platform_unavailable.html
+  extension_src/          (вся папка)
+  storage/extension_cache/ (права на запись)
+  manifest.webmanifest, manifest.json, sw.js, offline.html
+  assets/icons/
+  includes/header.php     ← уже с «Расширение» справа сверху
+  includes/footer.php
+  includes/extension_build.php
+  includes/extension_top_link.php
+  includes/pwa_head.php
+  includes/pwa_register.php
 
-Push: assets/js/push-notify.js + data-sl-watch на кнопках
+После заливки:
+  /extension.php — туториал + скачать ZIP под твой домен
+  Вверху справа — кнопка «Расширение»
+
+Сделай бэкап своих header.php/footer.php ПЕРЕД заливкой.

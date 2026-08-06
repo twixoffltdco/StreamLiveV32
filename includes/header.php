@@ -59,7 +59,10 @@ $__canonical = SITE_URL . ($_SERVER['REQUEST_URI'] ?? '/');
 <?php @include dirname(__DIR__) . '/platforma/header_switcher.php'; ?>
 <?php @include __DIR__ . '/platforma/recommendations_block.php'; ?>
 <!DOCTYPE html>
-<html lang="ru" class="<?= ($_COOKIE['site_color_mode'] ?? 'dark') === 'light' ? 'light-mode' : '' ?>">
+<?php
+  $__light = (($_COOKIE['site_color_mode'] ?? '') === 'light') || (($_COOKIE['pl_skin'] ?? '') === 'light');
+?>
+<html lang="ru" class="<?= $__light ? 'light-mode' : '' ?>"<?= $__light ? ' data-pl-skin="light"' : '' ?>>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -77,9 +80,16 @@ $__canonical = SITE_URL . ($_SERVER['REQUEST_URI'] ?? '/');
   <link rel="stylesheet" href="/assets/css/style.css?v=<?= $__cssVer ?>">
   <?php require_once __DIR__ . '/themes.php'; $__activeTheme = themes_active(); if ($__activeTheme): ?><link rel="stylesheet" href="<?= e($__activeTheme['css']) ?>?v=<?= time() ?>"><?php endif; ?>
   <link rel="stylesheet" href="/assets/css/light-mode.css?v=<?= file_exists(__DIR__ . '/../assets/css/light-mode.css') ? filemtime(__DIR__ . '/../assets/css/light-mode.css') : time() ?>">
+
+<?php if (!empty($__light) || (($_COOKIE['site_color_mode'] ?? '') === 'light') || (($_COOKIE['pl_skin'] ?? '') === 'light')): ?>
+  <link rel="stylesheet" href="/assets/css/light-force.css?v=20260803lf2<?= @filemtime(__DIR__ . '/../assets/css/light-force.css') ?: time() ?>">
+<?php endif; ?>
+
+<script src="/assets/js/live-theme.js?v=20260803lt1" defer></script>
   <?php if (!empty($extraHead)) echo $extraHead; ?>
   <link rel="stylesheet" href="/assets/css/user-display.css?v=20260801everywhere">
 <?php if (is_file(__DIR__ . '/prefix_assets.php')) include __DIR__ . '/prefix_assets.php'; ?>
+<?php if (is_file(__DIR__ . '/pwa_head.php')) require __DIR__ . '/pwa_head.php'; ?>
 </head>
 
 <!-- Seasonal effects -->
@@ -126,6 +136,13 @@ if (month === 12 || month === 1 || month === 2) { // Winter
 }
 </style>
 <body>
+
+<?php if (is_file(__DIR__ . '/extension_top_link.php')): ?>
+<div id="sl-ext-top" style="position:fixed;top:8px;right:12px;z-index:10045;display:flex;align-items:center;gap:8px">
+<?php require __DIR__ . '/extension_top_link.php'; ?>
+</div>
+<?php endif; ?>
+
 <?php $__themesList = themes_all(); if ($__themesList): ?><div class="theme-switcher"><select onchange="document.cookie='site_theme='+this.value+'; path=/; max-age=31536000'; location.reload()"><option value="">Themes</option><?php foreach ($__themesList as $t): ?><option value="<?= e($t['slug']) ?>" <?= (!empty($__activeTheme) && $__activeTheme['slug']===$t['slug'])?'selected':'' ?>><?= e($t['name']) ?></option><?php endforeach; ?></select></div><?php endif; ?>
 <?php if (!empty($__activeTheme['header'])) theme_safe_include(themes_dir() . '/' . $__activeTheme['header']); ?>
     <style>
@@ -324,19 +341,6 @@ if (month === 12 || month === 1 || month === 2) { // Winter
         }
       ?>
       <a href="/messages" class="nav-messages">Сообщения<?php if ($__unreadCount > 0): ?><span class="nav-badge"><?= $__unreadCount ?></span><?php endif; ?></a>
-
-      <?php
-        $__notifUnread = 0;
-        try {
-          if (is_file(__DIR__ . '/notify.php')) require_once __DIR__ . '/notify.php';
-          if (function_exists('notify_ensure_schema')) notify_ensure_schema();
-          $stN = db()->prepare('SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0');
-          $stN->execute([(int)$__user['id']]);
-          $__notifUnread = (int)$stN->fetchColumn();
-        } catch (Throwable $e) { $__notifUnread = 0; }
-      ?>
-      <a href="/notifications" class="nav-messages" title="Уведомления">🔔<?php if ($__notifUnread > 0): ?><span class="nav-badge"><?= $__notifUnread > 99 ? '99+' : $__notifUnread ?></span><?php endif; ?></a>
-
       <a href="/profile?username=<?= e($__user['username']) ?>">Профиль</a>
       <a href="/sticker_packs">Стикеры</a>
       <a href="/favorites">⭐ Избранное</a>
@@ -366,6 +370,26 @@ if (month === 12 || month === 1 || month === 2) { // Winter
   btn.addEventListener('click', function () {
     var isLight = document.documentElement.classList.toggle('light-mode');
     document.cookie = 'site_color_mode=' + (isLight ? 'light' : 'dark') + ';path=/;max-age=' + (60 * 60 * 24 * 365);
+    document.cookie = 'pl_skin=' + (isLight ? 'light' : 'dark') + ';path=/;max-age=' + (60 * 60 * 24 * 365);
+    document.cookie = 'pl_preset=;path=/;max-age=0';
+    document.documentElement.setAttribute('data-pl-skin', isLight ? 'light' : 'dark');
+    if (document.body) {
+      document.body.setAttribute('data-pl-skin', isLight ? 'light' : 'dark');
+      document.documentElement.style.colorScheme = isLight ? 'light' : 'dark';
+    }
+    // подключить/снять light-force без перезагрузки
+    var lf = document.getElementById('sl-light-force');
+    if (isLight && !lf) {
+      lf = document.createElement('link');
+      lf.id = 'sl-light-force';
+      lf.rel = 'stylesheet';
+      lf.href = '/assets/css/light-force.css?v=20260803lf5';
+      document.head.appendChild(lf);
+    } else if (!isLight && lf) {
+      lf.remove();
+    }
+    if (typeof window.__plApplySkin === 'function') window.__plApplySkin();
+    else if (typeof applySkin === 'function') applySkin();
     btn.textContent = isLight ? '🌙' : '☀️';
   });
 })();
@@ -722,6 +746,7 @@ screen.colorDepth:screen.pixelDepth))+";u"+escape(document.URL)+
             }
         }
     </style>
+<?php if (is_file(__DIR__ . '/pwa_head.php')) require __DIR__ . '/pwa_head.php'; ?>
 </head>
 <body>
 
@@ -975,6 +1000,7 @@ screen.colorDepth:screen.pixelDepth))+";u"+escape(document.URL)+
             }
         }
     </style>
+<?php if (is_file(__DIR__ . '/pwa_head.php')) require __DIR__ . '/pwa_head.php'; ?>
 </head>
 <body>
 
