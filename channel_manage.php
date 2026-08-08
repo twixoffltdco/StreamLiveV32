@@ -91,6 +91,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     flash_set('success', $newState ? 'Трансляция остановлена. Зрители увидят «эфир завершён», пока вы её не включите обратно.' : 'Трансляция включена — эфир снова идёт по расписанию.');
     redirect('/channel_manage.php?id=' . $id);
   } elseif ($action === 'update_settings') {
+    $__paidVal = !empty($_POST['paid_content']) ? 1 : 0;
+    if (function_exists('paid_content_is_locked') && paid_content_is_locked($channel)
+        && function_exists('paid_owner_can_edit_flag') && !paid_owner_can_edit_flag($__user, $channel)) {
+      $__paidVal = !empty($channel['paid_content']) ? 1 : 0;
+    }
     $stmt = db()->prepare(
       'UPDATE channels SET title=?, description=?, logo_url=?, default_source_id=?, seo_title=?, seo_description=?, seo_keywords=?, is_public=?, paid_content=?
        WHERE id = ? AND owner_id = ?'
@@ -100,7 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $_POST['default_source_id'] !== '' ? (int)$_POST['default_source_id'] : null,
       trim($_POST['seo_title']), trim($_POST['seo_description']), trim($_POST['seo_keywords']),
       !empty($_POST['is_public']) ? 1 : 0,
-      !empty($_POST['paid_content']) ? 1 : 0,
+      $__paidVal,
       $id, $__user['id']
     ]);
     maybe_auto_approve_channel($id);
@@ -230,6 +235,27 @@ try {
 } catch (\Throwable $e) { /* миграция видео ещё не залита — просто не показываем блок */ }
 ?>
 <div class="container">
+  
+  <div class="form-card form-wide" style="margin:12px 0;padding:14px">
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px">
+      <a class="btn btn-outline" href="/channel_export.php?id=<?= (int)$id ?>">⬇ Экспорт / бэкап (JSON)</a>
+      <span style="font-size:12px;opacity:.65">Канал, источники, расписание, видео</span>
+    </div>
+    <form method="POST" action="/channel_import_preview.php" enctype="multipart/form-data" style="display:grid;gap:8px;max-width:520px">
+      <?php if (function_exists('csrf_field')) echo csrf_field(); ?>
+      <input type="hidden" name="channel_id" value="<?= (int)$id ?>">
+      <label style="font-size:13px;font-weight:600">Импорт JSON-бэкапа</label>
+      <input type="file" name="backup" accept="application/json,.json" required>
+      <label style="font-size:12px;display:flex;gap:8px;align-items:center">
+        <input type="radio" name="mode" value="merge" checked> Добавить слоты/видео (merge)
+      </label>
+      <label style="font-size:12px;display:flex;gap:8px;align-items:center">
+        <input type="radio" name="mode" value="replace_schedule"> Заменить расписание целиком
+      </label>
+      <button type="submit" class="btn btn-primary btn-sm" style="width:fit-content">Импортировать</button>
+    </form>
+  </div>
+
   <h2 style="margin-top:24px">Управление: <?= e($channel['title']) ?>
     <span class="status-pill status-<?= e($channel['status']) ?>"><?= e($channel['status']) ?></span>
   </h2>
@@ -345,11 +371,21 @@ try {
         <input type="checkbox" name="is_public" value="1" style="width:auto" <?= $channel['is_public'] ? 'checked' : '' ?>>
         Показывать канал в моём публичном профиле
       </label>
+      <?php
+        $__paidLocked = !empty($channel['paid_content_locked']);
+        $__canPaid = function_exists('paid_owner_can_edit_flag') ? paid_owner_can_edit_flag($__user, $channel) : !$__paidLocked;
+      ?>
       <label style="margin-top:14px;display:flex;align-items:center;gap:8px;font-weight:400">
-        <input type="checkbox" name="paid_content" value="1" style="width:auto" <?= !empty($channel['paid_content']) ? 'checked' : '' ?>>
+        <input type="checkbox" name="paid_content" value="1" style="width:auto"
+          <?= !empty($channel['paid_content']) ? 'checked' : '' ?>
+          <?= $__canPaid ? '' : 'disabled' ?>>
         Платный / закрытый контент (доступ по промокоду)
       </label>
-      <p style="font-size:12px;color:var(--text-dim);margin:6px 0 0">При включении зрители без активированного промокода не увидят плеер (channel / embed).</p>
+      <?php if ($__paidLocked): ?>
+        <p style="font-size:12px;color:#f59e0b;margin:6px 0 0">🔒 Флаг установлен модерацией/администрацией. Владелец канала не может изменить его обратно.</p>
+      <?php else: ?>
+        <p style="font-size:12px;color:var(--text-dim);margin:6px 0 0">При включении зрители без промокода не увидят плеер. Это и есть «закрытый» доступ к каналу.</p>
+      <?php endif; ?>
       <button class="btn btn-primary" style="margin-top:20px" type="submit">Сохранить</button>
     </form>
   </div>

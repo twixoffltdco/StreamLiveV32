@@ -77,12 +77,24 @@ function forum_is_mod(?array $user): bool {
 }
 
 function forum_post_like_count(int $postId): int {
+  if ($postId <= 0) return 0;
   try {
-    $st = db()->prepare('SELECT COUNT(*) FROM forum_post_likes WHERE post_id = ?');
+    // только реальные лайки существующих постов
+    $st = db()->prepare(
+      'SELECT COUNT(*) FROM forum_post_likes l
+       INNER JOIN forum_posts p ON p.id = l.post_id AND COALESCE(p.is_deleted,0) = 0
+       WHERE l.post_id = ?'
+    );
     $st->execute([$postId]);
     return (int)$st->fetchColumn();
   } catch (Throwable $e) {
-    return 0;
+    try {
+      $st = db()->prepare('SELECT COUNT(*) FROM forum_post_likes WHERE post_id = ?');
+      $st->execute([$postId]);
+      return (int)$st->fetchColumn();
+    } catch (Throwable $e2) {
+      return 0;
+    }
   }
 }
 

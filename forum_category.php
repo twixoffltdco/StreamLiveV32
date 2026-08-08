@@ -1,4 +1,6 @@
 <?php
+try { if (is_file(__DIR__ . '/includes/content_moderation.php')) { require_once __DIR__ . '/includes/content_moderation.php'; if (function_exists('cmod_ensure_schema')) cmod_ensure_schema(); } } catch (Throwable $e) {}
+
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
 if (is_file(__DIR__.'/includes/user_display.php')) { require_once __DIR__.'/includes/user_display.php'; try{user_display_ensure_schema();}catch(Throwable $e){} }
@@ -27,9 +29,16 @@ $stmt = db()->prepare(
      (SELECT COUNT(*) FROM forum_posts p WHERE p.thread_id = t.id AND p.is_deleted = 0) AS post_count
    FROM forum_threads t JOIN users u ON u.id = t.user_id
    WHERE t.category_id = ? AND t.is_deleted = 0
+     AND (
+       COALESCE(t.mod_status, 'approved') = 'approved'
+       OR t.user_id = ?
+       OR ? = 1
+     )
    ORDER BY t.is_pinned DESC, t.last_post_at DESC LIMIT 200"
 );
-$stmt->execute([$categoryId]);
+$__uid = (int)($__user['id'] ?? 0);
+$__staff = $__user && (in_array($__user['role'] ?? '', ['admin','moderator'], true) || (function_exists('is_forum_moderator') && is_forum_moderator($__user)));
+$stmt->execute([$categoryId, $__uid, $__staff ? 1 : 0]);
 $threads = $stmt->fetchAll();
 ?>
 <div class="container">
@@ -45,6 +54,7 @@ $threads = $stmt->fetchAll();
       <div class="forum-thread-row">
         <div class="forum-thread-main">
           <?php if ($t['is_pinned']): ?><span class="pin-badge">Закреплено</span><?php endif; ?>
+          <?php if (($t['mod_status'] ?? '') === 'pending'): ?><span class="lock-badge" style="background:#a60">На модерации</span><?php endif; ?>
           <?php if ($t['is_locked']): ?><span class="lock-badge">Закрыто</span><?php endif; ?>
           <a href="/forum_thread.php?id=<?= (int)$t['id'] ?>" class="forum-thread-title"><?= e($t['title']) ?></a>
           <div style="color:var(--text-dim);font-size:12px;display:flex;align-items:center;gap:6px;margin-top:2px">

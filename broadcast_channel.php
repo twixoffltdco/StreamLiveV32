@@ -489,9 +489,9 @@ require_once __DIR__ . '/includes/header.php';
         if ((data.posts || []).length) scrollToBottom();
       })
       .catch(function () {})
-      .finally(function () { setTimeout(poll, 4000); });
+      .finally(function () { setTimeout(poll, 60000); });
   }
-  setTimeout(poll, 4000);
+  setTimeout(poll, 60000);
 })();
 </script>
 

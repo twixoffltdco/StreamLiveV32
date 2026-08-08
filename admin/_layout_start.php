@@ -21,5 +21,6 @@ require_admin();
     <a href="/admin/update.php">Обновление БД</a>
       <a href="/admin/import.php">Импорт</a>
     <a href="/resources">Ресурсы</a>
-  </div>
+      <a href="/admin/paid_channels.php">Платный контент</a>
+</div>
   <div class="admin-content">

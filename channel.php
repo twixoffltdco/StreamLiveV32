@@ -432,10 +432,12 @@ function toggleChat(id) {
 }
 
 async function pollChat(id) {
+        if (document.visibilityState !== 'visible') { setTimeout(() => pollChat(id), 60000); return; }
+        if (window.__slHitsAllowed && !window.__slHitsAllowed()) { setTimeout(() => pollChat(id), 60000); return; }
     if (!activeChats.has(id)) return;
     try {
         const resp = await fetch(`/chat_poll.php?channel_id=${id}&after=${lastMessageIds[id] || 0}`);
-        if (!resp.ok) { setTimeout(() => pollChat(id), 3000); return; }
+        if (!resp.ok) { setTimeout(() => pollChat(id), 45000); return; }
         const data = await resp.json();
         const box = document.getElementById(`chat-messages-${id}`);
         if (!box) return;
@@ -457,7 +459,7 @@ async function pollChat(id) {
             if (el) el.remove();
         });
     } catch (e) { /* ignore */ }
-    setTimeout(() => pollChat(id), 2000);
+    setTimeout(() => pollChat(id), 45000);
 }
 
 function renderTextWithStickers(channelId, text) {
@@ -702,7 +704,7 @@ function startMp4Sync(id, epoch) {
         if (playerInstances[id] && playerInstances[id].getDuration && playerInstances[id].getDuration() > 0) {
             clearInterval(checkReady);
             applySync();
-            mp4SyncIntervals[id] = setInterval(applySync, 8000);
+            mp4SyncIntervals[id] = setInterval(applySync, 60000);
         }
     }, 500);
     setTimeout(() => clearInterval(checkReady), 10000);
@@ -885,7 +887,7 @@ function startScheduleCheck(id) {
                 } catch (e) {}
             }
         } catch(e) {}
-    }, 15000);
+    }, 120000);
 }
 
 function markAsViewed(id) {
@@ -972,6 +974,6 @@ setInterval(function () {
     const id = el.id.replace('comment-list-', '');
     if (id && el.offsetParent !== null) pollChannelComments(id);
   });
-}, 10000);
+}, 60000);
 </script>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

@@ -426,7 +426,7 @@ require_once __DIR__ . '/includes/header.php';
 
   function poll() {
     if (document.visibilityState === 'hidden') {
-      setTimeout(poll, 8000);
+      setTimeout(poll, 30000);
       return;
     }
     fetch('/message_poll?conversation_id=' + convId + '&after=' + thread.dataset.after)
@@ -439,7 +439,7 @@ require_once __DIR__ . '/includes/header.php';
         if ((data.messages || []).length) scrollToBottom();
       })
       .catch(function () {})
-      .finally(function () { setTimeout(poll, 8000); }); // было 3с
+      .finally(function () { setTimeout(poll, 30000); }); // было 3с
   }
   setTimeout(poll, 5000);
 })();

@@ -2,6 +2,8 @@
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
 if (is_file(__DIR__ . '/includes/bbcode.php')) require_once __DIR__ . '/includes/bbcode.php';
+try { if (is_file(__DIR__ . '/includes/content_moderation.php')) { require_once __DIR__ . '/includes/content_moderation.php'; if (function_exists('cmod_ensure_schema')) cmod_ensure_schema(); } } catch (Throwable $e) {}
+
 $__user = require_login();
 
 $categoryId = (int)($_GET['category_id'] ?? $_POST['category_id'] ?? 0);
@@ -31,19 +33,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $threadId = (int)$pdo->lastInsertId();
     $pdo->prepare('INSERT INTO forum_posts (thread_id, user_id, message) VALUES (?, ?, ?)')
       ->execute([$threadId, $__user['id'], $message]);
+    $postId = (int)$pdo->lastInsertId();
     $pdo->commit();
-    
-    if (is_file(__DIR__ . '/includes/social_bots.php')) {
-      require_once __DIR__ . '/includes/social_bots.php';
-      try {
-        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        $host = $_SERVER['HTTP_HOST'] ?? '';
-        $__botUrl = ($host !== '' ? $scheme . '://' . $host : '') . '/forum_thread?id=' . (int)$threadId;
-        bots_notify_forum_thread((int)$threadId, (string)$title, $__botUrl);
-      } catch (Throwable $e) {}
-    }
 
-    redirect('/forum_thread.php?id=' . $threadId);
+    // ВСЕГДА модерация — без обхода
+    try {
+      if (function_exists('cmod_enqueue')) {
+        cmod_enqueue('thread', $threadId, (int)$__user['id'], $title, mb_substr($message, 0, 300));
+        if ($postId > 0) {
+          cmod_enqueue('post', $postId, (int)$__user['id'], mb_substr($title, 0, 80), mb_substr($message, 0, 300));
+        }
+      } else {
+        try { db()->prepare("UPDATE forum_threads SET mod_status='pending' WHERE id=?")->execute([$threadId]); } catch (Throwable $e) {}
+        try { if ($postId > 0) db()->prepare("UPDATE forum_posts SET mod_status='pending' WHERE id=?")->execute([$postId]); } catch (Throwable $e) {}
+      }
+    } catch (Throwable $e) {
+      try { db()->prepare("UPDATE forum_threads SET mod_status='pending' WHERE id=?")->execute([$threadId]); } catch (Throwable $e2) {}
+    }
+    // Ботов НЕ дергаем, пока тема не одобрена
+    if (function_exists('flash_set')) flash_set('success', 'Тема на модерации. После одобрения двумя модераторами её увидят все.');
+    redirect('/forum_thread.php?id=' . $threadId . '&pending=1');
   }
   flash_set('error', 'Укажите заголовок темы и текст сообщения');
 }

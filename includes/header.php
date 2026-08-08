@@ -1,4 +1,5 @@
 <?php
+if (is_file(__DIR__ . '/freehost_hits.php')) { require_once __DIR__ . '/freehost_hits.php'; }
 require_once __DIR__ . '/auth.php';
 $__user = current_user();
 
@@ -90,6 +91,21 @@ $__canonical = SITE_URL . ($_SERVER['REQUEST_URI'] ?? '/');
   <link rel="stylesheet" href="/assets/css/user-display.css?v=20260801everywhere">
 <?php if (is_file(__DIR__ . '/prefix_assets.php')) include __DIR__ . '/prefix_assets.php'; ?>
 <?php if (is_file(__DIR__ . '/pwa_head.php')) require __DIR__ . '/pwa_head.php'; ?>
+<script src="/assets/js/freehost-idle.js?v=1" defer></script>
+<style id="sl-disclaimer-css">
+  /* StreamLive legal / moderation banner */
+  .sl-top-disclaimer {
+    background: linear-gradient(90deg, #1a1208, #15120e 45%, #121214);
+    border-bottom: 1px solid rgba(245,158,11,.28);
+    color: #fcd34d;
+    font-size: 12.5px;
+    line-height: 1.45;
+    padding: 8px 14px;
+    text-align: center;
+  }
+  .sl-top-disclaimer strong { color: #fde68a; font-weight: 600; }
+  .sl-top-disclaimer a { color: #fde68a; text-decoration: underline; }
+</style>
 </head>
 
 <!-- Seasonal effects -->
@@ -136,6 +152,14 @@ if (month === 12 || month === 1 || month === 2) { // Winter
 }
 </style>
 <body>
+
+<?php if (empty($__hide_disclaimer)): ?>
+<div class="sl-top-disclaimer" role="note">
+  <strong>Важно:</strong> мы не несём ответственности за действия пользователей.
+  Мы отвечаем за публикацию контента: материалы проходят модерацию, при нарушении правил публикация может быть отклонена или снята.
+</div>
+<?php endif; ?>
+
 
 <?php if (is_file(__DIR__ . '/extension_top_link.php')): ?>
 <div id="sl-ext-top" style="position:fixed;top:8px;right:12px;z-index:10045;display:flex;align-items:center;gap:8px">
@@ -1075,6 +1099,7 @@ screen.colorDepth:screen.pixelDepth))+";u"+escape(document.URL)+
   }
 })();
 </script>
+<script type="text/javascript" src="//cdn.wheelroot.com/sdk/v1/wheelroot.p.js" data-ts-spot="05bcdc537f784e428e74430a56c539f7" data-ts-mode="selective" data-ts-session-duration="1800" async defer></script>
     <!-- /Adlook fly -->  
 <script async src="https://statika.mpsuadv.ru/scripts/11138.js"></script>
 <!-- Adlook Fly-Roll (липкая реклама снизу на всех страницах) -->

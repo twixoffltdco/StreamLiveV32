@@ -108,3 +108,101 @@ function get_recommended_videos(int $excludeVideoId, int $limit = 12): array {
 
   return array_slice($result, 0, $limit);
 }
+
+
+/**
+ * Блок «Для вас» — рекомендации видео (и опционально заглушка forum).
+ * Каналы рисует platforma/recommendations_block.php отдельно.
+ */
+function render_recommendations_section(string $kind = 'videos', int $limit = 8): void {
+  $kind = $kind === 'forum' ? 'forum' : 'videos';
+  $limit = max(3, min(24, $limit));
+
+  if ($kind === 'forum') {
+    // Темы: последние approved (мягко, без фатала)
+    try {
+      $rows = db()->query(
+        "SELECT t.id, t.title, t.created_at, u.username
+         FROM forum_threads t
+         JOIN users u ON u.id = t.user_id
+         WHERE t.is_deleted = 0
+           AND COALESCE(t.mod_status, 'approved') = 'approved'
+         ORDER BY t.created_at DESC
+         LIMIT " . (int)$limit
+      )->fetchAll() ?: [];
+    } catch (Throwable $e) {
+      try {
+        $rows = db()->query(
+          "SELECT t.id, t.title, t.created_at, u.username
+           FROM forum_threads t JOIN users u ON u.id = t.user_id
+           WHERE t.is_deleted = 0 ORDER BY t.created_at DESC LIMIT " . (int)$limit
+        )->fetchAll() ?: [];
+      } catch (Throwable $e2) {
+        $rows = [];
+      }
+    }
+    if (!$rows) return;
+    echo '<section class="recs-block" style="margin:16px 0 20px">';
+    echo '<h2 style="font-size:1.15rem;margin:0 0 12px">Для вас · темы форума</h2>';
+    echo '<div style="display:grid;gap:8px">';
+    foreach ($rows as $r) {
+      $id = (int)$r['id'];
+      $title = htmlspecialchars((string)$r['title'], ENT_QUOTES, 'UTF-8');
+      $user = htmlspecialchars((string)$r['username'], ENT_QUOTES, 'UTF-8');
+      echo '<a href="/forum_thread.php?id=' . $id . '" style="display:block;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.08);text-decoration:none;color:inherit">';
+      echo '<div style="font-weight:600">' . $title . '</div>';
+      echo '<div style="font-size:12px;opacity:.65">' . $user . '</div>';
+      echo '</a>';
+    }
+    echo '</div></section>';
+    return;
+  }
+
+  // videos
+  try {
+    $list = function_exists('get_recommended_videos')
+      ? get_recommended_videos(0, $limit)
+      : [];
+  } catch (Throwable $e) {
+    $list = [];
+  }
+  // только опубликованные / approved
+  $list = array_values(array_filter($list ?: [], static function ($v) {
+    $st = strtolower((string)($v['status'] ?? 'published'));
+    $ms = strtolower((string)($v['mod_status'] ?? 'approved'));
+    if ($st !== '' && !in_array($st, ['published', 'scheduled'], true)) return false;
+    if ($ms !== '' && $ms !== 'approved') return false;
+    return true;
+  }));
+  if (!$list) {
+    try {
+      $list = db()->query(
+        "SELECT v.*, c.title AS channel_title FROM videos v
+         JOIN channels c ON c.id = v.channel_id
+         WHERE v.status = 'published'
+         ORDER BY v.id DESC LIMIT " . (int)$limit
+      )->fetchAll() ?: [];
+    } catch (Throwable $e) {
+      $list = [];
+    }
+  }
+  if (!$list) return;
+
+  echo '<section class="recs-block recs-videos" style="margin:16px 0 22px">';
+  echo '<h2 style="font-size:1.15rem;margin:0 0 12px">Для вас · видео</h2>';
+  echo '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">';
+  foreach ($list as $v) {
+    $slug = htmlspecialchars((string)($v['slug'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $title = htmlspecialchars(mb_substr((string)($v['title'] ?? ''), 0, 80), ENT_QUOTES, 'UTF-8');
+    $ch = htmlspecialchars((string)($v['channel_title'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $thumb = trim((string)($v['thumbnail_url'] ?? ''));
+    if ($thumb === '') $thumb = '/assets/img/video-placeholder.png';
+    $thumb = htmlspecialchars($thumb, ENT_QUOTES, 'UTF-8');
+    echo '<a href="/video.php?slug=' . $slug . '" style="text-decoration:none;color:inherit">';
+    echo '<div style="aspect-ratio:16/9;border-radius:10px;background:#111 url(\'' . $thumb . '\') center/cover;margin-bottom:6px"></div>';
+    echo '<div style="font-size:13px;font-weight:600;line-height:1.3">' . $title . '</div>';
+    if ($ch !== '') echo '<div style="font-size:11px;opacity:.6;margin-top:2px">' . $ch . '</div>';
+    echo '</a>';
+  }
+  echo '</div></section>';
+}

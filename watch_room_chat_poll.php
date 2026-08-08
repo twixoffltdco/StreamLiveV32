@@ -1,7 +1,12 @@
 <?php
+if (is_file(__DIR__."/includes/poll_throttle.php")) { require_once __DIR__."/includes/poll_throttle.php"; poll_throttle("watch_room_chat_poll", 180); }
+
+if (is_file(__DIR__ . '/includes/poll_throttle.php')) {
+  require_once __DIR__ . '/includes/poll_throttle.php';
+  poll_throttle('watch_room_chat_poll', 180);
+}
+
 require_once __DIR__ . '/includes/auth.php';
-require_once __DIR__ . '/includes/poll_throttle.php';
-if (!poll_throttle_check('wr_chat', 24, 60)) { exit; }
 header('Content-Type: application/json; charset=utf-8');
 
 $code = strtoupper(trim((string)($_GET['code'] ?? '')));

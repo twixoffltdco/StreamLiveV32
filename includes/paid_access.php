@@ -2,6 +2,9 @@
 /**
  * Платный контент канала + видео того же канала.
  * Активация промокода = доступ на 30 дней, потом снова ввод кода.
+ * 
+ * ИЗМЕНЕНИЕ: теперь один пользователь может активировать конкретный промокод ТОЛЬКО ОДИН РАЗ,
+ * даже если доступ истёк или был отозван. Повторная активация того же кода запрещена.
  */
 if (!function_exists('paid_ensure_schema')) {
 
@@ -12,6 +15,28 @@ function paid_ensure_schema(): void {
   try {
     db()->exec('ALTER TABLE channels ADD COLUMN paid_content TINYINT(1) NOT NULL DEFAULT 0');
   } catch (Throwable $e) {}
+  try {
+    db()->exec('ALTER TABLE channels ADD COLUMN paid_content_locked TINYINT(1) NOT NULL DEFAULT 0');
+  } catch (Throwable $e) {}
+  try {
+    db()->exec('ALTER TABLE channels ADD COLUMN paid_locked_by INT UNSIGNED NULL');
+  } catch (Throwable $e) {}
+  try {
+    db()->exec('ALTER TABLE channels ADD COLUMN paid_locked_at DATETIME NULL');
+  } catch (Throwable $e) {}
+  try {
+    db()->exec(
+      "CREATE TABLE IF NOT EXISTS paid_mod_actions (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        moderator_id INT UNSIGNED NOT NULL,
+        channel_id INT UNSIGNED NOT NULL,
+        action VARCHAR(32) NOT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        KEY idx_mod_day (moderator_id, created_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+    );
+  } catch (Throwable $e) {}
+
   try {
     db()->exec(
       "CREATE TABLE IF NOT EXISTS promo_codes (
@@ -144,6 +169,10 @@ function paid_user_can_watch_video(?array $user, array $video): bool {
   return paid_user_can_watch($user, $channel);
 }
 
+/**
+ * Активация промокода — изменено: пользователь может активировать один и тот же код только один раз.
+ * Повторная активация (даже после истечения/отзыва) отклоняется.
+ */
 function paid_activate_code(int $userId, string $code, int $channelId, bool $acceptTerms): array {
   paid_ensure_schema();
   if (!$acceptTerms) {
@@ -172,34 +201,21 @@ function paid_activate_code(int $userId, string $code, int $channelId, bool $acc
       return ['ok' => false, 'error' => 'Промокод не для этого канала'];
     }
 
-    $until = date('Y-m-d H:i:s', time() + 30 * 86400); // 30 дней
-
-    $chk = db()->prepare('SELECT id, is_revoked, access_until FROM promo_activations WHERE user_id = ? AND promo_id = ?');
+    // ===== НОВАЯ ПРОВЕРКА: был ли этот пользователь уже активировал этот код? =====
+    $chk = db()->prepare('SELECT id FROM promo_activations WHERE user_id = ? AND promo_id = ?');
     $chk->execute([$userId, (int)$p['id']]);
-    $ex = $chk->fetch();
-
-    if ($ex && !(int)$ex['is_revoked'] && !empty($ex['access_until']) && strtotime($ex['access_until']) > time()) {
-      return [
-        'ok' => true,
-        'message' => 'Доступ уже активен до ' . date('d.m.Y H:i', strtotime($ex['access_until'])),
-        'access_until' => $ex['access_until'],
-      ];
+    if ($chk->fetch()) {
+      return ['ok' => false, 'error' => 'Вы уже использовали этот промокод.'];
     }
 
-    if ($ex) {
-      // повторная активация / продление на 30 дней
-      db()->prepare(
-        'UPDATE promo_activations SET is_revoked=0, revoked_by=NULL, revoked_at=NULL,
-         accepted_terms=1, channel_id=?, activated_at=NOW(), access_until=? WHERE id=?'
-      )->execute([$channelId, $until, (int)$ex['id']]);
-      // uses_count не увеличиваем при реактивации того же кода тем же юзером
-    } else {
-      db()->prepare(
-        'INSERT INTO promo_activations (promo_id, user_id, channel_id, accepted_terms, access_until)
-         VALUES (?,?,?,1,?)'
-      )->execute([(int)$p['id'], $userId, $channelId, $until]);
-      db()->prepare('UPDATE promo_codes SET uses_count = uses_count + 1 WHERE id = ?')->execute([(int)$p['id']]);
-    }
+    // Всё хорошо — создаём новую активацию
+    $until = date('Y-m-d H:i:s', time() + 30 * 86400); // 30 дней
+    db()->prepare(
+      'INSERT INTO promo_activations (promo_id, user_id, channel_id, accepted_terms, access_until)
+       VALUES (?,?,?,1,?)'
+    )->execute([(int)$p['id'], $userId, $channelId, $until]);
+    db()->prepare('UPDATE promo_codes SET uses_count = uses_count + 1 WHERE id = ?')->execute([(int)$p['id']]);
+
     return [
       'ok' => true,
       'message' => 'Доступ открыт на 30 дней (до ' . date('d.m.Y H:i', strtotime($until)) . ')',
@@ -339,3 +355,138 @@ function paid_require_video_access(array $video, ?array $user): void {
 }
 
 } // function_exists
+
+/** Заблокирован ли флаг платного контента модерацией/админом */
+function paid_content_is_locked(array $channel): bool {
+  return !empty($channel['paid_content_locked']);
+}
+
+/**
+ * Владелец НЕ может снять/включить paid, если locked.
+ * Админ/модер — могут (см. paid_staff_set_paid).
+ */
+function paid_owner_can_edit_flag(?array $user, array $channel): bool {
+  if (!$user) return false;
+  $role = (string)($user['role'] ?? '');
+  if (in_array($role, ['admin', 'moderator'], true)) return true;
+  if (paid_content_is_locked($channel)) return false;
+  return (int)($channel['owner_id'] ?? 0) === (int)($user['id'] ?? 0);
+}
+
+/** Модератор: уже делал действие с платным контентом за последние 24ч? */
+function paid_mod_used_daily_quota(int $modId): bool {
+  if ($modId <= 0) return true;
+  paid_ensure_schema();
+  try {
+    $st = db()->prepare(
+      "SELECT id FROM paid_mod_actions
+       WHERE moderator_id = ? AND created_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)
+       LIMIT 1"
+    );
+    $st->execute([$modId]);
+    return (bool)$st->fetch();
+  } catch (Throwable $e) {
+    return false;
+  }
+}
+
+function paid_mod_log(int $modId, int $channelId, string $action): void {
+  try {
+    db()->prepare('INSERT INTO paid_mod_actions (moderator_id, channel_id, action) VALUES (?,?,?)')
+      ->execute([$modId, $channelId, $action]);
+  } catch (Throwable $e) {}
+}
+
+/**
+ * Админ/модер выставляет paid_content и ставит замок (владелец не снимет).
+ * $paid = 1|0. Для модера — 1 действие / 24ч (на любого канала).
+ */
+function paid_staff_set_paid(array $staff, int $channelId, int $paid, bool $lock = true): array {
+  paid_ensure_schema();
+  $uid = (int)($staff['id'] ?? 0);
+  $role = (string)($staff['role'] ?? '');
+  $isAdmin = $role === 'admin';
+  $isMod = $isAdmin || $role === 'moderator' || !empty($staff['is_moderator']);
+  if (!$isMod || $uid <= 0) {
+    return ['ok' => false, 'error' => 'Нет прав'];
+  }
+  if (!$isAdmin && paid_mod_used_daily_quota($uid)) {
+    return ['ok' => false, 'error' => 'Лимит: модератор может менять платный контент 1 раз в 24 часа'];
+  }
+  $channelId = (int)$channelId;
+  if ($channelId <= 0) return ['ok' => false, 'error' => 'Канал не найден'];
+  $paid = $paid ? 1 : 0;
+  $lock = $lock ? 1 : 0;
+  try {
+    if ($lock) {
+      db()->prepare(
+        'UPDATE channels SET paid_content = ?, paid_content_locked = 1, paid_locked_by = ?, paid_locked_at = NOW() WHERE id = ?'
+      )->execute([$paid, $uid, $channelId]);
+    } else {
+      db()->prepare(
+        'UPDATE channels SET paid_content = ?, paid_content_locked = 0, paid_locked_by = NULL, paid_locked_at = NULL WHERE id = ?'
+      )->execute([$paid, $channelId]);
+    }
+    if (!$isAdmin) {
+      paid_mod_log($uid, $channelId, $paid ? 'set_paid' : 'unset_paid');
+    }
+    return ['ok' => true, 'error' => ''];
+  } catch (Throwable $e) {
+    return ['ok' => false, 'error' => $e->getMessage()];
+  }
+}
+
+/** Админ: все approved-каналы → paid + lock */
+function paid_admin_bulk_set_all(array $admin, int $paid = 1): array {
+  if (($admin['role'] ?? '') !== 'admin') {
+    return ['ok' => false, 'error' => 'Только админ', 'count' => 0];
+  }
+  paid_ensure_schema();
+  $paid = $paid ? 1 : 0;
+  $uid = (int)$admin['id'];
+  try {
+    $st = db()->prepare(
+      "UPDATE channels SET paid_content = ?, paid_content_locked = 1, paid_locked_by = ?, paid_locked_at = NOW()
+       WHERE status = 'approved'"
+    );
+    $st->execute([$paid, $uid]);
+    return ['ok' => true, 'error' => '', 'count' => $st->rowCount()];
+  } catch (Throwable $e) {
+    return ['ok' => false, 'error' => $e->getMessage(), 'count' => 0];
+  }
+}
+
+
+/**
+ * Встраивание (iframe) платного контента запрещено полностью.
+ * Даже владелец/модер не отдают плеер наружу — только страница площадки с гейтом.
+ */
+function paid_embed_is_forbidden_for_channel(array $channel): bool {
+  return paid_channel_is_paid($channel);
+}
+
+function paid_embed_is_forbidden_for_video(array $video): bool {
+  $cid = (int)($video['channel_id'] ?? 0);
+  if ($cid <= 0) return false;
+  return paid_channel_id_is_paid($cid);
+}
+
+/** HTML-заглушка для embed: без плеера, без обхода */
+function paid_embed_blocked_page(string $kind = 'channel'): void {
+  http_response_code(403);
+  header('Content-Type: text/html; charset=utf-8');
+  header('X-Frame-Options: SAMEORIGIN');
+  header('Content-Security-Policy: frame-ancestors \'self\'');
+  $msg = $kind === 'video'
+    ? 'Встраивание этого видео запрещено: канал с платным / закрытым контентом.'
+    : 'Встраивание этого канала запрещено: платный / закрытый контент.';
+  echo '<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">';
+  echo '<title>Встраивание запрещено</title></head>';
+  echo '<body style="margin:0;background:#0a0a0a;color:#eee;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:24px">';
+  echo '<div style="max-width:420px"><h1 style="font-size:1.25rem;margin:0 0 10px">🔒 Встраивание недоступно</h1>';
+  echo '<p style="opacity:.8;line-height:1.5;margin:0 0 16px">' . htmlspecialchars($msg, ENT_QUOTES, 'UTF-8') . '</p>';
+  echo '<p style="font-size:13px;opacity:.6;margin:0">Откройте материал на площадке и активируйте доступ по промокоду.</p></div>';
+  echo '</body></html>';
+  exit;
+}
+

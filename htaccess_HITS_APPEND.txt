@@ -1,0 +1,14 @@
+# === InfinityFree hits: приклеить В КОНЕЦ существующего .htaccess ===
+# Не заменяет весь файл — только добавляет ограничение на poll-скрипты.
+
+<IfModule mod_setenvif.c>
+  SetEnvIf Request_URI "(api_notifications_poll|forum_poll|message_poll|chat_poll|comments_poll|broadcast_post_poll|watch_room)" SL_POLL=1
+</IfModule>
+
+# Если на хосте есть mod_ratelimit (часто нет на free) — не критично:
+# <IfModule mod_ratelimit.c>
+#   <LocationMatch "poll">
+#     SetOutputFilter RATE_LIMIT
+#     SetEnv rate-limit 30
+#   </LocationMatch>
+# </IfModule>

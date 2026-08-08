@@ -1,22 +1,17 @@
-StreamLive — расширение (PHP) + PWA + header с кнопкой сверху
+V28 FIX — рекомендации, премьеры, модерация (не ломая форум)
 
-ЗАЛИТЬ В КОРЕНЬ (поверх):
-  extension.php
-  extension_download.php
-  platform_unavailable.html
-  extension_src/          (вся папка)
-  storage/extension_cache/ (права на запись)
-  manifest.webmanifest, manifest.json, sw.js, offline.html
-  assets/icons/
-  includes/header.php     ← уже с «Расширение» справа сверху
-  includes/footer.php
-  includes/extension_build.php
-  includes/extension_top_link.php
-  includes/pwa_head.php
-  includes/pwa_register.php
+1) Залить поверх StreamLive V28:
+   video_import.php, videos.php, forum_thread.php, forum_new_thread.php
+   includes/content_moderation.php (+ recommendations.php, premiere_helpers.php)
+   moderation/content.php
+   moderator/_layout_start.php
 
-После заливки:
-  /extension.php — туториал + скачать ZIP под твой домен
-  Вверху справа — кнопка «Расширение»
+2) Модерация: /moderation/content.php (темы, посты, видео)
+   - Админ решает сразу
+   - Модер: 1 действие / 100 ч, нужно 2 approve
 
-Сделай бэкап своих header.php/footer.php ПЕРЕД заливкой.
+3) Премьера: при импорте видео поля «Начало/Конец» на шаге публикации
+
+4) «Для вас» на /videos.php
+
+5) Pending тему/пост/видео автор видит у себя; в общем списке — после approve

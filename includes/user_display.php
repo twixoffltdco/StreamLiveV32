@@ -495,7 +495,7 @@ function user_render_username_html(array $user, bool $withPrefixes = true): stri
   $uid = function_exists('user_resolve_id') ? user_resolve_id($user) : (int)($user['id'] ?? $user['user_id'] ?? 0);
 
   // дотянуть css/decor из БД
-  if ($uid > 0 && (!isset($user['username_css']) || $user['username_css'] === null || $user['username_css'] === '')) {
+  if ($uid > 0 && (!isset($user['username_css']) || $user['username_css'] === null || trim((string)$user['username_css']) === '')) {
     try {
       $st = db()->prepare('SELECT username_css, nick_decor_url, nick_decor_pos FROM users WHERE id = ? LIMIT 1');
       $st->execute([$uid]);
@@ -512,21 +512,40 @@ function user_render_username_html(array $user, bool $withPrefixes = true): stri
   $classAttr = 'user-nick';
   $styleAttr = '';
 
+  // Голый hex / rgb → color
+  if ($css !== '' && preg_match('/^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i', $css)) {
+    $css = 'color: ' . $css;
+  } elseif ($css !== '' && preg_match('/^rgba?\([^)]+\)$/i', $css)) {
+    $css = 'color: ' . $css;
+  }
+
   if ($css !== '' && $uid > 0 && user_nick_css_is_block($css)) {
     $prep = user_prepare_nick_css_block($css, $uid);
     static $emittedStyles = [];
     if (empty($emittedStyles[$uid])) {
       $emittedStyles[$uid] = true;
-      $styleTag = '<style data-unick="' . $uid . '">' . $prep['css'] . '</style>';
+      // усиливаем цвет ника против тем сайта
+      $boost = '.' . $prep['uniq'] . ',.' . $prep['uniq'] . ' .user-nick{color:inherit}';
+      $styleTag = '<style data-unick="' . $uid . '">' . $prep['css'] . $boost . '</style>';
     }
     $cls = array_merge(['user-nick', $prep['uniq']], $prep['classes']);
     $classAttr = htmlspecialchars(implode(' ', array_unique($cls)), ENT_QUOTES);
   } elseif ($css !== '') {
-    // простой inline: color, text-shadow и т.д. (без {} / @keyframes)
     if (strpos($css, '{') === false && strpos($css, '@') === false) {
-      $styleAttr = ' style="' . htmlspecialchars($css, ENT_QUOTES) . '"';
+      // Простые свойства: color / text-shadow с !important, чтобы тема не затирала
+      $parts = array_filter(array_map('trim', explode(';', $css)));
+      $out = [];
+      foreach ($parts as $part) {
+        if ($part === '') continue;
+        if (preg_match('/^(color|text-shadow|background|background-image|background-clip|-webkit-background-clip|background-size|filter|font-weight|letter-spacing|text-fill-color|-webkit-text-fill-color)\s*:/i', $part)
+            && stripos($part, '!important') === false) {
+          $part .= ' !important';
+        }
+        $out[] = $part;
+      }
+      $cssInline = implode('; ', $out);
+      $styleAttr = ' style="' . htmlspecialchars($cssInline, ENT_QUOTES) . '"';
     } else {
-      // блок без uid — всё равно через style tag на случайный класс
       $fakeUid = $uid > 0 ? $uid : (crc32($name) & 0x7fffffff);
       $prep = user_prepare_nick_css_block($css, $fakeUid);
       $styleTag = '<style data-unick="' . $fakeUid . '">' . $prep['css'] . '</style>';

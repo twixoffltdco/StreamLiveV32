@@ -24,6 +24,10 @@ if ($__user && is_user_banned_on_channel($channel['id'], $__user['id'])) {
   exit;
 }
 
+// Платный канал — встраивание полностью запрещено (не отдаём плеер в iframe)
+if (function_exists('paid_embed_is_forbidden_for_channel') && paid_embed_is_forbidden_for_channel($channel)) {
+  paid_embed_blocked_page('channel');
+}
 paid_require_access($channel, $__user);
 
 db()->prepare('UPDATE channels SET views = views + 1 WHERE id = ?')->execute([$channel['id']]);

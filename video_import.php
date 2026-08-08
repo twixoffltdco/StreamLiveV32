@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
+if (is_file(__DIR__ . '/includes/premiere_helpers.php')) require_once __DIR__ . '/includes/premiere_helpers.php';
+if (is_file(__DIR__ . '/includes/content_moderation.php')) { require_once __DIR__ . '/includes/content_moderation.php'; try { cmod_ensure_schema(); } catch (Throwable $e) {} }
 require_once __DIR__ . '/includes/notify.php';
 require_once __DIR__ . '/includes/video_embed.php';
 $__user = require_login();
@@ -58,18 +60,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'INSERT INTO videos (channel_id, user_id, slug, source_url, platform, embed_url, title, description, tags, thumbnail_url, meta_source, status)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
           );
-          $stmt->execute([$channelId, $__user['id'], $slug, $sourceUrl, $platform, $embedUrl, $title, $description, $tags, $thumbnail ?: null, $metaSource, 'published']);
-          try {
-            if (function_exists('notify_event')) {
-              notify_event('video_new', [
-                'message' => 'Новое видео: «' . mb_substr($title, 0, 80) . '»',
-                'link' => '/video?slug=' . $slug,
-                'channel_id' => (int)$channelId,
-                'except_user_id' => (int)$__user['id'],
-              ]);
+          // ВСЕГДА в модерацию: status=pending → в каталоге не видно, пока 2 модератора не одобрят
+          $vidStatus = 'pending';
+          $stmt->execute([$channelId, $__user['id'], $slug, $sourceUrl, $platform, $embedUrl, $title, $description, $tags, $thumbnail ?: null, $metaSource, $vidStatus]);
+          $newId = (int)db()->lastInsertId();
+          $premAt = trim((string)($_POST['premiere_at'] ?? ''));
+          $premEnd = trim((string)($_POST['premiere_end_at'] ?? ''));
+          if ($premAt !== '' && $newId > 0) {
+            try {
+              if (function_exists('premiere_apply')) {
+                premiere_apply($newId, $channelId, $premAt, $premEnd);
+              } else {
+                db()->prepare("UPDATE videos SET is_premiere=1, premiere_at=?, premiere_end_at=? WHERE id=?")
+                  ->execute([$premAt, $premEnd !== '' ? $premEnd : null, $newId]);
+              }
+              // premiere_apply мог снова выставить published — вернуть pending
+              try { db()->prepare("UPDATE videos SET status='pending' WHERE id=?")->execute([$newId]); } catch (Throwable $e) {}
+            } catch (Throwable $e) {}
+          }
+          if ($newId > 0) {
+            if (function_exists('cmod_enqueue')) {
+              try { cmod_enqueue('video', $newId, (int)$__user['id'], $title, mb_substr($description, 0, 300)); } catch (Throwable $e) {}
+            } else {
+              try { db()->prepare("UPDATE videos SET mod_status='pending' WHERE id=?")->execute([$newId]); } catch (Throwable $e) {}
             }
-          } catch (Throwable $e) {}
-          redirect('/video.php?slug=' . $slug);
+          }
+          flash_set('success', 'Видео на модерации. В каталоге появится после одобрения двумя модераторами.');
+          redirect('/channel_manage.php?id=' . (int)$channelId);
         }
       }
     }
@@ -92,7 +109,7 @@ require_once __DIR__ . '/includes/header.php';
       <label>Ссылка на видео (YouTube, VK, RuTube, TikTok, Twitch, Одноклассники, russtube.ru/нашютуб.рф (и любой клон PlayTube PHP), PeerTube, Facebook, Twitter/X, Coub, BitChute, Google Drive, Streamable, Reddit, .mp4, .m3u8)</label>
       <input type="url" name="source_url" placeholder="https://..." required style="width:100%;padding:10px;margin:8px 0">
       <button type="submit" class="btn btn-primary">Распознать</button>
-    </form>
+    <div style="margin:10px 0"><label>Премьера (опц.)</label><br><input type="datetime-local" name="premiere_at"> <input type="datetime-local" name="premiere_end_at"></div></form>
   <?php else: ?>
     <form method="post">
       <?= csrf_field() ?>
@@ -120,6 +137,14 @@ require_once __DIR__ . '/includes/header.php';
       <label>Теги (через запятую)</label>
       <input type="text" name="tags" value="<?= e($preview['tags']) ?>" style="width:100%;padding:10px;margin:8px 0">
 
+      <div style="margin:12px 0;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,.1)">
+        <label style="font-weight:600">Премьера (необязательно)</label>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+          <div><span style="font-size:12px;opacity:.7">Начало</span><br><input type="datetime-local" name="premiere_at" style="padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.3);color:inherit"></div>
+          <div><span style="font-size:12px;opacity:.7">Конец (опц.)</span><br><input type="datetime-local" name="premiere_end_at" style="padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.3);color:inherit"></div>
+        </div>
+        <p style="font-size:12px;opacity:.65;margin:8px 0 0">Если указать — зрители ждут старт (как премьера YouTube).</p>
+      </div>
       <button type="submit" class="btn btn-primary">Опубликовать видео</button>
     </form>
   <?php endif; ?>

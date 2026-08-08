@@ -1,4 +1,6 @@
 <?php
+try { if (is_file(__DIR__ . '/includes/content_moderation.php')) { require_once __DIR__ . '/includes/content_moderation.php'; if (function_exists('cmod_ensure_schema')) cmod_ensure_schema(); } } catch (Throwable $e) {}
+
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
 if (is_file(__DIR__ . '/includes/recommendations.php')) require_once __DIR__ . '/includes/recommendations.php';

@@ -329,6 +329,38 @@ function render_with_stickers(string $message, array $stickers = []): string {
 // Проверка номера телефона: без SMS-подтверждения (по требованию), но формат должен
 // быть похож на настоящий международный номер, а не мусор вроде "12345".
 // Возвращает нормализованный номер (+79991234567) либо null, если формат не похож на реальный.
+
+
+/**
+ * Опциональная проверка номера через внешний API.
+ * settings: phone_verify_api_key + phone_verify_api_url
+ * По умолчанию только format (normalize_phone). Без ключа — всегда true.
+ */
+function phone_verify_external(string $e164): bool {
+  $key = '';
+  $url = '';
+  try {
+    if (function_exists('get_setting')) {
+      $key = trim((string)get_setting('phone_verify_api_key', ''));
+      $url = trim((string)get_setting('phone_verify_api_url', ''));
+    }
+  } catch (Throwable $e) {}
+  if ($key === '' || $url === '') return true;
+  // Пример: numverify-style ?access_key=&number=
+  $endpoint = $url . (strpos($url, '?') !== false ? '&' : '?') . http_build_query([
+    'access_key' => $key,
+    'number' => ltrim($e164, '+'),
+  ]);
+  $ctx = stream_context_create(['http' => ['timeout' => 4, 'ignore_errors' => true]]);
+  $raw = @file_get_contents($endpoint, false, $ctx);
+  if ($raw === false) return true; // сеть недоступна — не блокируем регистрацию
+  $data = json_decode($raw, true);
+  if (!is_array($data)) return true;
+  if (array_key_exists('valid', $data)) return (bool)$data['valid'];
+  if (array_key_exists('success', $data) && $data['success'] === false) return false;
+  return true;
+}
+
 function normalize_phone(string $raw): ?string {
   $digits = preg_replace('/[^\d+]/', '', $raw);
   $digits = preg_replace('/(?!^)\+/', '', $digits); // + разрешён только в начале

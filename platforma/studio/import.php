@@ -10,7 +10,16 @@ $studio_active = 'import';
 $root = dirname(__DIR__, 2);
 require_once $root . '/includes/functions.php';
 require_once $root . '/includes/auth.php';
+if (is_file($root . '/includes/premiere_helpers.php')) {
+  require_once $root . '/includes/premiere_helpers.php';
+  if (function_exists('premiere_ensure_columns')) premiere_ensure_columns();
+}
 require_once $root . '/includes/video_embed.php';
+if (is_file($root . '/includes/content_moderation.php')) {
+  require_once $root . '/includes/content_moderation.php';
+  try { cmod_ensure_schema(); } catch (Throwable $e) {}
+}
+
 if (is_file($root . '/includes/notify.php')) {
   require_once $root . '/includes/notify.php';
 }
@@ -90,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $channels) {
         $thumbnail = trim((string)($_POST['thumbnail'] ?? ''));
         $metaSource = in_array($_POST['meta_source'] ?? '', ['oembed', 'opengraph', 'manual'], true)
           ? $_POST['meta_source'] : 'manual';
-        $status = 'published';
+        $status = 'pending';
         try {
           // moderation if needed
           $st = db()->query("SHOW COLUMNS FROM videos LIKE 'status'");
@@ -123,6 +132,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $channels) {
             if (function_exists('notify_event')) {
               try { notify_event('video_published', ['slug' => $slug, 'title' => $title]); } catch (Throwable $e) {}
             }
+            $newId = (int)db()->lastInsertId();
+              if ($newId > 0 && function_exists('cmod_enqueue')) {
+                try { cmod_enqueue('video', $newId, (int)$__user['id'], (string)$title, mb_substr((string)$description, 0, 300)); } catch (Throwable $e) {}
+              }
+
+            $premAt = trim((string)($_POST['premiere_at'] ?? ''));
+            $premEnd = trim((string)($_POST['premiere_end_at'] ?? ''));
+            if ($premAt !== '' && $newId > 0) {
+              if (function_exists('premiere_apply')) {
+                premiere_apply($newId, $channelId, $premAt, $premEnd);
+              } else {
+                try {
+                  $ts = strtotime(str_replace('T', ' ', $premAt));
+                  if ($ts) {
+                    $tsEnd = $premEnd !== '' ? strtotime(str_replace('T', ' ', $premEnd)) : ($ts + 7200);
+                    if (!$tsEnd || $tsEnd <= $ts) $tsEnd = $ts + 7200;
+                    db()->prepare("UPDATE videos SET is_premiere=1, premiere_at=?, premiere_end_at=?, status='pending' WHERE id=?")
+                      ->execute([date('Y-m-d H:i:s',$ts), date('Y-m-d H:i:s',$tsEnd), $newId]);
+                  }
+                } catch (Throwable $e) {}
+              }
+            }
             header('Location: /platforma/studio/content.php?ok=1');
             exit;
           } catch (Throwable $e) {
@@ -135,6 +166,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $channels) {
                 $channelId, $uid, $slug, $sourceUrl, $platform, $embedUrl,
                 $title, $description, $tags, $thumbnail ?: null, $status,
               ]);
+              $newId = (int)db()->lastInsertId();
+              if ($newId > 0 && function_exists('cmod_enqueue')) {
+                try { cmod_enqueue('video', $newId, (int)$__user['id'], (string)$title, mb_substr((string)$description, 0, 300)); } catch (Throwable $e) {}
+              }
+
+              $premAt = trim((string)($_POST['premiere_at'] ?? ''));
+              $premEnd = trim((string)($_POST['premiere_end_at'] ?? ''));
+              if ($premAt !== '' && $newId > 0) {
+                if (function_exists('premiere_apply')) {
+                  premiere_apply($newId, $channelId, $premAt, $premEnd);
+                } else {
+                  try {
+                    $ts = strtotime(str_replace('T', ' ', $premAt));
+                    if ($ts) {
+                      $tsEnd = $premEnd !== '' ? strtotime(str_replace('T', ' ', $premEnd)) : ($ts + 7200);
+                      if (!$tsEnd || $tsEnd <= $ts) $tsEnd = $ts + 7200;
+                      db()->prepare("UPDATE videos SET is_premiere=1, premiere_at=?, premiere_end_at=?, status='pending' WHERE id=?")
+                        ->execute([date('Y-m-d H:i:s',$ts), date('Y-m-d H:i:s',$tsEnd), $newId]);
+                    }
+                  } catch (Throwable $e) {}
+                }
+              }
               header('Location: /platforma/studio/content.php?ok=1');
               exit;
             } catch (Throwable $e2) {
@@ -216,7 +269,21 @@ require __DIR__ . '/_layout.php';
       <label class="muted">Описание</label>
       <textarea name="description" rows="4" style="width:100%;padding:12px;margin:6px 0 12px"><?= htmlspecialchars($preview['description'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
       <label class="muted">Теги</label>
-      <input name="tags" value="<?= htmlspecialchars($preview['tags'] ?? '', ENT_QUOTES, 'UTF-8') ?>" style="width:100%;padding:12px;margin:6px 0 14px">
+      <input name="tags" value="<?= htmlspecialchars($preview['tags'] ?? '', ENT_QUOTES, 'UTF-8') ?>
+      <div style="margin:12px 0;padding:14px;border-radius:12px;border:1px solid rgba(167,139,250,.35);background:rgba(167,139,250,.08)">
+        <label class="muted" style="display:block;margin-bottom:8px">Премьера (как на YouTube)</label>
+        <div style="display:flex;flex-wrap:wrap;gap:10px">
+          <div>
+            <div style="font-size:11px;opacity:.7;margin-bottom:4px">Начало</div>
+            <input type="datetime-local" name="premiere_at" style="padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.3);color:inherit">
+          </div>
+          <div>
+            <div style="font-size:11px;opacity:.7;margin-bottom:4px">Конец (пусто = +2ч)</div>
+            <input type="datetime-local" name="premiere_end_at" style="padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.3);color:inherit">
+          </div>
+        </div>
+        <p style="font-size:12px;opacity:.65;margin:8px 0 0">До старта — комната ожидания с таймером, в момент старта — ролик.</p>
+      </div>
       <div class="st-actions">
         <button type="submit" class="btn btn-primary">Опубликовать</button>
         <a class="btn btn-outline" href="/platforma/studio/import.php">Другая ссылка</a>

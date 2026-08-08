@@ -252,7 +252,7 @@ if ($__user) {
         if (el) el.remove();
       });
     } catch (e) {}
-    setTimeout(poll, 2000);
+    setTimeout(poll, 45000);
   }
   poll();
 
@@ -378,7 +378,7 @@ if ($__user) {
       if (playerInstance && playerInstance.getDuration && playerInstance.getDuration() > 0) {
         clearInterval(checkReady);
         applySync();
-        mp4SyncInterval = setInterval(applySync, 8000);
+        mp4SyncInterval = setInterval(applySync, 60000);
       }
     }, 500);
     // Защита от бесконечного ожидания
@@ -443,7 +443,7 @@ if ($__user) {
   setTimeout(() => {
     initPlayer(<?= json_encode($activeSource) ?>, <?= !empty($channel['is_broadcast_paused']) ? 'true' : 'false' ?>);
   }, 100); // небольшая задержка, чтобы DOM точно отрисовался
-  setInterval(checkSchedule, 15000);
+  setInterval(checkSchedule, 120000);
 
   // ---------- Лайки / избранное ----------
   async function toggleLike() {
@@ -518,9 +518,9 @@ if ($__user) {
         if (d.max_id) after = Math.max(after, d.max_id);
       })
       .catch(function () {})
-      .finally(function () { setTimeout(pollComments, 10000); });
+      .finally(function () { setTimeout(pollComments, 60000); });
   }
-  setTimeout(pollComments, 10000);
+  setTimeout(pollComments, 60000);
 })();
 </script>
 

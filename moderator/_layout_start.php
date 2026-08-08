@@ -12,5 +12,6 @@ require_moderator();
     <a href="/moderator/users">Пользователи</a>
       <a href="/moderator/resources">Ресурсы</a>
     <a href="/moderator/verification_requests.php">Верификация</a>
+    <a href="/moderator/paid_channels.php">Платный контент</a>
 </div>
   <div class="admin-content">

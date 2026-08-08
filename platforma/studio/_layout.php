@@ -2,6 +2,8 @@
 declare(strict_types=1);
 if (!isset($studio_title)) $studio_title = 'Студия';
 if (!isset($studio_active)) $studio_active = 'dashboard';
+$__sg = dirname(__DIR__, 2) . '/includes/studio_guard.php';
+if (is_file($__sg) && empty($studio_skip_guard)) { require_once $__sg; studio_require_platforma_access(); }
 $u = function_exists('current_user') ? current_user() : null;
 $uname = $u['username'] ?? 'creator';
 ?>
@@ -132,6 +134,8 @@ input,select,textarea,button{
     <div class="sec">Каналы</div>
     <a href="/platforma/studio/channel.php" class="<?= $studio_active==='channel'?'active':'' ?>">Мои каналы</a>
     <div class="sec">Публикация</div>
+    <a href="/platforma/studio/schedule.php" class="<?= $studio_active==='schedule'?'active':'' ?>">Расписание и премьеры</a>
+    <a href="/platforma/studio/calendar.php" class="<?= $studio_active==='calendar'?'active':'' ?>">Календарь</a>
     <a href="/platforma/studio/import.php" class="<?= $studio_active==='import'?'active':'' ?>">Импорт видео</a>
     <a href="/platforma/studio/content.php" class="<?= $studio_active==='content'?'active':'' ?>">Мои видео</a>
   </nav>

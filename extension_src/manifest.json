@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "StreamLive",
   "short_name": "StreamLive",
-  "version": "1.0.1",
-  "description": "StreamLive — быстрый доступ к платформе.",
+  "version": "1.2.0",
+  "description": "StreamLive App — заставка, платформа, монетки. Замена отдельного приложения.",
   "icons": {
     "16": "icons/icon-16.png",
     "32": "icons/icon-32.png",
@@ -21,10 +21,15 @@
   "background": {
     "service_worker": "background.js"
   },
-  "permissions": ["storage", "windows"],
-  "host_permissions": [
-    "{{SITE_ORIGIN}}/*"
+  "content_scripts": [
+    {
+      "matches": ["{{SITE_ORIGIN}}/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
   ],
+  "permissions": ["storage", "windows"],
+  "host_permissions": ["{{SITE_ORIGIN}}/*"],
   "options_ui": {
     "page": "options.html",
     "open_in_tab": false

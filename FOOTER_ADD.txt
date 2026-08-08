@@ -1,0 +1,7 @@
+В includes/footer.php ПЕРЕД </body> добавь (если ещё нет):
+
+<script src="/assets/js/hits-guard.js?v=1"></script>
+<script src="/assets/js/forum-live.js?v=keep1" defer></script>
+<script src="/assets/js/push-notify.js?v=keep1" defer></script>
+
+hits-guard.js должен грузиться ПЕРВЫМ (без defer или перед остальными).

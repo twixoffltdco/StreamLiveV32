@@ -11,6 +11,10 @@ require_once __DIR__ . '/includes/bbcode.php';
 if (is_file(__DIR__ . '/includes/share.php')) require_once __DIR__ . '/includes/share.php';
 require_once __DIR__ . '/includes/forum_engine.php';
 forum_engine_ensure();
+if (is_file(__DIR__ . '/includes/content_moderation.php')) {
+  require_once __DIR__ . '/includes/content_moderation.php';
+  try { cmod_ensure_schema(); } catch (Throwable $e) {}
+}
 $__user = current_user();
 
 $threadId = (int)($_GET['id'] ?? 0);
@@ -33,6 +37,25 @@ require_once __DIR__ . '/includes/header.php';
   exit;
 }
 
+
+$__ms = (string)($thread['mod_status'] ?? 'approved');
+if ($__ms === 'pending' || $__ms === 'rejected') {
+  $__uid = (int)($__user['id'] ?? 0);
+  $__staff = $__user && (
+    in_array($__user['role'] ?? '', ['admin','moderator'], true)
+    || (function_exists('is_forum_moderator') && is_forum_moderator($__user))
+    || (function_exists('cmod_is_moderator') && cmod_is_moderator($__user))
+  );
+  $__owner = $__uid > 0 && $__uid === (int)$thread['user_id'];
+  if (!$__staff && !$__owner) {
+    http_response_code(403);
+    $pageTitle = 'Тема на модерации';
+    require_once __DIR__ . '/includes/header.php';
+    echo '<div class="container"><div class="empty-state"><h2>Тема на модерации</h2><p>После одобрения её увидят все.</p><a class="btn btn-primary" href="/forum.php">На форум</a></div></div>';
+    require_once __DIR__ . '/includes/footer.php';
+    exit;
+  }
+}
 $isForumModerator = is_forum_moderator($__user);
 
 // ---- Обработка форм (ответ, удаление сообщения, пин/лок) ----
@@ -43,8 +66,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   if ($action === 'reply' && $__user && !$thread['is_locked']) {
     $message = trim(mb_substr($_POST['message'] ?? '', 0, 2000000));
     if ($message !== '') {
-      db()->prepare('INSERT INTO forum_posts (thread_id, user_id, message) VALUES (?, ?, ?)')->execute([$threadId, $__user['id'], $message]);
-      forum_bump_reply_stats($threadId, (int)$__user['id']);
+      $__postMod = 'pending';
+      if (($__user['role'] ?? '') === 'admin') $__postMod = 'approved';
+      try {
+        db()->prepare('INSERT INTO forum_posts (thread_id, user_id, message, mod_status) VALUES (?, ?, ?, ?)')
+          ->execute([$threadId, $__user['id'], $message, $__postMod]);
+      } catch (Throwable $e) {
+        db()->prepare('INSERT INTO forum_posts (thread_id, user_id, message) VALUES (?, ?, ?)')
+          ->execute([$threadId, $__user['id'], $message]);
+      }
+      $postId = (int)db()->lastInsertId();
+      $__queued = false;
+      try {
+        if ($postId > 0 && function_exists('cmod_enqueue')) {
+          cmod_enqueue('post', $postId, (int)$__user['id'], mb_substr($message, 0, 80), mb_substr($message, 0, 300));
+          $__queued = true;
+        } elseif ($postId > 0) {
+          db()->prepare("UPDATE forum_posts SET mod_status='pending' WHERE id=?")->execute([$postId]);
+          $__queued = true;
+        }
+      } catch (Throwable $e) {
+        try { if ($postId > 0) db()->prepare("UPDATE forum_posts SET mod_status='pending' WHERE id=?")->execute([$postId]); $__queued = true; } catch (Throwable $e2) {}
+      }
+      if ($__queued) {
+        if (function_exists('flash_set')) flash_set('success', 'Сообщение на модерации. Пока его видите только вы.');
+      } else {
+        forum_bump_reply_stats($threadId, (int)$__user['id']);
+      }
       try {
         $authorId = (int)($thread['user_id'] ?? 0);
         $tTitle = mb_substr((string)($thread['title'] ?? 'тема'), 0, 60);
@@ -84,7 +132,24 @@ try {
      WHERE fp.thread_id = ? AND fp.is_deleted = 0 ORDER BY fp.created_at ASC LIMIT 500'
   );
   $stmt->execute([$threadId]);
-  $posts = $stmt->fetchAll();
+  $posts = $stmt->fetchAll() ?: [];
+  $__uid = (int)($__user['id'] ?? 0);
+  $__staff = $__user && (in_array($__user['role'] ?? '', ['admin','moderator'], true) || (function_exists('is_forum_moderator') && is_forum_moderator($__user)));
+  $__uid = (int)($__user['id'] ?? 0);
+  $__staff = $__user && (
+    in_array($__user['role'] ?? '', ['admin', 'moderator'], true)
+    || (function_exists('is_forum_moderator') && is_forum_moderator($__user))
+    || (function_exists('cmod_is_moderator') && cmod_is_moderator($__user))
+  );
+  $posts = array_values(array_filter($posts ?: [], function ($fp) use ($__uid, $__staff) {
+    if (!empty($fp['is_deleted'])) return false;
+    $ms = strtolower(trim((string)($fp['mod_status'] ?? 'approved')));
+    // Публично только approved. pending/rejected — автор и staff.
+    if ($ms === 'approved') return true;
+    if ($ms === '' || $ms === '0') return true; // старые посты без колонки
+    if ($__staff) return true;
+    return $__uid > 0 && (int)($fp['user_id'] ?? 0) === $__uid;
+  }));
 } catch (Throwable $e) {
   $stmt = db()->prepare(
     'SELECT fp.*, u.username, u.role, u.avatar, u.is_verified, u.is_banned, u.gravatar_email,
@@ -103,10 +168,23 @@ $watching = $__user ? forum_thread_is_watching($threadId, (int)$__user['id']) : 
 if ($__user && $postIds) {
   forum_mark_read($threadId, (int)$__user['id'], max($postIds));
 }
-// актуальные счётчики лайков из таблицы (не только кэш-колонка)
+// актуальные счётчики лайков (batch)
 $likeCounts = [];
-foreach ($postIds as $pid) {
-  $likeCounts[$pid] = forum_post_like_count($pid);
+if ($postIds) {
+  try {
+    $in = implode(',', array_map('intval', $postIds));
+    $st = db()->query("SELECT post_id, COUNT(*) AS c FROM forum_post_likes WHERE post_id IN ($in) GROUP BY post_id");
+    while ($row = $st->fetch()) {
+      $likeCounts[(int)$row['post_id']] = (int)$row['c'];
+    }
+  } catch (Throwable $e) {
+    foreach ($postIds as $pid) {
+      $likeCounts[$pid] = function_exists('forum_post_like_count') ? forum_post_like_count((int)$pid) : 0;
+    }
+  }
+  foreach ($postIds as $pid) {
+    if (!isset($likeCounts[$pid])) $likeCounts[$pid] = 0;
+  }
 }
 
 $pageTitle = $thread['title'] . ' — Форум';
@@ -163,7 +241,7 @@ require_once __DIR__ . '/includes/header.php';
             <?php
               $__pid = (int)$p['id'];
               $__liked = in_array($__pid, $likedIds ?? [], true);
-              $__lc = (int)($likeCounts[$__pid] ?? $p['like_count'] ?? 0);
+              $__lc = (int)($likeCounts[$__pid] ?? 0); // только COUNT из forum_post_likes
             ?>
             <form method="POST" action="/forum_action" style="display:inline" class="js-forum-like-form">
               <?= csrf_field() ?>

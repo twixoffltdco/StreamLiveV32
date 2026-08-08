@@ -1,12 +1,17 @@
 <?php
+if (is_file(__DIR__."/includes/poll_throttle.php")) { require_once __DIR__."/includes/poll_throttle.php"; poll_throttle("comments_poll", 180); }
+
+if (is_file(__DIR__ . '/includes/poll_throttle.php')) {
+  require_once __DIR__ . '/includes/poll_throttle.php';
+  poll_throttle('comments_poll', 180);
+}
+
 /**
  * Автообновление комментариев канала (вкладка открыта).
  * GET channel_id, after (comment id)
  */
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
-require_once __DIR__ . '/includes/poll_throttle.php';
-if (!poll_throttle_check('comments_poll', 20, 60)) { exit; }
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 

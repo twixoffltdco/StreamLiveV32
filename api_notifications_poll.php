@@ -1,4 +1,11 @@
 <?php
+if (is_file(__DIR__."/includes/poll_throttle.php")) { require_once __DIR__."/includes/poll_throttle.php"; poll_throttle("api_notifications_poll", 180); }
+
+if (is_file(__DIR__ . '/includes/poll_throttle.php')) {
+  require_once __DIR__ . '/includes/poll_throttle.php';
+  poll_throttle('api_notifications_poll', 180);
+}
+
 /**
  * Poll непрочитанных уведомлений для браузерного push (когда вкладка открыта).
  * GET ?after=ID  → { ok, items:[{id,type,message,link,created_at}] }
@@ -6,8 +13,6 @@
  */
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/notify.php';
-require_once __DIR__ . '/includes/poll_throttle.php';
-if (!poll_throttle_check('notif_poll', 12, 60)) { exit; }
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 

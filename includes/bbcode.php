@@ -1,4 +1,6 @@
 <?php
+if (is_file(__DIR__ . '/bbcode_xenforo_extra.php')) require_once __DIR__ . '/bbcode_xenforo_extra.php';
+
 /**
  * BBCode в духе XenForo — расширенный набор + вложенность + авто-ссылки + лёгкий markdown.
  * HTML всегда экранируется до разбора тегов.
@@ -128,6 +130,8 @@ $BBCODE_SIMPLE_TAGS = [
   'small'   => '<small>$1</small>',
   'big'     => '<span style="font-size:1.25em">$1</span>',
 ];
+if (function_exists('bbcode_merge_extra_simple_tags')) { bbcode_merge_extra_simple_tags($BBCODE_SIMPLE_TAGS); }
+
 
 function bbcode_callback_tags(?int $postId = null): array {
   return [
@@ -306,7 +310,7 @@ function bbcode_callback_tags(?int $postId = null): array {
   ];
 }
 
-function bbcode_to_html(string $text, ?int $postId = null): string {
+function bbcode_to_html_core(string $text, ?int $postId = null): string {
   if ($text === '') return '';
 
   // Экранируем HTML
@@ -375,4 +379,17 @@ function bbcode_to_html(string $text, ?int $postId = null): string {
 
   $html = nl2br($html);
   return $html;
+}
+
+
+if (!function_exists('bbcode_to_html')) {
+  function bbcode_to_html($text, ?int $postId = null) {
+    $html = bbcode_to_html_core($text, $postId);
+    if (function_exists('bbcode_extra_callback_patterns') && is_string($html)) {
+      foreach (bbcode_extra_callback_patterns() as $pat => $cb) {
+        $html = preg_replace_callback($pat, $cb, $html);
+      }
+    }
+    return $html;
+  }
 }

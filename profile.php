@@ -447,6 +447,16 @@ if (strpos($extraHead, 'profile-glass') !== false) {
         ?>
         <div class="pg-name-cluster">
           <span class="pg-name-text"><?= function_exists('user_render_username_html') ? user_render_username_html($profileUser) : e($profileUser['username']) ?></span>
+          <button type="button" class="btn btn-outline btn-sm" id="sl-profile-qr-btn" style="margin-left:8px;vertical-align:middle" title="QR профиля">QR</button>
+          <div id="sl-profile-qr" style="display:none;margin-top:10px">
+            <img alt="QR" width="120" height="120" id="sl-profile-qr-img"
+              src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=<?= rawurlencode((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']!=='off'?'https':'http').'://'.($_SERVER['HTTP_HOST']??'').'/profile?username='.rawurlencode($profileUser['username'])) ?>">
+            <div style="font-size:12px;opacity:.6;margin-top:4px">Ссылка на профиль</div>
+          </div>
+          <script>
+          (function(){var b=document.getElementById('sl-profile-qr-btn');var q=document.getElementById('sl-profile-qr');
+          if(b&&q)b.addEventListener('click',function(){q.style.display=q.style.display==='none'?'block':'none';});})();
+          </script>
           <?= function_exists('verify_badge') ? verify_badge((bool)($profileUser['is_verified'] ?? false)) : '' ?>
         </div>
         <?php if (!empty($usernameHistory)): ?>

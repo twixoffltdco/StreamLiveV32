@@ -1,7 +1,12 @@
 <?php
+if (is_file(__DIR__."/includes/poll_throttle.php")) { require_once __DIR__."/includes/poll_throttle.php"; poll_throttle("chat_poll", 180); }
+
+if (is_file(__DIR__ . '/includes/poll_throttle.php')) {
+  require_once __DIR__ . '/includes/poll_throttle.php';
+  poll_throttle('chat_poll', 180);
+}
+
 require_once __DIR__ . '/includes/functions.php';
-require_once __DIR__ . '/includes/poll_throttle.php';
-if (!poll_throttle_check('chat_poll', 40, 60)) { exit; }
 header('Content-Type: application/json');
 
 $channelId = (int)($_GET['channel_id'] ?? 0);
