@@ -1,18 +1,26 @@
 <?php
 require_once __DIR__ . '/../includes/functions.php';
-require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/oauth.php';
+require_once __DIR__ . '/../includes/auth.php';
 
-$providerName = $_GET['provider'] ?? '';
+if (session_status() === PHP_SESSION_NONE) {
+  @session_start();
+}
+
+$providerName = preg_replace('/[^a-z0-9_]/i', '', (string)($_GET['provider'] ?? ''));
+if (!empty($_GET['next'])) {
+  $_SESSION['login_next'] = (string)$_GET['next'];
+}
+
 $client = OAuthClient::find($providerName);
-if (isset($_GET['next'])) {
-  $_SESSION['login_next'] = normalize_auth_redirect_target($_GET['next'], '/dashboard.php');
-}
-
 if (!$client) {
-  http_response_code(404);
-  die('Провайдер не настроен или отключён');
+  flash_set('error', 'Провайдер «' . $providerName . '» не настроен или выключен. Включите в /admin/oauth.php');
+  redirect('/auth/login.php');
 }
 
-header('Location: ' . $client->authorizeUrl());
-exit;
+if (empty($client->provider['client_id']) || empty($client->provider['client_secret'])) {
+  flash_set('error', 'У провайдера «' . $providerName . '» не заполнены Client ID / Secret');
+  redirect('/auth/login.php');
+}
+
+redirect($client->authorizeUrl());
