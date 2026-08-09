@@ -1,0 +1,8 @@
+# Вставить в КОРНЕВОЙ .htaccess (после RewriteEngine On):
+ErrorDocument 403 /error.php?c=403
+ErrorDocument 404 /error.php?c=404
+ErrorDocument 500 /error.php?c=500
+ErrorDocument 503 /error.php?c=503
+
+# На InfinityFree часть ErrorDocument может игнорироваться их панелью —
+# тогда заглушка всё равно открывается вручную: /error.php?c=404

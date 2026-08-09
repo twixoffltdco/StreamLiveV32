@@ -123,44 +123,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 db()->prepare('UPDATE forum_threads SET views = views + 1 WHERE id = ?')->execute([$threadId]);
 
+$__uid = (int)($__user['id'] ?? 0);
+$__staff = $__user && (
+  in_array($__user['role'] ?? '', ['admin', 'moderator'], true)
+  || (function_exists('is_forum_moderator') && is_forum_moderator($__user))
+  || (function_exists('cmod_is_moderator') && cmod_is_moderator($__user))
+);
+$posts = [];
 try {
+  // Важно: fp.id AS post_id — не затирать id поста через u.id AS id
   $stmt = db()->prepare(
-    'SELECT fp.*, u.username, u.role, u.avatar, u.is_verified, u.is_banned, u.gravatar_email,
-            u.id AS id, u.prefix_id, u.username_css, u.profile_cover, u.profile_status, u.session_started_at, u.last_seen_at, u.session_seconds
+    'SELECT fp.id AS post_id, fp.id, fp.thread_id, fp.user_id, fp.message, fp.created_at, fp.is_deleted,
+            fp.like_count, fp.mod_status,
+            u.username, u.role, u.avatar, u.is_verified, u.is_banned, u.gravatar_email,
+            u.prefix_id, u.username_css, u.profile_cover, u.profile_status, u.session_started_at, u.last_seen_at, u.session_seconds
      FROM forum_posts fp
      JOIN users u ON u.id = fp.user_id
-     WHERE fp.thread_id = ? AND fp.is_deleted = 0 ORDER BY fp.created_at ASC LIMIT 500'
+     WHERE fp.thread_id = ? AND fp.is_deleted = 0
+     ORDER BY fp.created_at ASC LIMIT 500'
   );
   $stmt->execute([$threadId]);
   $posts = $stmt->fetchAll() ?: [];
-  $__uid = (int)($__user['id'] ?? 0);
-  $__staff = $__user && (in_array($__user['role'] ?? '', ['admin','moderator'], true) || (function_exists('is_forum_moderator') && is_forum_moderator($__user)));
-  $__uid = (int)($__user['id'] ?? 0);
-  $__staff = $__user && (
-    in_array($__user['role'] ?? '', ['admin', 'moderator'], true)
-    || (function_exists('is_forum_moderator') && is_forum_moderator($__user))
-    || (function_exists('cmod_is_moderator') && cmod_is_moderator($__user))
-  );
-  $posts = array_values(array_filter($posts ?: [], function ($fp) use ($__uid, $__staff) {
-    if (!empty($fp['is_deleted'])) return false;
-    $ms = strtolower(trim((string)($fp['mod_status'] ?? 'approved')));
-    // Публично только approved. pending/rejected — автор и staff.
-    if ($ms === 'approved') return true;
-    if ($ms === '' || $ms === '0') return true; // старые посты без колонки
+} catch (Throwable $e) {
+  try {
+    $stmt = db()->prepare(
+      'SELECT fp.*, u.username, u.role, u.avatar, u.is_verified, u.is_banned, u.gravatar_email
+       FROM forum_posts fp JOIN users u ON u.id = fp.user_id
+       WHERE fp.thread_id = ? AND fp.is_deleted = 0 ORDER BY fp.created_at ASC LIMIT 500'
+    );
+    $stmt->execute([$threadId]);
+    $posts = $stmt->fetchAll() ?: [];
+  } catch (Throwable $e2) {
+    $posts = [];
+  }
+}
+// Публично ТОЛЬКО approved. pending / rejected / всё остальное — автор и staff.
+$posts = array_values(array_filter($posts ?: [], function ($fp) use ($__uid, $__staff) {
+  if (!empty($fp['is_deleted'])) return false;
+  $ms = strtolower(trim((string)($fp['mod_status'] ?? 'approved')));
+  if ($ms === 'approved') return true;
+  // Старые посты без значения колонки — только если явно пусто и нет в очереди; по умолчанию не светим pending-слова
+  if ($ms === 'pending' || $ms === 'rejected' || $ms === 'reject') {
     if ($__staff) return true;
     return $__uid > 0 && (int)($fp['user_id'] ?? 0) === $__uid;
-  }));
-} catch (Throwable $e) {
-  $stmt = db()->prepare(
-    'SELECT fp.*, u.username, u.role, u.avatar, u.is_verified, u.is_banned, u.gravatar_email,
-            u.username_css, u.prefix_id, u.custom_prefix_id, u.profile_cover_url, u.profile_status_text,
-            u.nick_decor_url, u.nick_decor_pos, u.id AS id
-     FROM forum_posts fp JOIN users u ON u.id = fp.user_id
-     WHERE fp.thread_id = ? AND fp.is_deleted = 0 ORDER BY fp.created_at ASC LIMIT 500'
-  );
-  $stmt->execute([$threadId]);
-  $posts = $stmt->fetchAll();
-}
+  }
+  // пустой mod_status у очень старых — показываем (до миграции)
+  if ($ms === '' || $ms === '0') return true;
+  if ($__staff) return true;
+  return $__uid > 0 && (int)($fp['user_id'] ?? 0) === $__uid;
+}));
 
 $postIds = array_map(static function ($row) { return (int)$row['id']; }, $posts);
 $likedIds = ($__user && $postIds) ? forum_user_liked_posts((int)$__user['id'], $postIds) : [];
