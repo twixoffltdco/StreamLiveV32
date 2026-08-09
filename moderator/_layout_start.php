@@ -9,6 +9,7 @@ require_moderator();
     <a href="/moderator/mod_requests">Запросы на подтверждение</a>
     <a href="/moderator/flagged">Скрыть/восстановить канал</a>
     <a href="/moderator/videos">Модерация видео</a>
+    <a href="/content_moderation_panel.php">Модерация контента</a>
     <a href="/moderator/users">Пользователи</a>
       <a href="/moderator/resources">Ресурсы</a>
     <a href="/moderator/verification_requests.php">Верификация</a>

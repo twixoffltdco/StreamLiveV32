@@ -195,13 +195,32 @@ function cmod_vote(?array $u, int $queueId, string $vote): array {
 }
 
 function cmod_apply_target(array $item, string $final): void {
-  $type = $item['target_type'] ?? '';
+  $type = (string)($item['target_type'] ?? '');
   $id = (int)($item['target_id'] ?? 0);
   if ($id <= 0) return;
-  $table = $type === 'video' ? 'videos' : ($type === 'post' ? 'forum_posts' : 'forum_threads');
+  $map = [
+    'video' => 'videos',
+    'post' => 'forum_posts',
+    'thread' => 'forum_threads',
+  ];
+  $table = $map[$type] ?? 'forum_threads';
   try {
     db()->prepare("UPDATE `$table` SET mod_status = ? WHERE id = ?")->execute([$final, $id]);
   } catch (Throwable $e) {}
+  // Отклонённый пост/тема — скрыть из ленты (is_deleted), чтобы не светился даже при сбое фильтра
+  if ($final === 'rejected' && in_array($type, ['post', 'thread'], true)) {
+    try {
+      if ($type === 'post') {
+        db()->prepare('UPDATE forum_posts SET is_deleted = 1, mod_status = ? WHERE id = ?')->execute(['rejected', $id]);
+      } else {
+        db()->prepare('UPDATE forum_threads SET is_deleted = 1, mod_status = ? WHERE id = ?')->execute(['rejected', $id]);
+      }
+    } catch (Throwable $e) {
+      try {
+        db()->prepare("UPDATE `$table` SET mod_status = 'rejected' WHERE id = ?")->execute([$id]);
+      } catch (Throwable $e2) {}
+    }
+  }
   if ($type === 'video') {
     try {
       if ($final === 'approved') {
