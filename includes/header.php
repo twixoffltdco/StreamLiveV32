@@ -65,7 +65,7 @@ $__canonical = SITE_URL . ($_SERVER['REQUEST_URI'] ?? '/');
 ?>
 <html lang="ru" class="<?= $__light ? 'light-mode' : '' ?>"<?= $__light ? ' data-pl-skin="light"' : '' ?>>
 <head>
-  <script src="/assets/js/theme-boot.js?v=1"></script>
+  <script src="/assets/js/theme-boot.js?v=20260809p"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><?= e($pageTitle) ?> — <?= e(SITE_NAME) ?></title>
@@ -84,7 +84,7 @@ $__canonical = SITE_URL . ($_SERVER['REQUEST_URI'] ?? '/');
   <link rel="stylesheet" href="/assets/css/light-mode.css?v=<?= file_exists(__DIR__ . '/../assets/css/light-mode.css') ? filemtime(__DIR__ . '/../assets/css/light-mode.css') : time() ?>">
 
 <?php /* light-force всегда в DOM — стили только под html.light-mode */ ?>
-  <link id="sl-light-force" rel="stylesheet" href="/assets/css/light-force.css?v=20260809full<?= @filemtime(__DIR__ . '/../assets/css/light-force.css') ?: time() ?>">
+  <link id="sl-light-force" rel="stylesheet" href="/assets/css/light-force.css?v=20260809p'/../assets/css/light-force.css') ?: time() ?>">
 
 <script src="/assets/js/live-theme.js?v=20260803lt1" defer></script>
   <?php if (!empty($extraHead)) echo $extraHead; ?>
@@ -442,7 +442,7 @@ if (month === 12 || month === 1 || month === 2) { // Winter
     </button>
   </div>
 </nav>
-<script src="/assets/js/theme-toggle.js?v=1" defer></script>
+<script src="/assets/js/theme-toggle.js?v=20260809p" defer></script>
 
 <?php foreach ($__flash as $type => $msg): ?>
   <div class="container"><div class="alert alert-<?= e($type) ?>"><?= e($msg) ?></div></div>

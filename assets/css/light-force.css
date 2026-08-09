@@ -171,3 +171,58 @@ html.light-mode .plyr {
   background: #000 !important;
   color: #fff !important;
 }
+
+
+/* === FIX: мобилка + ПК переключатель светлая/тёмная === */
+html.light-mode,
+html[data-pl-skin="light"] {
+  -webkit-text-size-adjust: 100%;
+}
+
+html.light-mode .mobile-nav,
+html.light-mode .pl-yt-bottom,
+html.light-mode .tg-bottom,
+html.light-mode .bottom-nav,
+html[data-pl-skin="light"] .mobile-nav,
+html[data-pl-skin="light"] .pl-yt-bottom {
+  background: #ffffff !important;
+  color: #111827 !important;
+  border-top-color: #e5e7eb !important;
+}
+
+html.light-mode .mobile-nav a,
+html.light-mode .pl-yt-bottom a,
+html.light-mode .tg-bottom a,
+html.light-mode .bottom-nav a {
+  color: #111827 !important;
+}
+
+html.light-mode .card,
+html.light-mode .form-card,
+html.light-mode .st-panel,
+html.light-mode .panel {
+  background: #ffffff !important;
+  color: #111827 !important;
+  border-color: #e5e7eb !important;
+}
+
+html.light-mode .btn,
+html.light-mode button.btn {
+  color: inherit;
+}
+
+/* кнопка темы всегда кликабельна на мобилке */
+#color-mode-toggle {
+  position: relative;
+  z-index: 50;
+  min-width: 40px;
+  min-height: 36px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* тёмная тема — не оставлять белые пятна после переключения */
+html:not(.light-mode) body,
+html[data-pl-skin="dark"] body {
+  color-scheme: dark;
+}

@@ -29,6 +29,18 @@ function user_display_ensure_schema(): void {
     try { db()->exec("ALTER TABLE user_prefixes ADD COLUMN `{$col}` {$def}"); } catch (Throwable $e) {}
   }
 
+  // После миграции БД is_system=0 у всех — один раз помечаем старые общие префиксы как системные
+  try {
+    $sysCnt = (int)db()->query("SELECT COUNT(*) FROM user_prefixes WHERE COALESCE(is_system,0)=1")->fetchColumn();
+    if ($sysCnt === 0) {
+      db()->exec(
+        "UPDATE user_prefixes SET is_system=1, is_active=1
+         WHERE COALESCE(is_personal,0)=0
+           AND (owner_user_id IS NULL OR owner_user_id=0)"
+      );
+    }
+  } catch (Throwable $e) {}
+
   // До 3 префиксов на пользователя (связь many-to-many)
   try {
     db()->exec("CREATE TABLE IF NOT EXISTS user_prefix_map (
@@ -191,32 +203,35 @@ function user_resolve_id(array $user): int {
  */
 function user_prefixes_system_list(bool $onlyActive = true): array {
   user_display_ensure_schema();
-  // Снять is_system с названий каналов (мусор)
+
+  // Названия каналов — не системные префиксы (только флаг, НЕ выключаем is_active чужие)
   try {
     $chTitles = [];
     foreach (db()->query("SELECT title FROM channels")->fetchAll(PDO::FETCH_COLUMN) ?: [] as $ct) {
       $k = function_exists('mb_strtolower') ? mb_strtolower(trim((string)$ct)) : strtolower(trim((string)$ct));
       if ($k !== '') $chTitles[$k] = true;
     }
-    foreach (db()->query("SELECT id, title FROM user_prefixes")->fetchAll() ?: [] as $r) {
-      $tk = function_exists('mb_strtolower') ? mb_strtolower(trim((string)($r['title'] ?? ''))) : strtolower(trim((string)($r['title'] ?? '')));
-      if ($tk !== '' && !empty($chTitles[$tk])) {
-        db()->prepare('UPDATE user_prefixes SET is_system=0 WHERE id=?')->execute([(int)$r['id']]);
+    if ($chTitles) {
+      foreach (db()->query("SELECT id, title FROM user_prefixes WHERE COALESCE(is_system,0)=1")->fetchAll() ?: [] as $r) {
+        $tk = function_exists('mb_strtolower') ? mb_strtolower(trim((string)($r['title'] ?? ''))) : strtolower(trim((string)($r['title'] ?? '')));
+        if ($tk !== '' && !empty($chTitles[$tk])) {
+          db()->prepare('UPDATE user_prefixes SET is_system=0 WHERE id=?')->execute([(int)$r['id']]);
+        }
       }
     }
   } catch (Throwable $e) {}
+
   $rows = [];
   try {
-    // Предпочтительно is_system=1
-    $sql = "SELECT * FROM user_prefixes WHERE COALESCE(is_system,0)=1 AND COALESCE(is_personal,0)=0
-            AND (owner_user_id IS NULL OR owner_user_id=0)";
+    $sql = "SELECT * FROM user_prefixes WHERE COALESCE(is_system,0)=1 AND COALESCE(is_personal,0)=0";
     if ($onlyActive) $sql .= " AND is_active=1";
     $sql .= " ORDER BY sort_order ASC, id ASC";
     $rows = db()->query($sql)->fetchAll() ?: [];
   } catch (Throwable $e) {
     $rows = [];
   }
-  // Если is_system ещё ни у кого не проставлен — fallback: не personal + не title канала
+
+  // Fallback: если is_system ни у кого — все общие не-personal (старые после переноса БД)
   if (!$rows) {
     try {
       $sql = "SELECT * FROM user_prefixes WHERE COALESCE(is_personal,0)=0 AND (owner_user_id IS NULL OR owner_user_id=0)";
@@ -238,8 +253,18 @@ function user_prefixes_system_list(bool $onlyActive = true): array {
       if ($tk !== '' && !empty($ch[$tk])) continue;
       $rows[] = $r;
     }
+    // Авто-пометка, чтобы в следующий раз is_system работал
+    if ($rows) {
+      try {
+        $ids = array_map(static function ($r) { return (int)$r['id']; }, $rows);
+        $ids = array_filter($ids);
+        if ($ids) {
+          db()->exec('UPDATE user_prefixes SET is_system=1 WHERE id IN (' . implode(',', $ids) . ')');
+        }
+      } catch (Throwable $e) {}
+    }
   } else {
-    // даже с is_system — выкинуть title=канал на всякий
+    // выкинуть title=канал из выдачи
     $ch = [];
     try {
       foreach (db()->query("SELECT title FROM channels")->fetchAll(PDO::FETCH_COLUMN) ?: [] as $ct) {
