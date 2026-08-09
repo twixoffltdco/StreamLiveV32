@@ -11,7 +11,7 @@ user_display_ensure_schema();
 try { db()->exec('ALTER TABLE user_prefixes ADD COLUMN is_system TINYINT(1) NOT NULL DEFAULT 0'); } catch (Throwable $e) {}
 try { db()->exec('ALTER TABLE user_prefixes ADD COLUMN is_personal TINYINT(1) NOT NULL DEFAULT 0'); } catch (Throwable $e) {}
 
-// Снять is_system с названий каналов (тихо, без кнопки)
+// Названия каналов не считаем системными префиксами (только is_system=0, is_active НЕ трогаем)
 try {
   $ch = [];
   foreach (db()->query('SELECT title FROM channels')->fetchAll(PDO::FETCH_COLUMN) ?: [] as $ct) {
@@ -21,7 +21,7 @@ try {
   foreach (db()->query('SELECT id, title FROM user_prefixes')->fetchAll() ?: [] as $r) {
     $tk = function_exists('mb_strtolower') ? mb_strtolower(trim((string)($r['title'] ?? ''))) : strtolower(trim((string)($r['title'] ?? '')));
     if ($tk !== '' && !empty($ch[$tk])) {
-      db()->prepare('UPDATE user_prefixes SET is_system=0, is_active=0 WHERE id=?')->execute([(int)$r['id']]);
+      db()->prepare('UPDATE user_prefixes SET is_system=0 WHERE id=?')->execute([(int)$r['id']]);
     }
   }
 } catch (Throwable $e) {}

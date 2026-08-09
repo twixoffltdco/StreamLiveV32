@@ -65,6 +65,7 @@ $__canonical = SITE_URL . ($_SERVER['REQUEST_URI'] ?? '/');
 ?>
 <html lang="ru" class="<?= $__light ? 'light-mode' : '' ?>"<?= $__light ? ' data-pl-skin="light"' : '' ?>>
 <head>
+  <script src="/assets/js/theme-boot.js?v=20260809p"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><?= e($pageTitle) ?> — <?= e(SITE_NAME) ?></title>
@@ -82,9 +83,8 @@ $__canonical = SITE_URL . ($_SERVER['REQUEST_URI'] ?? '/');
   <?php require_once __DIR__ . '/themes.php'; $__activeTheme = themes_active(); if ($__activeTheme): ?><link rel="stylesheet" href="<?= e($__activeTheme['css']) ?>?v=<?= time() ?>"><?php endif; ?>
   <link rel="stylesheet" href="/assets/css/light-mode.css?v=<?= file_exists(__DIR__ . '/../assets/css/light-mode.css') ? filemtime(__DIR__ . '/../assets/css/light-mode.css') : time() ?>">
 
-<?php if (!empty($__light) || (($_COOKIE['site_color_mode'] ?? '') === 'light') || (($_COOKIE['pl_skin'] ?? '') === 'light')): ?>
-  <link rel="stylesheet" href="/assets/css/light-force.css?v=20260803lf2<?= @filemtime(__DIR__ . '/../assets/css/light-force.css') ?: time() ?>">
-<?php endif; ?>
+<?php /* light-force всегда в DOM — стили только под html.light-mode */ ?>
+  <link id="sl-light-force" rel="stylesheet" href="/assets/css/light-force.css?v=20260809p'/../assets/css/light-force.css') ?: time() ?>">
 
 <script src="/assets/js/live-theme.js?v=20260803lt1" defer></script>
   <?php if (!empty($extraHead)) echo $extraHead; ?>
@@ -106,6 +106,40 @@ $__canonical = SITE_URL . ($_SERVER['REQUEST_URI'] ?? '/');
   .sl-top-disclaimer strong { color: #fde68a; font-weight: 600; }
   .sl-top-disclaimer a { color: #fde68a; text-decoration: underline; }
 </style>
+
+<style id="sl-theme-hint-css">
+  .sl-theme-hint {
+    background: rgba(34,211,238,.12);
+    border-bottom: 1px solid rgba(34,211,238,.28);
+    color: #a5f3fc;
+    font-size: 12.5px;
+    line-height: 1.45;
+    padding: 8px 14px;
+    text-align: center;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  html.light-mode .sl-theme-hint {
+    background: rgba(14,116,144,.1);
+    border-bottom-color: rgba(14,116,144,.25);
+    color: #0e7490;
+  }
+  .sl-theme-hint strong { font-weight: 600; }
+  .sl-theme-hint button {
+    border: 1px solid rgba(255,255,255,.25);
+    background: transparent;
+    color: inherit;
+    border-radius: 8px;
+    padding: 4px 12px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  html.light-mode .sl-theme-hint button { border-color: rgba(14,116,144,.35); }
+</style>
+
 </head>
 
 <!-- Seasonal effects -->
@@ -151,7 +185,7 @@ if (month === 12 || month === 1 || month === 2) { // Winter
   to { transform: translateY(100vh); }
 }
 </style>
-<body>
+<body<?= !empty($__light) ? ' class="light-mode" data-pl-skin="light"' : ' data-pl-skin="dark"' ?>>
 
 <?php if (empty($__hide_disclaimer)): ?>
 <div class="sl-top-disclaimer" role="note">
@@ -159,6 +193,27 @@ if (month === 12 || month === 1 || month === 2) { // Winter
   Мы отвечаем за публикацию контента: материалы проходят модерацию, при нарушении правил публикация может быть отклонена или снята.
 </div>
 <?php endif; ?>
+
+<?php if (empty($__hide_theme_hint) && empty($_COOKIE['sl_theme_hint_dismiss'])): ?>
+<div class="sl-theme-hint" id="sl-theme-hint" role="note">
+  <span>Если тема или вёрстка отображаются криво — <strong>сбросьте cookies и кэш браузера</strong> для этого сайта, затем обновите страницу.</span>
+  <button type="button" id="sl-theme-hint-close">Понятно</button>
+</div>
+<script>
+(function () {
+  var b = document.getElementById('sl-theme-hint-close');
+  if (!b) return;
+  b.addEventListener('click', function () {
+    var c = 'sl_theme_hint_dismiss=1;path=/;max-age=' + (365 * 24 * 60 * 60) + ';SameSite=Lax';
+    if (location.protocol === 'https:') c += ';Secure';
+    document.cookie = c;
+    var el = document.getElementById('sl-theme-hint');
+    if (el) el.remove();
+  });
+})();
+</script>
+<?php endif; ?>
+
 
 
 <?php if (is_file(__DIR__ . '/extension_top_link.php')): ?>
@@ -387,37 +442,8 @@ if (month === 12 || month === 1 || month === 2) { // Winter
     </button>
   </div>
 </nav>
-<script>
-(function () {
-  var btn = document.getElementById('color-mode-toggle');
-  if (!btn) return;
-  btn.addEventListener('click', function () {
-    var isLight = document.documentElement.classList.toggle('light-mode');
-    document.cookie = 'site_color_mode=' + (isLight ? 'light' : 'dark') + ';path=/;max-age=' + (60 * 60 * 24 * 365);
-    document.cookie = 'pl_skin=' + (isLight ? 'light' : 'dark') + ';path=/;max-age=' + (60 * 60 * 24 * 365);
-    document.cookie = 'pl_preset=;path=/;max-age=0';
-    document.documentElement.setAttribute('data-pl-skin', isLight ? 'light' : 'dark');
-    if (document.body) {
-      document.body.setAttribute('data-pl-skin', isLight ? 'light' : 'dark');
-      document.documentElement.style.colorScheme = isLight ? 'light' : 'dark';
-    }
-    // подключить/снять light-force без перезагрузки
-    var lf = document.getElementById('sl-light-force');
-    if (isLight && !lf) {
-      lf = document.createElement('link');
-      lf.id = 'sl-light-force';
-      lf.rel = 'stylesheet';
-      lf.href = '/assets/css/light-force.css?v=20260803lf5';
-      document.head.appendChild(lf);
-    } else if (!isLight && lf) {
-      lf.remove();
-    }
-    if (typeof window.__plApplySkin === 'function') window.__plApplySkin();
-    else if (typeof applySkin === 'function') applySkin();
-    btn.textContent = isLight ? '🌙' : '☀️';
-  });
-})();
-</script>
+<script src="/assets/js/theme-toggle.js?v=20260809p" defer></script>
+
 <?php foreach ($__flash as $type => $msg): ?>
   <div class="container"><div class="alert alert-<?= e($type) ?>"><?= e($msg) ?></div></div>
 <?php endforeach; ?>
