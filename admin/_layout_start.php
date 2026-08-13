@@ -5,8 +5,9 @@ require_admin();
 <div class="admin-shell">
   <div class="admin-sidebar">
     <a href="/admin/index.php">Обзор</a>
+    <a href="/admin/transfer_ownership.php">Передача контента</a>
     <a href="/admin/moderation.php">Модерация каналов</a>
-    <a href="/moderation_content.php">Модерация контента</a>
+    <a href="/content_moderation_panel.php">Модерация контента</a>
     <a href="/admin/security.php">Безопасность (2FA)</a>
     <a href="/admin/maintenance.php">Техработы</a>
     <a href="/admin/channels.php">Все каналы</a>

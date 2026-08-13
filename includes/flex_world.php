@@ -86,6 +86,15 @@ function flex_world_ip_hash(): string {
 
 function flex_world_has_crown(int $uid): bool {
   if ($uid <= 0) return false;
+  // Партнёрская подписка (partners) → корона в Flex World
+  try {
+    if (is_file(__DIR__ . '/partners.php')) {
+      require_once __DIR__ . '/partners.php';
+      if (function_exists('partners_has_active_sub') && partners_has_active_sub($uid)) {
+        return true;
+      }
+    }
+  } catch (Throwable $e) {}
   foreach ([
     "SELECT 1 FROM paid_activations WHERE user_id=? AND expires_at > NOW() LIMIT 1",
     "SELECT 1 FROM channel_promo_activations WHERE user_id=? AND expires_at > NOW() LIMIT 1",

@@ -3,6 +3,7 @@ require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/service_helpers.php';
 require_once __DIR__ . '/includes/bbcode.php';
+if (is_file(__DIR__ . '/includes/content_moderation.php')) require_once __DIR__ . '/includes/content_moderation.php';
 $__user = current_user();
 
 $threadId = (int)($_GET['id'] ?? 0);
@@ -34,8 +35,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   if ($action === 'reply' && $__user && !$thread['is_locked']) {
     $message = trim(mb_substr($_POST['message'] ?? '', 0, 2000000));
     if ($message !== '') {
-      db()->prepare('INSERT INTO forum_posts (thread_id, user_id, message) VALUES (?, ?, ?)')->execute([$threadId, $__user['id'], $message]);
-      db()->prepare('UPDATE forum_threads SET last_post_at = NOW() WHERE id = ?')->execute([$threadId]);
+      $postId = 0;
+      try {
+        db()->prepare('INSERT INTO forum_posts (thread_id, user_id, message, mod_status) VALUES (?, ?, ?, ?)')
+          ->execute([$threadId, $__user['id'], $message, 'pending']);
+        $postId = (int)db()->lastInsertId();
+      } catch (Throwable $e) {
+        db()->prepare('INSERT INTO forum_posts (thread_id, user_id, message) VALUES (?, ?, ?)')
+          ->execute([$threadId, $__user['id'], $message]);
+        $postId = (int)db()->lastInsertId();
+        try { db()->prepare("UPDATE forum_posts SET mod_status='pending' WHERE id=?")->execute([$postId]); } catch (Throwable $e2) {}
+      }
+      if ($postId > 0 && function_exists('cmod_enqueue')) {
+        try { cmod_enqueue('post', $postId, (int)$__user['id'], (string)$thread['title'], mb_substr($message, 0, 300)); } catch (Throwable $e) {}
+      }
+      // last_post_at только после approve — но чтобы тема не «умерла», обновляем у автора
+      try { db()->prepare('UPDATE forum_threads SET last_post_at = NOW() WHERE id = ?')->execute([$threadId]); } catch (Throwable $e) {}
     }
   } elseif ($action === 'delete_post' && $isForumModerator) {
     db()->prepare('UPDATE forum_posts SET is_deleted = 1 WHERE id = ? AND thread_id = ?')->execute([(int)$_POST['post_id'], $threadId]);
@@ -52,13 +67,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 db()->prepare('UPDATE forum_threads SET views = views + 1 WHERE id = ?')->execute([$threadId]);
 
-$stmt = db()->prepare(
-  'SELECT fp.*, u.username, u.role, u.avatar, u.is_verified, u.is_banned, u.gravatar_email FROM forum_posts fp
-   JOIN users u ON u.id = fp.user_id
-   WHERE fp.thread_id = ? AND fp.is_deleted = 0 ORDER BY fp.created_at ASC LIMIT 500'
-);
-$stmt->execute([$threadId]);
-$posts = $stmt->fetchAll();
+$posts = [];
+try {
+  $stmt = db()->prepare(
+    'SELECT fp.*, u.username, u.role, u.avatar, u.is_verified, u.is_banned, u.gravatar_email FROM forum_posts fp
+     JOIN users u ON u.id = fp.user_id
+     WHERE fp.thread_id = ? AND fp.is_deleted = 0 ORDER BY fp.created_at ASC LIMIT 500'
+  );
+  $stmt->execute([$threadId]);
+  $posts = $stmt->fetchAll() ?: [];
+} catch (Throwable $e) { $posts = []; }
+$__uid = (int)($__user['id'] ?? 0);
+$__staff = $__user && (in_array(($__user['role'] ?? ''), ['admin','moderator'], true) || (function_exists('is_forum_moderator') && is_forum_moderator($__user)));
+$posts = array_values(array_filter($posts, function ($fp) use ($__uid, $__staff) {
+  $ms = strtolower(trim((string)($fp['mod_status'] ?? 'approved')));
+  if ($ms === 'approved' || $ms === '' || $ms === '0') return true;
+  if ($__staff) return true;
+  return $__uid > 0 && (int)($fp['user_id'] ?? 0) === $__uid;
+}));
 
 $pageTitle = $thread['title'] . ' — Форум';
 require_once __DIR__ . '/includes/header.php';

@@ -391,29 +391,44 @@ function scrollToPrev() {
 }
 
 // ======== ЧАТ ========
+// Не даём вертикальному свайпу shorts «съесть» жест внутри панели чата
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.short-chat-panel').forEach(function(panel) {
+    panel.addEventListener('touchstart', function(e) { e.stopPropagation(); }, { passive: true });
+    panel.addEventListener('touchmove', function(e) { e.stopPropagation(); }, { passive: true });
+  });
+});
+
 function toggleChat(id) {
     const panel = document.getElementById(`chat-panel-${id}`);
+    if (!panel) return;
     panel.classList.toggle('active');
     if (panel.classList.contains('active')) {
         activeChats.add(id);
-        if (!lastMessageIds[id]) {
-            lastMessageIds[id] = 0;
-            pollChat(id);
-        }
-    } else {
-        activeChats.delete(id);
-    }
-}
-
-async function pollChat(id) {
+        // всегда перезапускаем опрос при открытии (фикс «вечная загрузка» после свайпа)
+        lastMessageIds[id] = 0;
+        const boasync function pollChat(id) {
     if (!activeChats.has(id)) return;
     try {
-        const resp = await fetch(`/chat_poll.php?channel_id=${id}&after=${lastMessageIds[id] || 0}`);
-        if (!resp.ok) { setTimeout(() => pollChat(id), 3000); return; }
+        const after = lastMessageIds[id] || 0;
+        const resp = await fetch('/chat_poll.php?channel_id=' + encodeURIComponent(id) + '&after=' + encodeURIComponent(after), {
+            credentials: 'same-origin',
+            cache: 'no-store'
+        });
+        if (!resp.ok) {
+            const box = document.getElementById('chat-messages-' + id);
+            if (box && after === 0) box.innerHTML = '<div style="opacity:.7;padding:8px">Чат временно недоступен. Нажмите 💬 ещё раз.</div>';
+            setTimeout(() => pollChat(id), 4000);
+            return;
+        }
         const data = await resp.json();
-        const box = document.getElementById(`chat-messages-${id}`);
+        const box = document.getElementById('chat-messages-' + id);
         if (!box) return;
-        (data.messages || []).forEach(m => {
+        if (after === 0) {
+            box.innerHTML = '';
+            box.dataset.ready = '1';
+        }
+(data.messages || []).forEach(m => {
             const row = document.createElement('div');
             row.className = 'chat-msg';
             row.dataset.id = m.id;

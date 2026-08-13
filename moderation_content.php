@@ -26,9 +26,9 @@ $items = [];
 try {
   $sql = "SELECT q.*, u.username FROM content_moderation_queue q
           JOIN users u ON u.id = q.user_id
-          WHERE q.status = 'pending' AND q.target_type IN ('thread','post')";
+          WHERE q.status = 'pending' AND q.target_type IN ('thread','post','video','resource')";
   $params = [];
-  if (in_array($type, ['thread', 'post'], true)) {
+  if (in_array($type, ['thread', 'post', 'video', 'resource'], true)) {
     $sql .= ' AND q.target_type = ?';
     $params[] = $type;
   }

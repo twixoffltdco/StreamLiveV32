@@ -96,7 +96,7 @@ function cmod_can_act(?array $u): array {
     $row = $st->fetch();
     if ($row) {
       $t = strtotime((string)$row['created_at']);
-      $wait = 100 * 3600;
+      $wait = 200 * 3600; // модератор: 1 действие / 200 ч; админ без лимита
       if ($t && (time() - $t) < $wait) {
         $h = (int)ceil(($wait - (time() - $t)) / 3600);
         return ['ok' => false, 'error' => "Лимит модератора: ~{$h} ч"];
@@ -115,14 +115,14 @@ function cmod_log_action(int $uid, string $action): void {
 function cmod_enqueue(string $type, int $id, int $userId, string $title = '', string $snippet = ''): void {
   try {
     cmod_ensure_schema();
-    $type = in_array($type, ['thread', 'post', 'video'], true) ? $type : 'thread';
+    $type = in_array($type, ['thread', 'post', 'video', 'resource'], true) ? $type : 'thread';
     db()->prepare(
       "INSERT INTO content_moderation_queue (target_type, target_id, user_id, title, snippet, status)
        VALUES (?,?,?,?,?,'pending')
        ON DUPLICATE KEY UPDATE status='pending', title=VALUES(title), snippet=VALUES(snippet),
          decided_at=NULL, approve_count=0, reject_count=0"
     )->execute([$type, $id, $userId, mb_substr($title, 0, 255), mb_substr($snippet, 0, 500)]);
-    $table = $type === 'video' ? 'videos' : ($type === 'post' ? 'forum_posts' : 'forum_threads');
+    $table = $type === 'video' ? 'videos' : ($type === 'post' ? 'forum_posts' : ($type === 'resource' ? 'resources' : 'forum_threads'));
     try {
       db()->prepare("UPDATE `$table` SET mod_status = 'pending' WHERE id = ?")->execute([$id]);
     } catch (Throwable $e) {}
@@ -132,7 +132,7 @@ function cmod_enqueue(string $type, int $id, int $userId, string $title = '', st
 function cmod_set_approved(string $type, int $id): void {
   try {
     cmod_ensure_schema();
-    $table = $type === 'video' ? 'videos' : ($type === 'post' ? 'forum_posts' : 'forum_threads');
+    $table = $type === 'video' ? 'videos' : ($type === 'post' ? 'forum_posts' : ($type === 'resource' ? 'resources' : 'forum_threads'));
     db()->prepare("UPDATE `$table` SET mod_status = 'approved' WHERE id = ?")->execute([$id]);
   } catch (Throwable $e) {}
 }

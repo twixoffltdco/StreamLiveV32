@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/resources.php';
 require_once __DIR__ . '/includes/auth.php';
+if (is_file(__DIR__ . '/includes/content_moderation.php')) require_once __DIR__ . '/includes/content_moderation.php';
 $u = require_login(); $error = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   csrf_verify();
@@ -12,7 +13,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $tags = trim(mb_substr($_POST['tags'] ?? '', 0, 500));
   if ($title === '' || !filter_var($external, FILTER_VALIDATE_URL)) $error = 'Укажите название и корректную ссылку на ресурс.';
   elseif ($download !== '' && !filter_var($download, FILTER_VALIDATE_URL)) $error = 'Ссылка скачивания должна быть корректным URL.';
-  else { $slugBase = resource_slug($title); $slug = $slugBase; $i = 2; resources_ensure_table(); while (resource_find($slug, true)) { $slug = $slugBase . '-' . $i++; } [$repoFull, $repoStars, $repoLang] = resource_fetch_github_meta($external); db()->prepare('INSERT INTO resources (user_id, slug, title, summary, readme, external_url, download_url, repo_full_name, repo_stars, repo_language, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')->execute([$u['id'],$slug,$title,$summary,$readme,$external,$download ?: $external,$repoFull,$repoStars,$repoLang,$tags]); redirect('/resource.php?slug=' . urlencode($slug)); }
+  else { $slugBase = resource_slug($title); $slug = $slugBase; $i = 2; resources_ensure_table(); while (resource_find($slug, true)) { $slug = $slugBase . '-' . $i++; } [$repoFull, $repoStars, $repoLang] = resource_fetch_github_meta($external); db()->prepare('INSERT INTO resources (user_id, slug, title, summary, readme, external_url, download_url, repo_full_name, repo_stars, repo_language, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')->execute([$u['id'],$slug,$title,$summary,$readme,$external,$download ?: $external,$repoFull,$repoStars,$repoLang,$tags]); $newId = (int)db()->lastInsertId();
+        try { db()->prepare("UPDATE resources SET mod_status='pending' WHERE id=?")->execute([$newId]); } catch (Throwable $e) {}
+        if ($newId > 0 && function_exists('cmod_enqueue')) {
+          try { cmod_enqueue('resource', $newId, (int)$u['id'], $title, mb_substr($summary, 0, 300)); } catch (Throwable $e) {}
+        }
+        redirect('/resource.php?slug=' . urlencode($slug)); }
 }
 $pageTitle = 'Новый ресурс'; require_once __DIR__ . '/includes/header.php';
 ?>

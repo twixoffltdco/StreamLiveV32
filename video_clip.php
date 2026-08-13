@@ -2,6 +2,7 @@
 /** Создать клип/Short из видео (метаданные start/end, отдельная запись) */
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
+if (is_file(__DIR__ . '/includes/content_moderation.php')) require_once __DIR__ . '/includes/content_moderation.php';
 $u = current_user();
 if (!$u) { flash_set('error','Войдите'); redirect('/auth/login.php'); }
 
@@ -9,7 +10,11 @@ $id = (int)($_GET['id'] ?? $_POST['video_id'] ?? 0);
 $st = db()->prepare('SELECT * FROM videos WHERE id = ?');
 $st->execute([$id]);
 $video = $st->fetch();
-if (!$video) { flash_set('error','Видео не найдено'); redirect('/videos.php'); }
+if (!$video) { flash_set('error','Видео не найдено'); $__newVid = (int)db()->lastInsertId();
+  if ($__newVid > 0 && function_exists('cmod_enqueue')) {
+    try { cmod_enqueue('video', $__newVid, (int)($__user['id'] ?? 0), (string)($title ?? 'clip'), ''); } catch (Throwable $e) {}
+  }
+  redirect('/videos.php'); }
 
 $ownerOk = (int)($video['user_id'] ?? 0) === (int)$u['id']
   || in_array(($u['role'] ?? ''), ['admin'], true);

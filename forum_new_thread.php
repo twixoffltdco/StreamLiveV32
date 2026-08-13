@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
+if (is_file(__DIR__ . '/includes/content_moderation.php')) require_once __DIR__ . '/includes/content_moderation.php';
 $__user = require_login();
 
 $categoryId = (int)($_GET['category_id'] ?? $_POST['category_id'] ?? 0);
@@ -31,7 +32,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $pdo->prepare('INSERT INTO forum_posts (thread_id, user_id, message) VALUES (?, ?, ?)')
       ->execute([$threadId, $__user['id'], $message]);
     $pdo->commit();
-    redirect('/forum_thread.php?id=' . $threadId);
+    
+  if (function_exists('cmod_enqueue') && $threadId > 0) {
+    try { cmod_enqueue('thread', $threadId, (int)$__user['id'], $title, mb_substr($message, 0, 300)); } catch (Throwable $e) {}
+    try { db()->prepare("UPDATE forum_threads SET mod_status='pending' WHERE id=?")->execute([$threadId]); } catch (Throwable $e) {}
+    try {
+      $pid = (int)db()->query('SELECT id FROM forum_posts WHERE thread_id='.(int)$threadId.' ORDER BY id ASC LIMIT 1')->fetchColumn();
+      if ($pid > 0) {
+        cmod_enqueue('post', $pid, (int)$__user['id'], $title, mb_substr($message, 0, 300));
+        db()->prepare("UPDATE forum_posts SET mod_status='pending' WHERE id=?")->execute([$pid]);
+      }
+    } catch (Throwable $e) {}
+  }
+  redirect('/forum_thread.php?id=' . $threadId);
   }
   flash_set('error', 'Укажите заголовок темы и текст сообщения');
 }
