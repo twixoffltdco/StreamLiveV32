@@ -9,11 +9,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $channel = $stmt->fetch();
     if ($channel) {
       $reason = trim($_POST['reason'] ?? '') ?: 'Нарушение правил платформы';
-      db()->prepare("UPDATE channels SET status='rejected', reject_reason=? WHERE id=?")->execute([$reason, $id]);
+      db()->prepare("UPDATE channels SET status='rejected', reject_reason=?, locked_by_admin=1 WHERE id=?")->execute([$reason, $id]);
       db()->prepare('INSERT INTO notifications (user_id, channel_id, type, message) VALUES (?, ?, "channel_rejected", ?)')
         ->execute([$channel['owner_id'], $id, "Канал «{$channel['title']}» снят с публикации: {$reason}"]);
-      flash_set('success', 'Канал снят с публикации');
+      flash_set('success', 'Канал снят с публикации — решение зафиксировано за администратором, модератор не сможет одобрить его обратно');
     }
+  } elseif ($_POST['action'] === 'restore') {
+    // Отменить своё же решение может только сам админ — снимает и статус, и блокировку.
+    db()->prepare("UPDATE channels SET status='approved', reject_reason=NULL, locked_by_admin=0 WHERE id=?")->execute([$id]);
+    flash_set('success', 'Канал восстановлен администратором');
   } elseif ($_POST['action'] === 'delete') {
     db()->prepare('DELETE FROM channels WHERE id = ?')->execute([$id]);
     flash_set('success', 'Канал удалён');

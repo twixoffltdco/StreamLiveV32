@@ -1,0 +1,2 @@
+В footer.php замени ссылку Flex Blocks / flexblocks на:
+<a href="/flexlox/">Flexlox</a>

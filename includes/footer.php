@@ -39,7 +39,7 @@ $__cur = in_array($__scriptName, ['index.php', 'catalog.php', 'channel.php', 'ch
 
 <footer class="site-footer">
   <div class="container site-footer-inner">
-    <span>© <?= date('Y') ?> <?= e(SITE_NAME) ?></span>
+    <span>© <?= date('Y') ?> <?= e(SITE_NAME) ?> · сделано с <span style="color:#e53935">❤</span> — <a href="https://oinktechltd.tatnet.app" target="_blank" rel="noopener" style="color:inherit">ТОО OinkTech Ltd Co and Twixoff</a></span>
     <nav class="site-footer-links">
       <a href="/docs">Документация</a>
       <a href="/legal/terms">Условия использования</a>
@@ -47,8 +47,15 @@ $__cur = in_array($__scriptName, ['index.php', 'catalog.php', 'channel.php', 'ch
       <a href="/legal/cookies">Cookie</a>
       <a href="/smotrim">Smotrim</a>
       <a href="/streamtok">StreamTok</a>
+      <a href="/platforma/">Платформа</a>
+      <a href="https://t.me/streamliveru" target="_blank" rel="noopener">Telegram</a>
+      <a href="https://max.ru/channel_StreamLive" target="_blank" rel="noopener">MAX</a>
+      <a href="https://vk.com/streamlivetv" target="_blank" rel="noopener">ВК</a>
+      <a href="https://vk.com/tvstreamlivetv" target="_blank" rel="noopener">ВК зеркало</a>
+      <a href="https://vk.com/tvstreamlive" target="_blank" rel="noopener">ВК зеркало 2</a>
     </nav>
   </div>
+ <a href="/battle_pass.php">Battle Pass</a></div>
 </footer>
 <div id="cookie-consent" class="cookie-banner" style="display:none">
   <div class="cookie-banner-text">
@@ -131,6 +138,14 @@ document.addEventListener('click', function (e) {
         }
     </script>
  <!-- Клавиатура для тв -->
-<?php if (function_exists('themes_active')) { $__activeTheme = themes_active(); if (!empty($__activeTheme['footer']) && is_file(themes_dir() . '/' . $__activeTheme['footer'])) include themes_dir() . '/' . $__activeTheme['footer']; } ?>
+<?php if (function_exists('themes_active')) { $__activeTheme = themes_active(); if (!empty($__activeTheme['footer'])) theme_safe_include(themes_dir() . '/' . $__activeTheme['footer']); } ?>
+<script src="/assets/js/hits-guard.js?v=hits2"></script>
+<script src="/assets/js/push-notify.js?v=6" defer></script>
+
+<div class="site-legal-note" style="text-align:center;font-size:11px;color:var(--text-dim,#888);padding:10px 16px 18px;max-width:720px;margin:0 auto;line-height:1.45">
+  Сайт не осуществляет трансляцию теле- и радиоэфиров. Материалы публикуют пользователи (владельцы каналов); администрация платформы не является вещателем и не несёт ответственности за контент вне платформы.
+</div>
+
+<script src="/assets/js/vibe.js?v=20260809fix"></script>
 </body>
 </html>

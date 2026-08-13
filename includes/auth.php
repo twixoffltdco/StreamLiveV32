@@ -1,5 +1,11 @@
 <?php
 require_once __DIR__ . '/functions.php';
+if (is_file(__DIR__ . '/brands.php')) {
+  require_once __DIR__ . '/brands.php';
+}
+if (is_file(__DIR__ . '/prod_hardening.php')) {
+  require_once __DIR__ . '/prod_hardening.php';
+}
 
 function ensure_auth_schema(): void {
   static $done = false;
@@ -32,6 +38,33 @@ function ensure_auth_schema(): void {
   }
 }
 ensure_auth_schema();
+if (function_exists('sl_maintenance_guard')) {
+  try { sl_maintenance_guard(); } catch (\Throwable $e) {}
+}
+
+function auth_canonical_path(?string $path): string {
+  $path = '/' . ltrim((string)($path ?: '/'), '/');
+  if ($path !== '/' && substr($path, -1) === '/') {
+    $path = rtrim($path, '/');
+  }
+  if (substr($path, -4) === '.php') {
+    $path = substr($path, 0, -4);
+  }
+  return $path ?: '/';
+}
+
+function auth_path_is(array $paths, ?string $currentPath = null): bool {
+  $current = auth_canonical_path($currentPath ?? parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH));
+  foreach ($paths as $path) {
+    if ($current === auth_canonical_path($path)) return true;
+  }
+  return false;
+}
+
+function auth_path_starts_with(string $prefix, ?string $currentPath = null): bool {
+  $current = auth_canonical_path($currentPath ?? parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH));
+  return strpos($current, auth_canonical_path($prefix)) === 0;
+}
 
 function normalize_auth_redirect_target($next, string $fallback = '/dashboard.php'): string {
   if (!is_string($next)) return $fallback;
@@ -43,7 +76,7 @@ function normalize_auth_redirect_target($next, string $fallback = '/dashboard.ph
     '/auth/login.php', '/auth/register.php', '/auth/2fa_setup.php', '/auth/2fa_verify.php',
     '/auth/oauth_start.php', '/auth/oauth_callback.php', '/auth/logout.php',
   ];
-  if (in_array($nextPath, $blockedExact, true) || strpos($nextPath, '/admin/') === 0) return $fallback;
+  if (auth_path_is($blockedExact, $nextPath) || auth_path_starts_with('/admin/', $nextPath)) return $fallback;
 
   return $next;
 }
@@ -65,21 +98,57 @@ function current_user(): ?array {
   if ($loaded) return $user;
   $loaded = true;
   if (empty($_SESSION['user_id'])) return null;
+  // StreamLive бренды: действия от имени бренд-аккаунта (act-as)
+  if (!empty($_SESSION['brand_act_as'])) {
+    try {
+      if (!function_exists('brands_ensure_schema')) {
+        $bf = __DIR__ . '/brands.php';
+        if (is_file($bf)) require_once $bf;
+      }
+      if (function_exists('brands_can_manage') && brands_can_manage((int)$_SESSION['user_id'], (int)$_SESSION['brand_act_as'])) {
+        $stmt = db()->prepare('SELECT * FROM users WHERE id = ? AND is_brand = 1');
+        $stmt->execute([(int)$_SESSION['brand_act_as']]);
+        $brand = $stmt->fetch() ?: null;
+        if ($brand && empty($brand['is_banned'])) {
+          $user = $brand;
+          return $user;
+        }
+      }
+    } catch (Throwable $e) { /* fallback personal */ }
+    unset($_SESSION['brand_act_as']);
+  }
   $stmt = db()->prepare('SELECT * FROM users WHERE id = ?');
   $stmt->execute([$_SESSION['user_id']]);
   $user = $stmt->fetch() ?: null;
-  if ($user && $user['is_banned']) { $user = null; }
+  // is_banned или soft-delete (удаление аккаунта / бренда)
+  if ($user && (!empty($user['is_banned']) || !empty($user['deleted_at']))) {
+    $user = null;
+  }
   return $user;
 }
 
 function login_user(int $userId): void {
-  session_regenerate_id(true);
+  if (session_status() === PHP_SESSION_ACTIVE) {
+    @session_regenerate_id(false);
+  }
   $_SESSION['user_id'] = $userId;
+  unset($_SESSION['brand_act_as']); // всегда начинаем с личного аккаунта
+
+  // Снимаем автостоп задеплоенных сервисов (30 дней неактивности) — раньше такой функции
+  // не было вообще, и услуга оставалась "приостановлена" навсегда, даже если владелец
+  // возвращался и активно пользовался платформой. Не трогает сервисы, заблокированные
+  // модератором вручную за нарушение (см. deployed_services_resume_for_user()).
+  try {
+    require_once __DIR__ . '/service_helpers.php';
+    deployed_services_resume_for_user($userId);
+  } catch (\Throwable $e) { }
+
   require_once __DIR__ . '/gamification.php';
   register_daily_activity($userId);
 }
 
 function logout_user(): void {
+  unset($_SESSION['brand_act_as']);
   $_SESSION = [];
   session_destroy();
 }
@@ -92,7 +161,7 @@ function require_login(): array {
   }
   $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
   $allowedWhilePending = ['/auth/force_password_change.php', '/auth/logout.php'];
-  if (!empty($user['must_change_password']) && !in_array($currentPath, $allowedWhilePending, true)) {
+  if (!empty($user['must_change_password']) && !auth_path_is($allowedWhilePending, $currentPath)) {
     redirect('/auth/force_password_change.php');
   }
   return $user;
@@ -184,7 +253,7 @@ function enforce_2fa_gate(): void {
     '/ai_send.php', '/ai_project_save.php',
     '/message_poll.php', '/message_send.php',
   ];
-  if (in_array($path, $allowed, true)) return;
+  if (auth_path_is($allowed, $path)) return;
 
   try {
     if (!empty($_SESSION['pending_2fa_user_id'])) {
@@ -232,8 +301,8 @@ function enforce_phone_gate(): void {
     '/ai_send.php', '/ai_project_save.php',
     '/message_poll.php', '/message_send.php', '/broadcast_post_poll.php', '/broadcast_post_send.php',
   ];
-  if (in_array($path, $allowed, true)) return;
-  if (strpos((string)$path, '/admin/') === 0) return;
+  if (auth_path_is($allowed, $path)) return;
+  if (auth_path_starts_with('/admin/', $path)) return;
 
   try {
     $stmt = db()->prepare('SELECT phone FROM users WHERE id = ?');

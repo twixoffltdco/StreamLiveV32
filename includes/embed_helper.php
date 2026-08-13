@@ -2,6 +2,27 @@
 // Обычная ссылка на YouTube/VK/Rutube (не embed-формат) блокируется браузером в iframe
 // из-за X-Frame-Options — пользователь видит "отказано в подключении" вместо плеера.
 // Приводим известные форматы к embed-варианту автоматически при сохранении источника.
+// Поддержка ?file= для доверенных пользователей: некоторые ссылки на медиа приходят
+// обёрнутыми в чужую плеер-страницу вида .../embed?file=https://cdn.example.com/video.m3u8
+// (частый формат у JW Player и похожих встраиваемых плееров). Пытаться встроить саму
+// страницу-обёртку как <video src="..."> не сработает — это HTML-страница, а не поток.
+// Достаём реальную ссылку на поток из параметра file, если он есть.
+function extract_file_param_url(string $url): ?string {
+  $parts = parse_url($url);
+  if (empty($parts['query'])) return null;
+  parse_str($parts['query'], $query);
+  if (empty($query['file'])) return null;
+  $inner = trim((string)$query['file']);
+  // Параметр может быть ещё раз urlencode'нут — пробуем раскодировать, если похоже на это.
+  if (strpos($inner, '%3A%2F%2F') !== false || strpos($inner, '%2F') !== false) {
+    $decoded = urldecode($inner);
+    if (filter_var($decoded, FILTER_VALIDATE_URL)) $inner = $decoded;
+  }
+  $looksLikeMedia = preg_match('/\.(m3u8|mp4|mpd)(\?.*)?$/i', $inner)
+    || stripos($inner, 'https://') === 0 || stripos($inner, 'file://') === 0;
+  return $looksLikeMedia ? $inner : null;
+}
+
 function normalize_embed_url(string $type, string $url): string {
   try {
     if ($type === 'youtube') {

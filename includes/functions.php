@@ -17,11 +17,13 @@ if (session_status() === PHP_SESSION_NONE) {
   // таймауту (часто ~24 минуты бездействия), и долгая кука была бы бесполезна.
   $__sessionLifetime = 60 * 60 * 24 * 30;
   ini_set('session.gc_maxlifetime', (string)$__sessionLifetime);
+  // secure=false: одна сессия и на http:// и на https:// (иначе на HTTP «не в аккаунте»)
+  // На free-хосте часто открывают оба варианта; Secure-cookie с HTTPS на HTTP не отправляется.
   session_set_cookie_params([
     'lifetime' => $__sessionLifetime,
     'path' => '/',
     'domain' => '',
-    'secure' => $__isHttps,
+    'secure' => false,
     'httponly' => true,
     'samesite' => 'Lax',
   ]);
@@ -329,6 +331,38 @@ function render_with_stickers(string $message, array $stickers = []): string {
 // Проверка номера телефона: без SMS-подтверждения (по требованию), но формат должен
 // быть похож на настоящий международный номер, а не мусор вроде "12345".
 // Возвращает нормализованный номер (+79991234567) либо null, если формат не похож на реальный.
+
+
+/**
+ * Опциональная проверка номера через внешний API.
+ * settings: phone_verify_api_key + phone_verify_api_url
+ * По умолчанию только format (normalize_phone). Без ключа — всегда true.
+ */
+function phone_verify_external(string $e164): bool {
+  $key = '';
+  $url = '';
+  try {
+    if (function_exists('get_setting')) {
+      $key = trim((string)get_setting('phone_verify_api_key', ''));
+      $url = trim((string)get_setting('phone_verify_api_url', ''));
+    }
+  } catch (Throwable $e) {}
+  if ($key === '' || $url === '') return true;
+  // Пример: numverify-style ?access_key=&number=
+  $endpoint = $url . (strpos($url, '?') !== false ? '&' : '?') . http_build_query([
+    'access_key' => $key,
+    'number' => ltrim($e164, '+'),
+  ]);
+  $ctx = stream_context_create(['http' => ['timeout' => 4, 'ignore_errors' => true]]);
+  $raw = @file_get_contents($endpoint, false, $ctx);
+  if ($raw === false) return true; // сеть недоступна — не блокируем регистрацию
+  $data = json_decode($raw, true);
+  if (!is_array($data)) return true;
+  if (array_key_exists('valid', $data)) return (bool)$data['valid'];
+  if (array_key_exists('success', $data) && $data['success'] === false) return false;
+  return true;
+}
+
 function normalize_phone(string $raw): ?string {
   $digits = preg_replace('/[^\d+]/', '', $raw);
   $digits = preg_replace('/(?!^)\+/', '', $digits); // + разрешён только в начале
@@ -344,12 +378,51 @@ function table_column_exists(string $table, string $column): bool {
   return (bool)$stmt->fetchColumn();
 }
 
+// Место в общем рейтинге по XP (та же метрика, что и в rating.php). Используется для баннера
+// "твоё место в рейтинге" в профиле и мессенджере.
+function user_rank(int $userId): ?int {
+  $stmt = db()->prepare('SELECT xp FROM users WHERE id = ?');
+  $stmt->execute([$userId]);
+  $xp = $stmt->fetchColumn();
+  if ($xp === false) return null;
+  $stmt2 = db()->prepare('SELECT COUNT(*) + 1 FROM users WHERE xp > ? AND is_banned = 0');
+  $stmt2->execute([$xp]);
+  return (int)$stmt2->fetchColumn();
+}
+
+function rating_place_banner(int $userId): string {
+  try {
+    $place = user_rank($userId);
+  } catch (\Throwable $e) { return ''; }
+  if (!$place) return '';
+  return '<div class="rating-place-banner" style="display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,rgba(255,193,7,.18),rgba(255,152,0,.10));border:1px solid rgba(255,193,7,.4);border-radius:10px;padding:6px 12px;font-size:13px;margin:8px 0">'
+    . '🏆 Ваше место в рейтинге: <b><a href="/rating" style="color:inherit">#' . (int)$place . '</a></b></div>';
+}
+
 function user_avatar_url(array $user, int $size = 96): string {
-  $email = trim((string)($user['gravatar_email'] ?? ''));
-  if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
-    return 'https://www.gravatar.com/avatar/' . md5(strtolower($email)) . '?s=' . max(24, min(512, $size)) . '&d=mp';
+  $size = max(24, min(512, $size));
+  // 1) Прямой URL / путь аватарки (GitHub OAuth, загрузка, внешняя ссылка)
+  $avatar = trim((string)($user['avatar'] ?? ''));
+  if ($avatar !== '' && $avatar !== 'null' && $avatar !== 'undefined') {
+    // относительный путь
+    if ($avatar[0] === '/' || preg_match('#^https?://#i', $avatar)) {
+      return $avatar;
+    }
+    // иногда хранят без ведущего /
+    if (strpos($avatar, 'uploads/') === 0 || strpos($avatar, 'storage/') === 0 || strpos($avatar, 'assets/') === 0) {
+      return '/' . ltrim($avatar, '/');
+    }
+    // github-like raw path
+    return $avatar;
   }
-  return $user['avatar'] ?: '/assets/img/avatar-placeholder.png';
+  // 2) Gravatar по email
+  $email = trim((string)($user['gravatar_email'] ?? $user['email'] ?? ''));
+  if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    return 'https://www.gravatar.com/avatar/' . md5(strtolower($email)) . '?s=' . $size . '&d=identicon';
+  }
+  // 3) Стабильный placeholder по username (не пустота)
+  $seed = rawurlencode((string)($user['username'] ?? $user['id'] ?? 'user'));
+  return 'https://www.gravatar.com/avatar/' . md5(strtolower($seed . '@streamlive.local')) . '?s=' . $size . '&d=identicon';
 }
 
 // Единый компонент "аватарка + ник" — как на YouTube/TikTok, чтобы везде на сайте
@@ -357,24 +430,55 @@ function user_avatar_url(array $user, int $size = 96): string {
 // а не по-разному в каждом шаблоне. $size — диаметр кружка в пикселях.
 function render_user_badge(array $user, int $size = 28, bool $link = true): string {
   $avatar = user_avatar_url($user, $size * 2); // берём с запасом на retina-экраны
-  $name = e($user['username'] ?? 'Гость');
   $verified = !empty($user['is_verified']) ? verify_badge(true) : '';
-  $banned = !empty($user['is_banned'])
-    ? ' <span class="user-banned-badge" title="Аккаунт заблокирован на платформе" style="color:var(--danger);font-size:11px;border:1px solid var(--danger);border-radius:8px;padding:0 5px">заблокирован</span>'
-    : '';
-  $img = '<img src="' . e($avatar) . '" alt="" style="width:' . $size . 'px;height:' . $size . 'px;border-radius:50%;object-fit:cover;flex-shrink:0" loading="lazy">';
-  $inner = $img . '<span style="font-weight:600">' . $name . '</span>' . $verified . $banned;
-  $style = 'display:inline-flex;align-items:center;gap:8px;text-decoration:none;color:inherit';
-  if ($link && !empty($user['username'])) {
-    return '<a href="/profile.php?username=' . urlencode($user['username']) . '" style="' . $style . '">' . $inner . '</a>';
+  $frameCls = '';
+  if (is_file(__DIR__ . '/vibe.php')) {
+    require_once __DIR__ . '/vibe.php';
+    if (function_exists('vibe_nick_frame_class')) $frameCls = vibe_nick_frame_class($user);
   }
-  return '<span style="' . $style . '">' . $inner . '</span>';
+  $img = '<span class="vibe-avatar-wrap' . ($frameCls !== '' ? ' ' . e($frameCls) : '') . '" style="width:' . $size . 'px;height:' . $size . 'px;flex-shrink:0">'
+    . '<img src="' . e($avatar) . '" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover' . (!empty($user['is_banned']) ? ';filter:grayscale(1);opacity:.6' : '') . '" loading="lazy" onerror="this.onerror=null;this.src=\'https://www.gravatar.com/avatar/?d=identicon&s=' . $size . '\'">'
+    . '</span>';
+  if (function_exists('user_render_username_html')) {
+    $nameHtml = user_render_username_html($user);
+  } else {
+    $nameHtml = '<span style="font-weight:600">' . e($user['username'] ?? 'Гость') . '</span>';
+  }
+  $inner = $img . $nameHtml . $verified;
+  $style = 'display:inline-flex;align-items:center;gap:8px;text-decoration:none;color:inherit';
+  $row = $link && !empty($user['username'])
+    ? '<a href="/profile?username=' . urlencode($user['username']) . '" style="' . $style . '">' . $inner . '</a>'
+    : '<span style="' . $style . '">' . $inner . '</span>';
+
+  if (empty($user['is_banned'])) return $row;
+
+  // Настоящий заметный баннер, а не мелкая подпись — раньше здесь была едва заметная пилюля
+  // рядом с ником, которую легко не увидеть. Теперь везде (форум, комментарии видео, посты
+  // каналов-рассылок) одинаково явно, как уже было в профиле и в личных сообщениях.
+  return '<div>' . $row .
+    '<div class="banned-user-notice" style="margin-top:4px;display:flex;align-items:center;gap:6px;background:rgba(255,71,87,0.12);border:1px solid var(--danger);border-radius:8px;padding:4px 10px;font-size:12px;color:var(--danger)">' .
+    '⛔ Этот аккаунт заблокирован на платформе. Мы не несём ответственности за действия пользователя вне платформы.' .
+    '</div></div>';
 }
 
 function ensure_user_gravatar_column(): void {
   if (!table_column_exists('users', 'gravatar_email')) {
     db()->exec('ALTER TABLE users ADD COLUMN gravatar_email VARCHAR(191) DEFAULT NULL');
   }
+}
+
+// То же самое, что ensure_user_gravatar_column(), но для ТВ/радио каналов — Gravatar и
+// обложка/баннер канала (sql/migrations/027_channel_gravatar_cover.sql). Пробуем максимум
+// раз за время жизни процесса — не гонять ALTER на каждый заход на страницу канала.
+function ensure_sources_direct_type(): void {
+  static $checked = false;
+  if ($checked) return;
+  $checked = true;
+  try {
+    if (get_setting('sources_direct_type_v1') === '1') return;
+    db()->exec("ALTER TABLE sources MODIFY COLUMN type ENUM('mp4','m3u8','youtube','vk','rutube','iframe','direct') NOT NULL");
+    set_setting('sources_direct_type_v1', '1');
+  } catch (\Throwable $e) { /* нет прав ALTER — залей sql/migrations/031_sources_direct_type.sql руками через phpMyAdmin */ }
 }
 
 // То же самое, что ensure_user_gravatar_column(), но для ТВ/радио каналов — Gravatar и
@@ -435,6 +539,43 @@ function recommended_channels(?array $user, ?int $currentId = null, int $limit =
 // Значок верификации (галочка как в Telegram) рядом с ником — выдаётся вручную в админке.
 function verify_badge(bool $isVerified): string {
   return $isVerified ? ' <span class="verify-badge" title="Подтверждённый аккаунт"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.4 16.7 4.9 12.2l1.8-1.8 2.7 2.7 7.9-7.9 1.8 1.8z"/></svg></span>' : '';
+}
+
+// Список известных краулеров/ИИ-агентов — используется антидудосом/антиботом ниже (чтобы не
+// показывать им JS-проверку/капчу/страницу перегрузки, которую они физически не могут пройти),
+// и модулем "кто сейчас на сайте". Объявлено здесь, а не в stats.php, потому что stats.php
+// подключается значительно позже antibot.php/ddos_shield.php — этой функции нужна уже на
+// первом запросе.
+//
+// ВАЖНО: DeepSeek принципиально НЕ публикует свой User-Agent — его запросы неотличимы от
+// обычного браузера в логах. Список ниже НЕ решает видимость для DeepSeek по самому User-Agent
+// — для него единственный надёжный способ не блокировать — не показывать ни JS-проверку,
+// ни "занято" ЛЮБОМУ читающему GET-запросу без крайней необходимости (см. ddos_concurrency_guard()
+// и ddos_under_attack_mode_enabled() ниже).
+function crawler_ua_map(): array {
+  return [
+    'Googlebot' => 'googlebot', 'YandexBot' => 'yandexbot', 'Bingbot' => 'bingbot',
+    'DuckDuckBot' => 'duckduckbot', 'Baiduspider' => 'baiduspider', 'AhrefsBot' => 'ahrefsbot',
+    'SemrushBot' => 'semrushbot', 'MJ12bot' => 'mj12bot', 'Bytespider' => 'bytespider',
+    'PetalBot' => 'petalbot', 'Applebot' => 'applebot', 'DotBot' => 'dotbot', 'Mail.Ru' => 'mail.ru',
+    'SputnikBot' => 'sputnikbot', 'proximic' => 'proximic',
+    'GPTBot' => 'GPTBot', 'ChatGPT-User' => 'ChatGPT-User', 'OAI-SearchBot' => 'OAI-SearchBot',
+    'ClaudeBot' => 'ClaudeBot', 'Claude-User' => 'Claude-User', 'Claude-SearchBot' => 'Claude-SearchBot',
+    'PerplexityBot' => 'PerplexityBot', 'Perplexity-User' => 'Perplexity-User',
+    'MistralAI-User' => 'MistralAI-User', 'Google-Extended' => 'Google-Extended',
+    'Applebot-Extended' => 'Applebot-Extended', 'Meta-ExternalAgent' => 'Meta-ExternalAgent',
+    'facebookexternalhit' => 'facebookexternalhit', 'TelegramBot' => 'TelegramBot',
+    'YouBot' => 'YouBot', 'Amazonbot' => 'Amazonbot',
+    'curl' => 'curl/', 'python-requests' => 'python-requests', 'Wget' => 'Wget/',
+  ];
+}
+
+function is_known_crawler_ua(string $userAgent): bool {
+  if ($userAgent === '') return false;
+  foreach (crawler_ua_map() as $needle) {
+    if (stripos($userAgent, $needle) !== false) return true;
+  }
+  return false;
 }
 
 // Второй слой защиты — от перегрузки БД при всплеске одновременных запросов и от

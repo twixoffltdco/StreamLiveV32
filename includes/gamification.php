@@ -3,8 +3,7 @@
 // растёт total_active_days и xp. При достижении 4000 дней активности счётчик дней
 // уходит в 0, а cycle_number увеличивается (как "престиж"/новый круг) — накопленный
 // XP и ранг при этом НЕ обнуляются, обнуляется только счётчик дней текущего круга.
-// Если нужна другая логика (например, полный сброс XP при новом круге) — это
-// единственное место, где это нужно поменять (см. register_daily_activity).
+// Пропуск сессии/дня сбрасывает только login_streak, XP и ранг сохраняются.
 
 // Лесенка рангов. Можно свободно переименовать/перенастроить пороги под систему ProHub.
 const XP_RANKS = [
@@ -44,7 +43,11 @@ function get_rank_for_xp(int $xp): array {
 // была активна). Начисляет XP не чаще раза в календарные сутки.
 // Возвращает null, если сегодня уже засчитано, либо массив с данными для баннера-приветствия.
 function register_daily_activity(int $userId): ?array {
-  $stmt = db()->prepare('SELECT xp, total_active_days, cycle_number, login_streak_days, last_active_date FROM users WHERE id = ?');
+  if (!table_column_exists('users', 'longest_login_streak')) {
+    try { db()->exec('ALTER TABLE users ADD COLUMN longest_login_streak INT NOT NULL DEFAULT 0'); } catch (\Throwable $e) { }
+  }
+
+  $stmt = db()->prepare('SELECT xp, total_active_days, cycle_number, login_streak_days, longest_login_streak, last_active_date FROM users WHERE id = ?');
   $stmt->execute([$userId]);
   $u = $stmt->fetch();
   if (!$u) return null;
@@ -53,10 +56,13 @@ function register_daily_activity(int $userId): ?array {
   if ($u['last_active_date'] === $today) return null; // уже засчитано сегодня
 
   $yesterday = date('Y-m-d', strtotime('-1 day'));
-  $streak = ($u['last_active_date'] === $yesterday) ? (int)$u['login_streak_days'] + 1 : 1;
-
-  $xpGain = 20 + min($streak, 30) * 2;
-
+  // Пропуск дня/сессии → сбрасывается ТОЛЬКО streak (серия входов).
+  // XP, ранг, total_active_days, cycle, префиксы, роль — НЕ трогаем.
+  $cameYesterday = ($u['last_active_date'] === $yesterday);
+  $streak = $cameYesterday ? ((int)$u['login_streak_days'] + 1) : 1;
+  $longestStreak = max((int)($u['longest_login_streak'] ?? 0), $streak);
+  // База 20 XP + бонус за серию (только если не пропустил)
+  $xpGain = 20 + ($cameYesterday ? min($streak, 30) * 2 : 0);
   $activeDays = (int)$u['total_active_days'] + 1;
   $cycle = (int)$u['cycle_number'];
   if ($activeDays >= CYCLE_LENGTH_DAYS) {
@@ -64,10 +70,18 @@ function register_daily_activity(int $userId): ?array {
     $cycle += 1;
   }
 
-  db()->prepare('UPDATE users SET xp = xp + ?, total_active_days = ?, cycle_number = ?, login_streak_days = ?, last_active_date = ? WHERE id = ?')
-    ->execute([$xpGain, $activeDays, $cycle, $streak, $today, $userId]);
+  // Важно: xp = xp + ?, а не xp = 20 — иначе ранг падает в «Новичок»
+  db()->prepare(
+    'UPDATE users SET xp = xp + ?, total_active_days = ?, cycle_number = ?, login_streak_days = ?, longest_login_streak = ?, last_active_date = ? WHERE id = ?'
+  )->execute([$xpGain, $activeDays, $cycle, $streak, $longestStreak, $today, $userId]);
 
-  return ['xp_gained' => $xpGain, 'streak' => $streak, 'new_place' => get_user_rating_place($userId)];
+  return [
+    'xp_gained' => $xpGain,
+    'streak' => $streak,
+    'longest_streak' => $longestStreak,
+    'streak_broken' => !$cameYesterday && !empty($u['last_active_date']),
+    'new_place' => get_user_rating_place($userId),
+  ];
 }
 
 function get_user_gamification(int $userId): ?array {
