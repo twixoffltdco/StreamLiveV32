@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/user_display.php';
+require_once __DIR__ . '/includes/contacts.php';
+contacts_ensure_schema();
 require_once __DIR__ . '/includes/oauth.php';
 $__user = require_login();
 
@@ -38,7 +41,7 @@ $peerIds = array_column($conversations, 'peer_id');
 $peers = [];
 if ($peerIds) {
   $in = implode(',', array_fill(0, count($peerIds), '?'));
-  $stmt = db()->prepare("SELECT id, username, avatar, gravatar_email FROM users WHERE id IN ($in)");
+  $stmt = db()->prepare("SELECT id, username, avatar, gravatar_email, is_banned, is_verified, username_css, prefix_id, custom_prefix_id, nick_decor_url, nick_decor_pos FROM users WHERE id IN ($in)");
   $stmt->execute($peerIds);
   foreach ($stmt->fetchAll() as $p) { $peers[$p['id']] = $p; }
 }
@@ -49,7 +52,7 @@ if ($activeConvId && !in_array($activeConvId, array_column($conversations, 'conv
   $stmt->execute([$__user['id'], $activeConvId]);
   $pid = $stmt->fetchColumn();
   if ($pid && !isset($peers[$pid])) {
-    $stmt = db()->prepare('SELECT id, username, avatar, gravatar_email FROM users WHERE id = ?');
+    $stmt = db()->prepare('SELECT id, username, avatar, gravatar_email, is_banned, is_verified, username_css, prefix_id, custom_prefix_id, nick_decor_url, nick_decor_pos FROM users WHERE id = ?');
     $stmt->execute([$pid]);
     if ($row = $stmt->fetch()) { $peers[$pid] = $row; }
   }
@@ -92,12 +95,37 @@ if (!empty($__user['oauth_provider']) && $__user['oauth_provider'] === 'vk' && !
 }
 
 $pageTitle = 'Сообщения';
+
+// Состояние контактов/блока для активного диалога
+$peerContact = false;
+$peerMutual = false;
+$peerBlockedByMe = false;
+$peerBlockedMe = false;
+$peerIsStranger = true;
+$activePeerId = 0;
+if ($activeConvId) {
+  foreach ($conversations as $c) {
+    if ((int)$c['conv_id'] === (int)$activeConvId) {
+      $activePeerId = (int)$c['peer_id'];
+      break;
+    }
+  }
+}
+if ($activePeerId > 0) {
+  $peerContact = contacts_is_contact((int)$__user['id'], $activePeerId);
+  $peerMutual = contacts_are_mutual((int)$__user['id'], $activePeerId);
+  $peerBlockedByMe = contacts_is_blocked((int)$__user['id'], $activePeerId);
+  $peerBlockedMe = contacts_is_blocked($activePeerId, (int)$__user['id']);
+  $peerIsStranger = !$peerContact;
+}
+
 require_once __DIR__ . '/includes/header.php';
 ?>
 <div class="container">
   <div class="msg-shell">
     <aside class="msg-sidebar">
       <h2 style="margin:0 0 14px">Сообщения</h2>
+      <?= rating_place_banner((int)$__user['id']) ?>
 
       <div class="msg-search-box">
         <input type="text" id="msg-user-search" placeholder="Найти человека по нику…" autocomplete="off">
@@ -140,7 +168,7 @@ require_once __DIR__ . '/includes/header.php';
           <a href="/messages.php?conv=<?= (int)$c['conv_id'] ?>" class="msg-conv-item <?= $activeConvId === (int)$c['conv_id'] ? 'active' : '' ?>">
             <img src="<?= e(user_avatar_url($peer, 48)) ?>" alt="" onerror="this.style.display='none'">
             <div class="msg-conv-meta">
-              <b><?= e($peer['username']) ?></b>
+              <b style="font-weight:600"><?= function_exists('user_render_username_html') ? user_render_username_html($peer) : e($peer['username']) ?><?= function_exists('verify_badge') ? verify_badge(!empty($peer['is_verified'])) : '' ?></b>
               <span><?= e(mb_strimwidth((string)($c['last_body'] ?? 'Начните переписку'), 0, 34, '…')) ?></span>
             </div>
             <?php if ($c['unread'] > 0): ?><span class="msg-unread-badge"><?= (int)$c['unread'] ?></span><?php endif; ?>
@@ -154,7 +182,7 @@ require_once __DIR__ . '/includes/header.php';
           <?php foreach ($suggestions as $s): ?>
             <a href="/messages.php?with=<?= (int)$s['id'] ?>" class="msg-suggest-item">
               <img src="<?= e(user_avatar_url($s, 48)) ?>" alt="" onerror="this.style.display='none'">
-              <span><?= e($s['username']) ?></span>
+              <span><?= function_exists('user_render_username_html') ? user_render_username_html($s) : e($s['username']) ?></span>
               <b>Написать</b>
             </a>
           <?php endforeach; ?>
@@ -168,10 +196,47 @@ require_once __DIR__ . '/includes/header.php';
           <p>Выберите диалог слева или начните новый со страницы пользователя.</p>
         </div>
       <?php else: $peer = $peers[$conversations[array_search($activeConvId, array_column($conversations, 'conv_id'))]['peer_id']] ?? null; ?>
-        <div class="msg-chat-header">
+        <div class="msg-chat-header" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:10px;min-width:0">
           <?php if ($peer): ?>
-            <img src="<?= e(user_avatar_url($peer, 48)) ?>" alt="" onerror="this.style.display='none'">
-            <b><?= e($peer['username']) ?></b>
+            <a href="/profile.php?username=<?= e(urlencode($peer['username'])) ?>" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;min-width:0">
+              <img src="<?= e(user_avatar_url($peer, 48)) ?>" alt="" onerror="this.style.display='none'" style="width:40px;height:40px;border-radius:50%;object-fit:cover;<?= !empty($peer['is_banned']) ? 'filter:grayscale(1);opacity:.6' : '' ?>">
+              <div style="min-width:0">
+                <b style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%"><?= function_exists('user_render_username_html') ? user_render_username_html($peer) : e($peer['username']) ?><?= function_exists('verify_badge') ? verify_badge(!empty($peer['is_verified'])) : '' ?></b>
+                <?php if ($peerMutual): ?>
+                  <span style="font-size:11px;color:var(--ok,#2ecc71)">в контактах · взаимно</span>
+                <?php elseif ($peerContact): ?>
+                  <span style="font-size:11px;color:var(--text-dim)">в ваших контактах</span>
+                <?php elseif ($peerIsStranger): ?>
+                  <span style="font-size:11px;color:var(--text-dim)">незнакомец</span>
+                <?php endif; ?>
+              </div>
+            </a>
+          <?php endif; ?>
+          </div>
+          <?php if ($peer && $activePeerId): ?>
+          <div class="msg-peer-actions" style="display:flex;flex-wrap:wrap;gap:6px">
+            <?php if ($peerBlockedByMe): ?>
+              <button type="button" class="btn btn-outline btn-sm" id="msg-unblock-btn" data-uid="<?= (int)$activePeerId ?>">Разблокировать</button>
+            <?php else: ?>
+              <?php if ($peerContact): ?>
+                <button type="button" class="btn btn-outline btn-sm" id="msg-contact-btn" data-uid="<?= (int)$activePeerId ?>" data-act="remove">Удалить из контактов</button>
+              <?php else: ?>
+                <button type="button" class="btn btn-primary btn-sm" id="msg-contact-btn" data-uid="<?= (int)$activePeerId ?>" data-act="add">В контакты</button>
+              <?php endif; ?>
+              <button type="button" class="btn btn-danger btn-sm" id="msg-block-btn" data-uid="<?= (int)$activePeerId ?>">Заблокировать</button>
+              <button type="button" class="btn btn-outline btn-sm" id="msg-spam-btn" data-uid="<?= (int)$activePeerId ?>" title="Пожаловаться на спам">Спам</button>
+            <?php endif; ?>
+          </div>
+          <?php endif; ?>
+          <?php if ($peer && !empty($peer['is_banned'])): ?>
+            <div style="flex-basis:100%;margin-top:3px;font-size:11.5px;color:var(--danger);background:rgba(255,71,87,0.12);border:1px solid var(--danger);border-radius:6px;padding:2px 8px;display:inline-block">⛔ Этот аккаунт заблокирован на платформе. Мы не несём ответственности за действия пользователя вне платформы.</div>
+          <?php endif; ?>
+          <?php if ($peerBlockedMe && !$peerBlockedByMe): ?>
+            <div style="flex-basis:100%;font-size:12px;color:var(--text-dim)">Пользователь ограничил переписку с вами.</div>
+          <?php endif; ?>
+          <?php if ($peerBlockedByMe): ?>
+            <div style="flex-basis:100%;font-size:12px;color:var(--text-dim)">Вы заблокировали этого пользователя. Сообщения недоступны.</div>
           <?php endif; ?>
         </div>
         <div class="msg-thread" id="msg-thread" data-conv="<?= (int)$activeConvId ?>" data-my-id="<?= (int)$__user['id'] ?>" data-after="<?= $activeMessages ? (int)end($activeMessages)['id'] : 0 ?>">
@@ -181,12 +246,16 @@ require_once __DIR__ . '/includes/header.php';
             </div>
           <?php endforeach; ?>
         </div>
+        <?php if ($peerBlockedByMe || $peerBlockedMe): ?>
+          <div class="msg-input-row" style="opacity:.7;padding:12px;color:var(--text-dim);font-size:13px">Переписка недоступна из‑за блокировки.</div>
+        <?php else: ?>
         <form id="msg-form" class="msg-input-row" style="position:relative">
           <button type="button" id="msg-sticker-btn" class="btn btn-outline" style="padding:8px 12px">😊</button>
           <div id="msg-sticker-panel" style="display:none;position:absolute;bottom:100%;left:0;margin-bottom:8px;width:280px;max-height:320px;overflow-y:auto;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px;z-index:50"></div>
           <input type="text" id="msg-input" placeholder="Написать сообщение…" autocomplete="off" maxlength="2000">
           <button type="submit" class="btn btn-primary">Отправить</button>
         </form>
+        <?php endif; ?>
       <?php endif; ?>
     </section>
   </div>
@@ -356,6 +425,10 @@ require_once __DIR__ . '/includes/header.php';
   });
 
   function poll() {
+    if (document.visibilityState === 'hidden') {
+      setTimeout(poll, 30000);
+      return;
+    }
     fetch('/message_poll?conversation_id=' + convId + '&after=' + thread.dataset.after)
       .then(function (r) { return r.json(); })
       .then(function (data) {
@@ -366,11 +439,67 @@ require_once __DIR__ . '/includes/header.php';
         if ((data.messages || []).length) scrollToBottom();
       })
       .catch(function () {})
-      .finally(function () { setTimeout(poll, 3000); });
+      .finally(function () { setTimeout(poll, 30000); }); // было 3с
   }
-  setTimeout(poll, 3000);
+  setTimeout(poll, 5000);
 })();
 </script>
 <?php endif; ?>
+
+<script>
+(function () {
+  function postJson(url, body) {
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      credentials: 'same-origin'
+    }).then(function (r) { return r.json().catch(function () { return { ok: false }; }); });
+  }
+  function bind(id, fn) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('click', fn);
+  }
+  bind('msg-contact-btn', function () {
+    var btn = this;
+    var uid = parseInt(btn.getAttribute('data-uid'), 10);
+    var act = btn.getAttribute('data-act') || 'add';
+    btn.disabled = true;
+    postJson('/contact_action.php', { action: act, user_id: uid }).then(function (d) {
+      if (d && d.ok) location.reload();
+      else { alert((d && d.error) || 'Не удалось'); btn.disabled = false; }
+    });
+  });
+  bind('msg-block-btn', function () {
+    if (!confirm('Заблокировать пользователя? Он не сможет писать вам, и вы не увидите его сообщения.')) return;
+    var btn = this;
+    var uid = parseInt(btn.getAttribute('data-uid'), 10);
+    btn.disabled = true;
+    postJson('/user_block_action.php', { action: 'block', user_id: uid }).then(function (d) {
+      if (d && d.ok) location.reload();
+      else { alert((d && d.error) || 'Не удалось'); btn.disabled = false; }
+    });
+  });
+  bind('msg-unblock-btn', function () {
+    var btn = this;
+    var uid = parseInt(btn.getAttribute('data-uid'), 10);
+    btn.disabled = true;
+    postJson('/user_block_action.php', { action: 'unblock', user_id: uid }).then(function (d) {
+      if (d && d.ok) location.reload();
+      else { alert((d && d.error) || 'Не удалось'); btn.disabled = false; }
+    });
+  });
+  bind('msg-spam-btn', function () {
+    if (!confirm('Пожаловаться на спам? После 10 жалоб от разных людей аккаунт может быть заблокирован на платформе.')) return;
+    var btn = this;
+    var uid = parseInt(btn.getAttribute('data-uid'), 10);
+    btn.disabled = true;
+    postJson('/user_report_action.php', { user_id: uid, reason: 'spam', severity: 'medium' }).then(function (d) {
+      alert((d && (d.message || d.error)) || (d && d.ok ? 'Жалоба принята' : 'Ошибка'));
+      btn.disabled = false;
+    });
+  });
+})();
+</script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
