@@ -19,14 +19,16 @@ $deployedServices = array_map('deployed_service_autostop', $stmt->fetchAll());
 
 $pageTitle = 'Сервисы';
 $seoDescription = 'Приложения и мини-сервисы, созданные сообществом ' . SITE_NAME;
+$__snapCss = '<link rel="stylesheet" href="/assets/css/services-snapshot.css?v=20260801big">';
 require_once __DIR__ . '/includes/header.php';
+echo $__snapCss;
 ?>
 <div class="container">
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin:24px 0 6px">
     <h1 style="margin:0">🧩 Сервисы</h1>
     <div style="display:flex;gap:8px">
       <a href="/developers.php" class="btn btn-outline btn-sm">OAuth-приложение</a>
-      <a href="/github_connect.php" class="btn btn-outline btn-sm">Выложить из GitHub</a>
+      <a href="/github_connect.php" class="btn btn-outline btn-sm">Выложить из GitHub / GitVerse</a>
     </div>
   </div>
   <p style="color:var(--text-dim);font-size:13px;margin-bottom:20px">Приложения и мини-сайты, созданные сообществом. Каждый запуск спрашивает подтверждение — мы не открываем сторонний сервис без вашего согласия.</p>
@@ -41,7 +43,9 @@ require_once __DIR__ . '/includes/header.php';
         </div>
       </div>
     <?php endforeach; ?>
+  </div>
 
+  <div class="services-grid" style="margin-top:16px">
     <?php foreach ($deployedServices as $s): ?>
       <div class="profile-grid-item service-card <?= !empty($s['suspended']) ? 'service-card-suspended' : '' ?>" style="cursor:pointer" <?php if (empty($s['suspended'])): ?>onclick="launchDeployedService('<?= e(addslashes($s['name'])) ?>', '<?= e(addslashes($s['description'] ?? '')) ?>', '<?= e($s['slug']) ?>')"<?php endif; ?>>
         <div class="service-preview"><iframe src="<?= e(deployed_service_preview_url($s['slug'])) ?>" loading="lazy" sandbox="allow-scripts allow-forms"></iframe></div>
@@ -52,9 +56,9 @@ require_once __DIR__ . '/includes/header.php';
         </div>
       </div>
     <?php endforeach; ?>
-
+  </div>
     <?php if (!$oauthServices && !$deployedServices): ?>
-      <p style="color:var(--text-dim)">Пока нет опубликованных сервисов — <a href="/github_connect.php" style="color:var(--accent-2)">выложите первый из GitHub</a>.</p>
+      <p style="color:var(--text-dim)">Пока нет опубликованных сервисов — <a href="/github_connect.php" style="color:var(--accent-2)">выложите первый из GitHub или GitVerse</a>.</p>
     <?php endif; ?>
   </div>
 </div>

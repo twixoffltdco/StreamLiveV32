@@ -1,4 +1,5 @@
 <?php
+if (is_file(__DIR__ . '/includes/vibe.php')) require_once __DIR__ . '/includes/vibe.php';
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/gamification.php';
@@ -7,7 +8,7 @@ $page = max(1, (int)($_GET['page'] ?? 1));
 $perPage = 50;
 $offset = ($page - 1) * $perPage;
 
-$stmt = db()->prepare('SELECT id, username, avatar, xp, cycle_number, total_active_days FROM users WHERE is_banned = 0 ORDER BY xp DESC, id ASC LIMIT ? OFFSET ?');
+$stmt = db()->prepare('SELECT id, username, avatar, gravatar_email, xp, cycle_number, total_active_days, is_verified FROM users WHERE is_banned = 0 ORDER BY xp DESC, id ASC LIMIT ? OFFSET ?');
 $stmt->bindValue(1, $perPage, PDO::PARAM_INT);
 $stmt->bindValue(2, $offset, PDO::PARAM_INT);
 $stmt->execute();
@@ -30,7 +31,13 @@ require_once __DIR__ . '/includes/header.php';
         <td><?= $offset + $i + 1 ?></td>
         <td>
           <a href="/profile.php?username=<?= urlencode($u['username']) ?>" style="display:flex;align-items:center;gap:8px;color:var(--accent-2);text-decoration:none">
-            <img src="<?= e($u['avatar'] ?: '/assets/img/avatar-placeholder.png') ?>" style="width:28px;height:28px;border-radius:50%;object-fit:cover" onerror="this.style.display='none'">
+            <?php
+              $__av = function_exists('user_avatar_url') ? user_avatar_url($u, 64) : (trim((string)($u['avatar'] ?? '')) ?: '/assets/img/avatar-placeholder.png');
+              $__fc = function_exists('vibe_nick_frame_class') ? vibe_nick_frame_class($u) : '';
+            ?>
+            <span class="vibe-avatar-wrap<?= $__fc ? ' ' . e($__fc) : '' ?>" style="width:28px;height:28px">
+              <img src="<?= e($__av) ?>" alt="" loading="lazy" onerror="this.onerror=null;this.src='https://www.gravatar.com/avatar/?d=mp&s=64'">
+            </span>
             @<?= e($u['username']) ?>
           </a>
         </td>

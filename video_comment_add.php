@@ -6,7 +6,7 @@ csrf_verify();
 $videoId = (int)($_POST['video_id'] ?? 0);
 $message = trim(mb_substr($_POST['message'] ?? '', 0, 1000));
 
-$stmt = db()->prepare("SELECT slug FROM videos WHERE id = ? AND status = 'published'");
+$stmt = db()->prepare("SELECT slug FROM videos WHERE id = ?");
 $stmt->execute([$videoId]);
 $video = $stmt->fetch();
 
