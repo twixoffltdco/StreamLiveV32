@@ -1,0 +1,2 @@
+-- Battle Pass + Flex Blocks (также создаётся из PHP ensure_schema)
+-- paid access: 3 days (код в paid_access.php)
