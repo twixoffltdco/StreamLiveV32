@@ -1,6 +1,7 @@
 <?php
 $pageTitle = 'Вход';
-require_once __DIR__ . '/../includes/header.php';
+require_once __DIR__ . '/../includes/auth.php';
+$__user = current_user();
 
 if (isset($_GET['next'])) {
   $_SESSION['login_next'] = normalize_auth_redirect_target($_GET['next'], '/dashboard.php');
@@ -9,7 +10,7 @@ if (isset($_GET['next'])) {
 if ($__user) redirect(safe_after_login_redirect());
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  csrf_verify();
+  // CSRF на логине отключён (HTTP/HTTPS + free-host)
   $login = trim($_POST['email'] ?? '');
   $password = $_POST['password'] ?? '';
 
@@ -69,11 +70,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $providers = db()->query('SELECT name, display_name, icon_url FROM oauth_providers WHERE enabled = 1')->fetchAll();
+require_once __DIR__ . '/../includes/header.php';
 ?>
 <div class="container">
   <div class="form-card">
     <h2>Вход в аккаунт</h2>
-    <form method="POST" action="/auth/login.php">
+    <form method="POST" action="/auth/login.php<?= !empty($_GET['next']) ? '?next=' . rawurlencode((string)$_GET['next']) : '' ?>">
       <?= csrf_field() ?>
       <input type="hidden" name="next" value="<?= e($_GET['next'] ?? '') ?>">
       <label>Email или номер телефона</label>
@@ -85,7 +87,7 @@ $providers = db()->query('SELECT name, display_name, icon_url FROM oauth_provide
     <?php if ($providers): ?>
       <div class="oauth-row">
         <?php foreach ($providers as $p): ?>
-          <a class="oauth-btn" href="/auth/oauth_start.php?provider=<?= e($p['name']) ?>">
+          <a class="oauth-btn" href="/auth/oauth_start.php?provider=<?= e($p['name']) ?><?= !empty($_GET['next']) ? '&next=' . rawurlencode((string)$_GET['next']) : '' ?>">
             <?php if ($p['icon_url']): ?><img src="<?= e($p['icon_url']) ?>" alt=""><?php endif; ?>
             Войти через <?= e($p['display_name']) ?>
           </a>

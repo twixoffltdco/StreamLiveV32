@@ -11,6 +11,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $phone = normalize_phone(trim($_POST['phone'] ?? ''));
   if (!$phone) {
     $error = 'Похоже на ненастоящий номер. Введите в международном формате, например +79991234567.';
+  } elseif (function_exists('phone_verify_external') && !phone_verify_external($phone)) {
+    $error = 'Номер не прошёл проверку. Укажите реальный номер.';
   } else {
     $stmt = db()->prepare('SELECT id FROM users WHERE phone = ? AND id != ?');
     $stmt->execute([$phone, $__user['id']]);
