@@ -1,5 +1,7 @@
 <?php require_once __DIR__ . '/_layout_start.php'; ?>
 <?php
+require_once __DIR__ . '/../includes/moderation_limits.php';
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   csrf_verify();
   $id = (int)$_POST['video_id'];
@@ -8,22 +10,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $video = $stmt->fetch();
 
   if ($video) {
+    // Запрет самомодерации: нельзя одобрить/отклонить своё же видео.
+    if (is_self_moderation_blocked((int)$video['user_id'], (int)$__user['id'])) {
+      flash_set('error', 'Нельзя модерировать своё же видео — это должен сделать другой модератор.');
+      redirect('/moderator/videos.php');
+    }
+    // Кулдаун: 1 действие модерации видео в N часов на модератора (не касается админа).
+    $__cooldownLeft = moderator_cooldown_remaining_hours((int)$__user['id'], 'video', $__user['role']);
+    if ($__cooldownLeft !== null && in_array($_POST['action'] ?? '', ['reject', 'restore'], true)) {
+      flash_set('error', "Лимит модерации видео — 1 действие в " . moderation_cooldown_hours() . " ч. Следующее доступно через {$__cooldownLeft} ч.");
+      redirect('/moderator/videos.php');
+    }
+    $isAdmin = $__user['role'] === 'admin';
     if ($_POST['action'] === 'reject') {
       $reason = trim($_POST['reason'] ?? '') ?: 'Нарушение правил платформы';
-      db()->prepare("UPDATE videos SET status='rejected', reject_reason=?, moderated_by=?, moderated_at=NOW() WHERE id=?")
-        ->execute([$reason, $__user['id'], $id]);
+      db()->prepare("UPDATE videos SET status='rejected', reject_reason=?, moderated_by=?, moderated_at=NOW(), locked_by_admin=? WHERE id=?")
+        ->execute([$reason, $__user['id'], $isAdmin ? 1 : 0, $id]);
       try {
         db()->prepare('INSERT INTO notifications (user_id, channel_id, type, message) VALUES (?, ?, "video_rejected", ?)')
           ->execute([$video['user_id'], $video['channel_id'], "Видео «{$video['title']}» отклонено модератором: {$reason}"]);
       } catch (\Throwable $e) { /* таблица notifications может отличаться — модерация всё равно применилась */ }
+      moderation_log_action((int)$__user['id'], 'video', $id, 'reject');
       flash_set('success', 'Видео отклонено и скрыто с сайта');
     } elseif ($_POST['action'] === 'restore') {
-      db()->prepare("UPDATE videos SET status='published', reject_reason=NULL, moderated_by=?, moderated_at=NOW() WHERE id=?")
+      if (!empty($video['locked_by_admin']) && !$isAdmin) {
+        flash_set('error', 'Это видео ранее отклонено администратором — только администратор может изменить решение.');
+        redirect('/moderator/videos.php');
+      }
+      db()->prepare("UPDATE videos SET status='published', reject_reason=NULL, moderated_by=?, moderated_at=NOW(), locked_by_admin=0 WHERE id=?")
         ->execute([$__user['id'], $id]);
       try {
         db()->prepare('INSERT INTO notifications (user_id, channel_id, type, message) VALUES (?, ?, "video_restored", ?)')
           ->execute([$video['user_id'], $video['channel_id'], "Видео «{$video['title']}» восстановлено и снова доступно на сайте"]);
       } catch (\Throwable $e) { /* см. выше */ }
+      moderation_log_action((int)$__user['id'], 'video', $id, 'restore');
       flash_set('success', 'Видео восстановлено');
     }
   }

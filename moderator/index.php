@@ -1,5 +1,7 @@
 <?php require_once __DIR__ . '/_layout_start.php'; ?>
 <?php
+require_once __DIR__ . '/../includes/moderation_limits.php';
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   csrf_verify();
   $id = (int)$_POST['channel_id'];
@@ -8,16 +10,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $channel = $stmt->fetch();
 
   if ($channel) {
+    // Запрет самомодерации: нельзя одобрить/отклонить канал, который сам же и создал.
+    if (is_self_moderation_blocked((int)$channel['owner_id'], (int)$__user['id'])) {
+      flash_set('error', 'Нельзя модерировать свой же канал — это должен сделать другой модератор.');
+      redirect('/moderator/index.php');
+    }
+    // Кулдаун: 1 действие модерации каналов в N часов на модератора (не касается админа).
+    $__cooldownLeft = moderator_cooldown_remaining_hours((int)$__user['id'], 'channel', $__user['role']);
+    if ($__cooldownLeft !== null && in_array($_POST['action'] ?? '', ['approve', 'reject'], true)) {
+      flash_set('error', "Лимит модерации каналов — 1 действие в " . moderation_cooldown_hours() . " ч. Следующее доступно через {$__cooldownLeft} ч.");
+      redirect('/moderator/index.php');
+    }
+    $isAdmin = $__user['role'] === 'admin';
     if ($_POST['action'] === 'approve') {
-      db()->prepare("UPDATE channels SET status='approved', reject_reason=NULL WHERE id=?")->execute([$id]);
+      if (!empty($channel['locked_by_admin']) && !$isAdmin) {
+        flash_set('error', 'Этот канал ранее отклонён администратором — только администратор может изменить решение.');
+        redirect('/moderator/index.php');
+      }
+      // Если одобряет сам админ — это и есть отмена его прежнего решения, снимаем блокировку.
+      $stmt2 = db()->prepare("UPDATE channels SET status='approved', reject_reason=NULL, locked_by_admin=? WHERE id=?");
+      $stmt2->execute([$isAdmin ? 0 : $channel['locked_by_admin'], $id]);
       db()->prepare('INSERT INTO notifications (user_id, channel_id, type, message) VALUES (?, ?, "channel_approved", ?)')
         ->execute([$channel['owner_id'], $id, "Канал «{$channel['title']}» прошёл модерацию и опубликован в каталоге"]);
+      moderation_log_action((int)$__user['id'], 'channel', $id, 'approve');
       flash_set('success', 'Канал одобрен');
     } elseif ($_POST['action'] === 'reject') {
       $reason = trim($_POST['reason'] ?? '') ?: 'без указания причины';
-      db()->prepare("UPDATE channels SET status='rejected', reject_reason=? WHERE id=?")->execute([$reason, $id]);
+      // Отклонение админом "запирает" канал от последующего одобрения простым модератором —
+      // отклонение самим модератором такой блокировки не ставит (это не иерархический случай).
+      db()->prepare("UPDATE channels SET status='rejected', reject_reason=?, locked_by_admin=? WHERE id=?")
+        ->execute([$reason, $isAdmin ? 1 : 0, $id]);
       db()->prepare('INSERT INTO notifications (user_id, channel_id, type, message) VALUES (?, ?, "channel_rejected", ?)')
         ->execute([$channel['owner_id'], $id, "Канал «{$channel['title']}» отклонён: {$reason}"]);
+      moderation_log_action((int)$__user['id'], 'channel', $id, 'reject');
       flash_set('success', 'Канал отклонён, автору отправлено уведомление');
     }
   }

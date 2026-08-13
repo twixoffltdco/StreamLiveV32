@@ -8,10 +8,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $id = (int)($_POST['id'] ?? 0);
   if (($_POST['action'] ?? '') === 'suspend') {
     $reason = trim((string)($_POST['reason'] ?? '')) ?: 'Приостановлено модератором';
-    db()->prepare('UPDATE deployed_services SET suspended = 1, suspended_reason = ? WHERE id = ?')->execute([$reason, $id]);
+    db()->prepare("UPDATE deployed_services SET suspended = 1, suspended_reason = ?, suspended_by = 'moderator' WHERE id = ?")->execute([$reason, $id]);
     flash_set('success', 'Сервис приостановлен');
   } elseif (($_POST['action'] ?? '') === 'resume') {
-    db()->prepare('UPDATE deployed_services SET suspended = 0, suspended_reason = NULL WHERE id = ?')->execute([$id]);
+    db()->prepare("UPDATE deployed_services SET suspended = 0, suspended_reason = NULL, suspended_by = NULL WHERE id = ?")->execute([$id]);
     flash_set('success', 'Сервис возобновлён');
   }
   redirect('/moderator/services.php');

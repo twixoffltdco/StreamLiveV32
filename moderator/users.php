@@ -1,12 +1,16 @@
-<?php require_once __DIR__ . '/_layout_start.php'; ?>
 <?php
+require_once __DIR__ . '/../includes/moderator_auth.php';
+$__user = require_moderator();
+require_once __DIR__ . '/../includes/moderation_limits.php';
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   csrf_verify();
   $id = (int)$_POST['user_id'];
 
-  $stmt = db()->prepare('SELECT role FROM users WHERE id = ?');
+  $stmt = db()->prepare('SELECT * FROM users WHERE id = ?');
   $stmt->execute([$id]);
-  $targetRole = $stmt->fetchColumn();
+  $targetUser = $stmt->fetch();
+  $targetRole = $targetUser['role'] ?? null;
 
   // Модератор не трогает админов вообще (ни роль, ни галочку) — это не его уровень доступа,
   // а полноценное управление ролью admin остаётся только в /admin/users.php.
@@ -16,19 +20,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 
   if ($_POST['action'] === 'role') {
-    // Модератору доступно только user <-> moderator, admin выдать/снять он не может ни при каких условиях.
-    $role = $_POST['role'] === 'moderator' ? 'moderator' : 'user';
-    db()->prepare('UPDATE users SET role = ? WHERE id = ?')->execute([$role, $id]);
-    flash_set('success', 'Роль обновлена');
+    // Назначение/снятие модератора теперь ДВУХШАГОВОЕ: создаём запрос, а применяет его
+    // ДРУГОЙ модератор/админ на странице /moderator/mod_requests.php — сам инициатор
+    // подтвердить свой же запрос не может (см. moderator/mod_requests.php).
+    // Плюс кулдаун 100ч на смену роли ЭТОГО пользователя — не даёт дёргать роль туда-сюда.
+    $newRole = $_POST['role'] === 'moderator' ? 'moderator' : 'user';
+    $actionType = $newRole === 'moderator' ? 'grant_moderator' : 'revoke_moderator';
+    if ($newRole === $targetRole) {
+      flash_set('error', 'У пользователя уже эта роль');
+      redirect('/moderator/users.php');
+    }
+    $__cooldownLeft = role_change_cooldown_remaining_hours($targetUser);
+    if ($__cooldownLeft !== null) {
+      flash_set('error', "Роль этого пользователя менялась недавно — следующая смена возможна через {$__cooldownLeft} ч.");
+      redirect('/moderator/users.php');
+    }
+    moderation_ensure_schema();
+    try {
+      db()->prepare('INSERT INTO moderation_requests (action_type, target_user_id, requested_by, reason) VALUES (?, ?, ?, ?)')
+        ->execute([$actionType, $id, $__user['id'], trim((string)($_POST['reason'] ?? ''))]);
+      flash_set('success', 'Запрос создан — должен подтвердить другой модератор или администратор на странице «Запросы на подтверждение».');
+    } catch (\Throwable $e) {
+      flash_set('error', 'Не удалось создать запрос — таблица не готова. Залей sql/migrations/035_moderation_limits_requests.sql через phpMyAdmin.');
+    }
   } elseif ($_POST['action'] === 'verify') {
     db()->prepare('UPDATE users SET is_verified = 1 WHERE id = ?')->execute([$id]);
     flash_set('success', 'Галочка выдана — теперь пользователю доступны любые embed-ссылки для трансляции и расписания без ограничений');
   } elseif ($_POST['action'] === 'unverify') {
     db()->prepare('UPDATE users SET is_verified = 0 WHERE id = ?')->execute([$id]);
     flash_set('success', 'Галочка снята — пользователь снова ограничен стандартными источниками и проверенными embed-ссылками');
+  } elseif ($_POST['action'] === 'ban') {
+    db()->prepare('UPDATE users SET is_banned = 1 WHERE id = ?')->execute([$id]);
+    flash_set('success', 'Пользователь заблокирован — предупреждение теперь видно в профиле, на форуме, в сообщениях и в каналах-рассылках');
+  } elseif ($_POST['action'] === 'unban') {
+    require_once __DIR__ . '/../includes/moderation_limits.php';
+    moderation_ensure_schema();
+    // Разбан теперь идёт через запрос на подтверждение другим модератором — та же
+    // логика самомодерации, что уже есть для выдачи/снятия роли модератора: тот, кто
+    // инициировал разбан, не может сам же его подтвердить.
+    $existing = db()->prepare("SELECT id FROM moderation_requests WHERE action_type='unban' AND target_user_id=? AND status='pending'");
+    $existing->execute([$id]);
+    if ($existing->fetch()) {
+      flash_set('error', 'Запрос на разбан этого пользователя уже создан и ждёт подтверждения');
+    } else {
+      db()->prepare("INSERT INTO moderation_requests (action_type, target_user_id, requested_by) VALUES ('unban', ?, ?)")
+        ->execute([$id, $__user['id']]);
+      flash_set('success', 'Запрос на разбан создан — нужно подтверждение другого модератора на странице /moderator/mod_requests.php');
+    }
   }
   redirect('/moderator/users.php');
 }
+
+require_once __DIR__ . '/_layout_start.php';
 
 $search = trim((string)($_GET['q'] ?? ''));
 if ($search !== '') {
@@ -91,7 +134,24 @@ $users = $stmt->fetchAll();
         </form>
         <?php endif; ?>
       </td>
-      <td><?= $u['is_banned'] ? '<span class="status-pill status-rejected">забанен</span>' : '<span class="status-pill status-approved">активен</span>' ?></td>
+      <td>
+        <?php if ($u['role'] === 'admin'): ?>
+          <span class="status-pill status-approved">активен</span>
+        <?php else: ?>
+        <span class="status-pill status-<?= $u['is_banned'] ? 'rejected' : 'approved' ?>"><?= $u['is_banned'] ? 'забанен' : 'активен' ?></span>
+        <form method="POST" style="display:inline-block;margin-left:6px">
+          <?= csrf_field() ?>
+          <input type="hidden" name="user_id" value="<?= (int)$u['id'] ?>">
+          <?php if ($u['is_banned']): ?>
+            <input type="hidden" name="action" value="unban">
+            <button class="btn btn-outline btn-sm" type="submit">Разбанить</button>
+          <?php else: ?>
+            <input type="hidden" name="action" value="ban">
+            <button class="btn btn-danger btn-sm" type="submit" onclick="return confirm('Заблокировать <?= e(addslashes($u['username'])) ?>? Предупреждение будет видно везде на платформе.')">Забанить</button>
+          <?php endif; ?>
+        </form>
+        <?php endif; ?>
+      </td>
     </tr>
     <?php endforeach; ?>
   </tbody>
