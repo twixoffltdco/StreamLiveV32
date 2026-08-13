@@ -109,7 +109,18 @@ function current_user(): ?array {
         $stmt = db()->prepare('SELECT * FROM users WHERE id = ? AND is_brand = 1');
         $stmt->execute([(int)$_SESSION['brand_act_as']]);
         $brand = $stmt->fetch() ?: null;
-        if ($brand && empty($brand['is_banned'])) {
+        if ($brand && empty($brand['is_banned']) && empty($brand['deleted_at'])) {
+          // Права staff с личного аккаунта наследуются на бренд (admin/moderator)
+          try {
+            $rst = db()->prepare('SELECT role FROM users WHERE id = ? LIMIT 1');
+            $rst->execute([(int)$_SESSION['user_id']]);
+            $realRole = (string)($rst->fetchColumn() ?: '');
+            if (in_array($realRole, ['admin', 'moderator'], true)) {
+              $brand['role'] = $realRole;
+            }
+          } catch (Throwable $e) { /* leave brand role */ }
+          $brand['_act_as_brand'] = 1;
+          $brand['_real_user_id'] = (int)$_SESSION['user_id'];
           $user = $brand;
           return $user;
         }
@@ -133,6 +144,10 @@ function login_user(int $userId): void {
   }
   $_SESSION['user_id'] = $userId;
   unset($_SESSION['brand_act_as']); // всегда начинаем с личного аккаунта
+  unset($_SESSION['_fh_staff']);
+  if (function_exists('freehost_protect_mark_staff_from_db')) {
+    try { freehost_protect_mark_staff_from_db(); } catch (Throwable $e) {}
+  }
 
   // Снимаем автостоп задеплоенных сервисов (30 дней неактивности) — раньше такой функции
   // не было вообще, и услуга оставалась "приостановлена" навсегда, даже если владелец

@@ -23,6 +23,9 @@ $promo = partners_get_promo($realId);
 $stats = partners_stats($realId);
 $sub = partners_active_sub($realId);
 $tab = (string)($_GET['tab'] ?? 'cabinet');
+$chartDays = (int)($_GET['days'] ?? 30);
+if (!in_array($chartDays, [30, 60, 100, 365], true)) $chartDays = 30;
+$chartData = ($promo && $tab !== 'activate') ? partners_activations_by_day($realId, $chartDays) : [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   if (function_exists('csrf_verify')) {
@@ -111,6 +114,71 @@ $flash = function_exists('flash_get') ? flash_get() : [];
           <div class="stat"><b><?= (int)$stats['activations'] ?></b><span>активаций всего</span></div>
           <div class="stat"><b><?= (int)$stats['active_now'] ?></b><span>активных сейчас</span></div>
           <div class="stat"><b><?= (int)$stats['referrals'] ?></b><span>рефералов</span></div>
+        </div>
+        <div style="margin-top:18px">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
+            <b style="font-size:14px;margin-right:6px">Динамика активаций</b>
+            <?php foreach ([30,60,100,365] as $d): ?>
+              <a href="/partners/?days=<?= $d ?>" style="padding:5px 10px;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;background:<?= $chartDays===$d?'#a78bfa':'#334155' ?>;color:<?= $chartDays===$d?'#0b0e14':'#fff' ?>"><?= $d === 365 ? 'год' : $d.' дн.' ?></a>
+            <?php endforeach; ?>
+          </div>
+          <canvas id="partnerActChart" width="680" height="200" style="width:100%;max-width:680px;height:200px;background:#0f172a;border-radius:12px"></canvas>
+          <script>
+          (function(){
+            var data = <?= json_encode($chartData, JSON_UNESCAPED_UNICODE) ?>;
+            var c = document.getElementById('partnerActChart');
+            if (!c || !data || !data.length) return;
+            var ctx = c.getContext('2d');
+            var W = c.width, H = c.height;
+            var pad = {t:16,r:12,b:28,l:36};
+            var max = 1;
+            data.forEach(function(x){ if (x.count > max) max = x.count; });
+            var n = data.length;
+            var plotW = W - pad.l - pad.r, plotH = H - pad.t - pad.b;
+            ctx.fillStyle = '#0f172a'; ctx.fillRect(0,0,W,H);
+            // grid
+            ctx.strokeStyle = 'rgba(148,163,184,.15)'; ctx.lineWidth = 1;
+            for (var g=0;g<=4;g++){
+              var y = pad.t + plotH * (g/4);
+              ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(W-pad.r,y); ctx.stroke();
+              ctx.fillStyle = '#64748b'; ctx.font = '10px system-ui'; ctx.textAlign = 'right';
+              ctx.fillText(String(Math.round(max * (1-g/4))), pad.l-4, y+3);
+            }
+            // line
+            ctx.beginPath();
+            ctx.strokeStyle = '#a78bfa'; ctx.lineWidth = 2;
+            data.forEach(function(x,i){
+              var px = pad.l + (n===1?plotW/2:(i/(n-1))*plotW);
+              var py = pad.t + plotH * (1 - x.count/max);
+              if (i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+            });
+            ctx.stroke();
+            // dots + fill
+            ctx.fillStyle = 'rgba(167,139,250,.15)';
+            ctx.beginPath();
+            data.forEach(function(x,i){
+              var px = pad.l + (n===1?plotW/2:(i/(n-1))*plotW);
+              var py = pad.t + plotH * (1 - x.count/max);
+              if (i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+            });
+            var lastX = pad.l + (n===1?plotW/2:plotW);
+            ctx.lineTo(lastX, pad.t+plotH); ctx.lineTo(pad.l, pad.t+plotH); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = '#a78bfa';
+            data.forEach(function(x,i){
+              var px = pad.l + (n===1?plotW/2:(i/(n-1))*plotW);
+              var py = pad.t + plotH * (1 - x.count/max);
+              ctx.beginPath(); ctx.arc(px,py,2.5,0,Math.PI*2); ctx.fill();
+            });
+            // x labels sparse
+            ctx.fillStyle = '#64748b'; ctx.font = '10px system-ui'; ctx.textAlign = 'center';
+            var step = Math.max(1, Math.floor(n/6));
+            for (var i=0;i<n;i+=step){
+              var px = pad.l + (n===1?plotW/2:(i/(n-1))*plotW);
+              var lab = (data[i].date||'').slice(5); // MM-DD
+              ctx.fillText(lab, px, H-8);
+            }
+          })();
+          </script>
         </div>
       <?php else: ?>
         <p class="sub">Создайте код один раз — он останется с вами навсегда.</p>

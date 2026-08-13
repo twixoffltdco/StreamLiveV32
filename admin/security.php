@@ -27,6 +27,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   } elseif (isset($_POST['geo_enabled'])) {
     set_setting('geo_restrict_enabled', $_POST['geo_enabled'] === '1' ? '1' : '0');
     flash_set('success', $_POST['geo_enabled'] === '1' ? 'Гео-ограничение включено (доступ только из СНГ)' : 'Гео-ограничение выключено (доступ из любой страны)');
+  } elseif (isset($_POST['geo_vpn_enabled'])) {
+    set_setting('geo_vpn_block_enabled', $_POST['geo_vpn_enabled'] === '1' ? '1' : '0');
+    flash_set('success', $_POST['geo_vpn_enabled'] === '1' ? 'Анти-VPN включён (обычные юзеры с VPN/прокси блокируются)' : 'Анти-VPN выключен');
   } elseif (isset($_POST['ddos_mode'])) {
     set_setting('ddos_under_attack_mode', $_POST['ddos_mode'] === '1' ? '1' : '0');
     flash_set('success', $_POST['ddos_mode'] === '1' ? 'Режим "под атакой" включён — все гости проходят JS-проверку браузера' : 'Режим "под атакой" выключен');
@@ -40,6 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 $enabled = get_setting('force_2fa_enabled', '0') === '1';
 $geoEnabled = get_setting('geo_restrict_enabled', '0') === '1';
+$vpnEnabled = get_setting('geo_vpn_block_enabled', '0') === '1';
 $ddosMode = get_setting('ddos_under_attack_mode', '0') === '1';
 $noSelfModeration = get_setting('no_self_moderation_enabled', '1') === '1';
 $moderationCooldownHours = (int)get_setting('moderation_cooldown_hours', '24');
@@ -77,6 +81,23 @@ $roleChangeCooldownHours = (int)get_setting('role_change_cooldown_hours', '100')
     </button>
   </form>
 </div>
+
+<h2 style="margin-top:30px">Анти-VPN / прокси</h2>
+<div class="form-card form-wide">
+  <p style="color:var(--text-dim);font-size:13px;max-width:560px">
+    Сейчас анти-VPN <b style="color:<?= $vpnEnabled ? 'var(--ok)' : 'var(--danger)' ?>"><?= $vpnEnabled ? 'включён' : 'выключен' ?></b>.
+    При включении IP с флагами proxy/hosting (датацентры, VPN) получают страницу «доступ только для СНГ».
+    <b>Админы и модераторы не блокируются</b> — могут работать с VPN.
+  </p>
+  <form method="POST" style="margin-top:14px">
+    <?= csrf_field() ?>
+    <input type="hidden" name="geo_vpn_enabled" value="<?= $vpnEnabled ? '0' : '1' ?>">
+    <button class="btn <?= $vpnEnabled ? 'btn-danger' : 'btn-primary' ?>" type="submit">
+      <?= $vpnEnabled ? 'Выключить анти-VPN' : 'Включить анти-VPN' ?>
+    </button>
+  </form>
+</div>
+
 
 <h2 style="margin-top:30px">Антидудос — режим «под атакой»</h2>
 <div class="form-card form-wide">

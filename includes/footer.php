@@ -139,7 +139,7 @@ document.addEventListener('click', function (e) {
     </script>
  <!-- Клавиатура для тв -->
 <?php if (function_exists('themes_active')) { $__activeTheme = themes_active(); if (!empty($__activeTheme['footer'])) theme_safe_include(themes_dir() . '/' . $__activeTheme['footer']); } ?>
-<script src="/assets/js/hits-guard.js?v=hits2"></script>
+<script src="/assets/js/hits-guard.js?v=hits3"></script>
 <script src="/assets/js/push-notify.js?v=6" defer></script>
 
 <div class="site-legal-note" style="text-align:center;font-size:11px;color:var(--text-dim,#888);padding:10px 16px 18px;max-width:720px;margin:0 auto;line-height:1.45">

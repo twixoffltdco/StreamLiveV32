@@ -581,6 +581,7 @@ function is_known_crawler_ua(string $userAgent): bool {
 // Второй слой защиты — от перегрузки БД при всплеске одновременных запросов и от
 // злоупотребления дорогими операциями (импорт видео, деплой). Стоит ПЕРЕД антиботом
 // специально: если сайт уже перегружен, даже запрос антибота к БД может быть лишним.
+if (is_file(__DIR__ . '/freehost_protect.php')) { require_once __DIR__ . '/freehost_protect.php'; }
 require_once __DIR__ . '/antibot.php'; // только объявления функций (antibot_client_ip нужна ddos_shield.php), сам antibot_guard() вызовем ниже
 require_once __DIR__ . '/ddos_shield.php';
 ddos_guard();

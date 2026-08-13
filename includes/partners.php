@@ -237,3 +237,35 @@ function partners_remember_ref_from_request(): void {
     'samesite' => 'Lax',
   ]);
 }
+
+
+/** Активации промокода по дням для графика */
+function partners_activations_by_day(int $partnerUserId, int $days = 30): array {
+  partners_ensure_schema();
+  $days = max(1, min(365, $days));
+  $promo = partners_get_promo($partnerUserId);
+  if (!$promo) return [];
+  $from = date('Y-m-d', time() - ($days - 1) * 86400);
+  $map = [];
+  try {
+    $st = db()->prepare(
+      "SELECT DATE(activated_at) AS d, COUNT(*) AS c
+       FROM partner_activations
+       WHERE promo_id = ? AND activated_at >= ?
+       GROUP BY DATE(activated_at)
+       ORDER BY d ASC"
+    );
+    $st->execute([(int)$promo['id'], $from . ' 00:00:00']);
+    foreach ($st->fetchAll() ?: [] as $row) {
+      $map[(string)$row['d']] = (int)$row['c'];
+    }
+  } catch (Throwable $e) {
+    return [];
+  }
+  $out = [];
+  for ($i = $days - 1; $i >= 0; $i--) {
+    $d = date('Y-m-d', time() - $i * 86400);
+    $out[] = ['date' => $d, 'count' => $map[$d] ?? 0];
+  }
+  return $out;
+}

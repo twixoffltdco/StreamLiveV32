@@ -91,7 +91,35 @@ $__canonical = SITE_URL . ($_SERVER['REQUEST_URI'] ?? '/');
   <link rel="stylesheet" href="/assets/css/user-display.css?v=20260801everywhere">
 <?php if (is_file(__DIR__ . '/prefix_assets.php')) include __DIR__ . '/prefix_assets.php'; ?>
 <?php if (is_file(__DIR__ . '/pwa_head.php')) require __DIR__ . '/pwa_head.php'; ?>
-<script src="/assets/js/freehost-idle.js?v=1" defer></script>
+<?php
+  // Удлинённый idle: партнёрская подписка ИЛИ активный промокод платного контента (3 дня)
+  $__idleHasSub = false;
+  try {
+    $__rid = (int)($_SESSION['user_id'] ?? 0);
+    if ($__rid <= 0 && !empty($__user['id'])) $__rid = (int)$__user['id'];
+    if ($__rid > 0) {
+      if (is_file(__DIR__ . '/partners.php')) {
+        require_once __DIR__ . '/partners.php';
+        if (function_exists('partners_has_active_sub') && partners_has_active_sub($__rid)) {
+          $__idleHasSub = true;
+        }
+      }
+      if (!$__idleHasSub) {
+        try {
+          $__st = db()->prepare(
+            "SELECT 1 FROM promo_activations a
+             WHERE a.user_id = ? AND a.is_revoked = 0
+               AND a.access_until IS NOT NULL AND a.access_until > NOW()
+             LIMIT 1"
+          );
+          $__st->execute([$__rid]);
+          if ($__st->fetchColumn()) $__idleHasSub = true;
+        } catch (Throwable $e) { /* таблицы может не быть */ }
+      }
+    }
+  } catch (Throwable $e) {}
+?>
+<script>window.__SL_IDLE_CFG=<?= json_encode(['hasSub' => !empty($__idleHasSub)], JSON_UNESCAPED_UNICODE) ?>;</script>
 <style id="sl-disclaimer-css">
   /* StreamLive legal / moderation banner */
   .sl-top-disclaimer {

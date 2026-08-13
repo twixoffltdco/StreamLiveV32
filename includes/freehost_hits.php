@@ -38,7 +38,7 @@ if (!function_exists('sl_freehost_cache_headers')) {
       header('Cache-Control: private, max-age=0, must-revalidate');
       return;
     }
-    header('Cache-Control: public, max-age=120, s-maxage=120');
+    header('Cache-Control: public, max-age=300, s-maxage=300'); // 5 мин для гостей — меньше хитов на freehost
     header('Vary: Accept-Encoding, Cookie');
   }
 }
