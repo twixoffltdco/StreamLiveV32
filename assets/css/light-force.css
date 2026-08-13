@@ -1,0 +1,251 @@
+/* StreamLive LIGHT THEME — только при html.light-mode / data-pl-skin=light */
+html.light-mode,
+html[data-pl-skin="light"] {
+  color-scheme: light !important;
+  --bg: #ffffff !important;
+  --bg-elevated: #f3f4f6 !important;
+  --card: #ffffff !important;
+  --border: #e5e7eb !important;
+  --text: #111827 !important;
+  --text-dim: #6b7280 !important;
+  --accent-1: #2563eb !important;
+  --accent-2: #2563eb !important;
+  --pl-bg: #ffffff !important;
+  --pl-elev: #f3f4f6 !important;
+  --pl-hover: #e5e7eb !important;
+  --pl-text: #111827 !important;
+  --pl-muted: #6b7280 !important;
+  --pl-border: #e5e7eb !important;
+  --pl-chip: #f3f4f6 !important;
+  --pl-chip-on-bg: #111827 !important;
+  --pl-chip-on-fg: #ffffff !important;
+  --pl-link: #2563eb !important;
+  --tg-bg: #ffffff !important;
+  --tg-elev: #f4f4f5 !important;
+  --tg-card: #ffffff !important;
+  --tg-text: #111827 !important;
+  --tg-muted: #707579 !important;
+  --tg-hover: #e8e8ea !important;
+  --tg-border: #e4e4e4 !important;
+  background: #ffffff !important;
+  color: #111827 !important;
+}
+
+html.light-mode body,
+html[data-pl-skin="light"] body,
+body.light-mode,
+body[data-pl-skin="light"] {
+  background: #ffffff !important;
+  color: #111827 !important;
+  color-scheme: light !important;
+}
+
+/* Жёсткий сброс типичных тёмных фонов платформы */
+html.light-mode [style*="background: #0"],
+html.light-mode [style*="background:#0"],
+html.light-mode [style*="background: #1"],
+html.light-mode [style*="background:#1"] {
+  /* inline тёмные — не трогаем плеер/видео */
+}
+
+html.light-mode header,
+html.light-mode .header,
+html.light-mode .navbar,
+html.light-mode .site-header,
+html.light-mode #header,
+html.light-mode .top-bar,
+html.light-mode .nav,
+html.light-mode footer,
+html.light-mode .footer,
+html.light-mode .site-footer,
+html.light-mode .pl-yt-sidebar,
+html.light-mode .pl-yt-bottom,
+html.light-mode .tg-sidebar,
+html.light-mode .tg-bottom,
+html.light-mode .admin-shell,
+html.light-mode .admin-sidebar,
+html.light-mode .admin-content,
+html.light-mode .container,
+html.light-mode main,
+html.light-mode .main,
+html.light-mode .content,
+html.light-mode .page,
+html.light-mode .wrapper {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border-color: #e5e7eb !important;
+}
+
+html.light-mode .admin-sidebar {
+  background: #f9fafb !important;
+  border-right: 1px solid #e5e7eb !important;
+}
+html.light-mode .admin-sidebar a { color: #374151 !important; }
+html.light-mode .admin-sidebar a:hover,
+html.light-mode .admin-sidebar a.active {
+  background: #e5e7eb !important;
+  color: #111827 !important;
+}
+
+html.light-mode .card,
+html.light-mode .panel,
+html.light-mode .box,
+html.light-mode .forum-post,
+html.light-mode .comment,
+html.light-mode .service-card,
+html.light-mode .thread-row,
+html.light-mode .video-card,
+html.light-mode .channel-card,
+html.light-mode .modal,
+html.light-mode .dropdown,
+html.light-mode .menu,
+html.light-mode .empty-state,
+html.light-mode .mini-preview {
+  background: #ffffff !important;
+  color: #111827 !important;
+  border-color: #e5e7eb !important;
+}
+
+html.light-mode a { color: #2563eb; }
+html.light-mode a:hover { color: #1d4ed8; }
+html.light-mode p,
+html.light-mode li,
+html.light-mode span,
+html.light-mode label,
+html.light-mode h1, html.light-mode h2, html.light-mode h3,
+html.light-mode h4, html.light-mode h5, html.light-mode h6 {
+  color: inherit;
+}
+
+html.light-mode input,
+html.light-mode textarea,
+html.light-mode select {
+  background: #ffffff !important;
+  color: #111827 !important;
+  border-color: #d1d5db !important;
+}
+
+html.light-mode .btn-outline,
+html.light-mode button.btn-outline {
+  background: #ffffff !important;
+  color: #111827 !important;
+  border-color: #d1d5db !important;
+}
+
+html.light-mode .text-dim,
+html.light-mode .muted,
+html.light-mode [style*="opacity:.7"],
+html.light-mode [style*="opacity: .7"] {
+  color: #6b7280 !important;
+}
+
+/* Темы platforma / telegram skin shells */
+html.light-mode body.pl-theme-platforma,
+html.light-mode body.pl-theme-telegram,
+html.light-mode .pl-theme-platforma,
+html.light-mode .pl-theme-telegram {
+  background: #ffffff !important;
+  color: #111827 !important;
+}
+
+/* Списки / таблицы */
+html.light-mode table,
+html.light-mode tr,
+html.light-mode td,
+html.light-mode th {
+  background: transparent;
+  color: #111827 !important;
+  border-color: #e5e7eb !important;
+}
+html.light-mode table.admin-table th {
+  background: #f3f4f6 !important;
+  color: #6b7280 !important;
+}
+
+/* Не ломаем видеоплеер — оставляем тёмным внутри */
+html.light-mode .video-player,
+html.light-mode .player,
+html.light-mode video,
+html.light-mode .jwplayer,
+html.light-mode .plyr {
+  background: #000 !important;
+  color: #fff !important;
+}
+
+
+/* === FIX: мобилка + ПК переключатель светлая/тёмная === */
+html.light-mode,
+html[data-pl-skin="light"] {
+  -webkit-text-size-adjust: 100%;
+}
+
+html.light-mode .mobile-nav,
+html.light-mode .pl-yt-bottom,
+html.light-mode .tg-bottom,
+html.light-mode .bottom-nav,
+html[data-pl-skin="light"] .mobile-nav,
+html[data-pl-skin="light"] .pl-yt-bottom {
+  background: #ffffff !important;
+  color: #111827 !important;
+  border-top-color: #e5e7eb !important;
+}
+
+html.light-mode .mobile-nav a,
+html.light-mode .pl-yt-bottom a,
+html.light-mode .tg-bottom a,
+html.light-mode .bottom-nav a {
+  color: #111827 !important;
+}
+
+html.light-mode .card,
+html.light-mode .form-card,
+html.light-mode .st-panel,
+html.light-mode .panel {
+  background: #ffffff !important;
+  color: #111827 !important;
+  border-color: #e5e7eb !important;
+}
+
+html.light-mode .btn,
+html.light-mode button.btn {
+  color: inherit;
+}
+
+/* кнопка темы всегда кликабельна на мобилке */
+#color-mode-toggle {
+  position: relative;
+  z-index: 50;
+  min-width: 40px;
+  min-height: 36px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* тёмная тема — не оставлять белые пятна после переключения */
+html:not(.light-mode) body,
+html[data-pl-skin="dark"] body {
+  color-scheme: dark;
+}
+
+/* Профиль в светлой теме */
+html.light-mode .pg-wrap,
+html[data-pl-skin="light"] .pg-wrap {
+  color: #111827;
+}
+html.light-mode .pg-hero {
+  background: #e5e7eb !important;
+}
+html.light-mode .pg-name-row .pg-name-text,
+html.light-mode .pg-sub,
+html.light-mode .pg-rank {
+  color: #111827 !important;
+}
+html.light-mode .pg-glass {
+  background: rgba(255,255,255,.85) !important;
+  color: #111 !important;
+  border-color: #e5e7eb !important;
+}
+html.light-mode #color-mode-toggle {
+  z-index: 60;
+  position: relative;
+}

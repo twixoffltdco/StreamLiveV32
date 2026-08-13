@@ -1,0 +1,29 @@
+/* Мобилка: аватар целиком в hero */
+@media (max-width: 600px) {
+  .pg-hero {
+    height: auto !important;
+    min-height: 260px !important;
+    overflow: hidden !important;
+    padding-bottom: 12px !important;
+  }
+  .pg-hero-main {
+    position: relative !important;
+    bottom: auto !important;
+    top: auto !important;
+    padding: 56px 12px 16px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+  .pg-avatar,
+  img.pg-avatar {
+    width: 84px !important;
+    height: 84px !important;
+    max-width: 84px !important;
+    margin: 0 auto 10px !important;
+    object-fit: cover !important;
+    flex-shrink: 0 !important;
+  }
+  .pg-name-row { margin: 6px 0 !important; }
+  .pg-actions { margin-top: 8px !important; }
+}

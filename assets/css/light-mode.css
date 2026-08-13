@@ -1,10 +1,86 @@
-/* Светлая тема — переопределяет базовые переменные, когда на <html> стоит класс .light-mode.
-   Тёмная остаётся дефолтной (переменные из style.css/темы), ничего менять там не нужно. */
+/* StreamLife light theme — class html.light-mode (cookie site_color_mode=light) */
 html.light-mode {
-  --bg: #f5f5f8;
-  --bg-elevated: #ffffff;
-  --card: #ffffff;
-  --border: #e2e2e8;
-  --text: #14141a;
-  --text-dim: #6b6b78;
+  --bg: #ffffff !important;
+  --bg-elevated: #f2f2f2 !important;
+  --card: #ffffff !important;
+  --border: #e5e5e5 !important;
+  --text: #0f0f0f !important;
+  --text-dim: #606060 !important;
+  --accent-1: #065fd4 !important;
+  --accent-2: #065fd4 !important;
+  color-scheme: light;
+}
+
+html.light-mode,
+html.light-mode body {
+  background: #ffffff !important;
+  color: #0f0f0f !important;
+}
+
+html.light-mode .navbar,
+html.light-mode header,
+html.light-mode .header,
+html.light-mode .site-header,
+html.light-mode footer,
+html.light-mode .footer,
+html.light-mode .site-footer {
+  background: #ffffff !important;
+  color: #0f0f0f !important;
+  border-color: #e5e5e5 !important;
+}
+
+html.light-mode .card,
+html.light-mode .panel,
+html.light-mode .box,
+html.light-mode .forum-post,
+html.light-mode .forum-cat,
+html.light-mode .thread-row,
+html.light-mode .comment,
+html.light-mode .service-card,
+html.light-mode .empty-state,
+html.light-mode .alert {
+  background: #f8f8f8 !important;
+  color: #0f0f0f !important;
+  border-color: #e5e5e5 !important;
+  box-shadow: none !important;
+}
+
+html.light-mode .btn-outline {
+  background: #f2f2f2 !important;
+  color: #0f0f0f !important;
+  border: none !important;
+}
+html.light-mode .btn-primary {
+  background: #0f0f0f !important;
+  color: #fff !important;
+}
+
+html.light-mode input,
+html.light-mode textarea,
+html.light-mode select {
+  background: #fff !important;
+  color: #0f0f0f !important;
+  border-color: #ccc !important;
+}
+
+html.light-mode a:not(.btn) { color: #065fd4; }
+html.light-mode h1, html.light-mode h2, html.light-mode h3 { color: #0f0f0f !important; }
+html.light-mode .muted, html.light-mode small, html.light-mode .text-dim { color: #606060 !important; }
+
+html.light-mode .nav-links a { color: #0f0f0f !important; }
+html.light-mode table, html.light-mode th, html.light-mode td {
+  color: #0f0f0f !important;
+  border-color: #e5e5e5 !important;
+}
+
+/* player / video grids */
+html.light-mode .yt-card-title { color: #0f0f0f !important; }
+html.light-mode .yt-card-meta { color: #606060 !important; }
+html.light-mode .yt-card-thumb { background: #e5e5e5 !important; }
+
+/* dark hardcoded leftovers often use these classes */
+html.light-mode .bg-dark,
+html.light-mode .theme-dark {
+  background: #fff !important;
+  color: #0f0f0f !important;
 }

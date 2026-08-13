@@ -1,0 +1,85 @@
+/* StreamLive video UI v3 — categories + stable mobile player */
+
+.yt-videos-page{padding:12px 0 40px}
+.yt-videos-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+.yt-videos-head h1{margin:0;font-size:22px}
+.yt-videos-search{display:flex;gap:6px}
+.yt-videos-search input{padding:9px 12px;border-radius:20px;border:1px solid rgba(128,128,128,.25);background:rgba(128,128,128,.1);color:inherit;min-width:140px}
+
+/* Категории */
+.yt-cat-chips{
+  display:flex;flex-wrap:nowrap;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+  padding:4px 0 14px;margin-bottom:8px;scrollbar-width:none;
+}
+.yt-cat-chips::-webkit-scrollbar{display:none}
+.yt-chip{
+  flex:0 0 auto;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:500;
+  background:rgba(128,128,128,.15);color:inherit;text-decoration:none;white-space:nowrap;
+}
+.yt-chip:hover{background:rgba(128,128,128,.28)}
+.yt-chip.active{background:#f1f1f1;color:#0f0f0f}
+body.theme-light .yt-chip.active, html[data-theme=light] .yt-chip.active{background:#0f0f0f;color:#fff}
+
+.video-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px 14px;
+}
+@media(max-width:520px){
+  .video-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 10px}
+}
+.video-card{display:block;text-decoration:none;color:inherit;min-width:0}
+.video-card-thumb{
+  position:relative;width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#111;
+}
+.video-card-thumb img{width:100%;height:100%;object-fit:cover;display:block;border:0}
+.video-card-title{
+  font-size:14px;font-weight:600;line-height:1.35;margin-top:8px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.video-card-meta{font-size:12px;opacity:.7;margin-top:4px}
+
+/* ===== WATCH PAGE PLAYER (mobile-safe) ===== */
+.yt-watch{max-width:1100px;margin:0 auto;padding:12px}
+.yt-player-box{
+  position:relative;
+  width:100%;
+  height:0;
+  padding-bottom:56.25%; /* 16:9 — работает везде, без 100vw */
+  background:#000;
+  border-radius:12px;
+  overflow:hidden;
+}
+.yt-player-box > iframe,
+.yt-player-box > video,
+.yt-player-box > .yt-fill{
+  position:absolute;top:0;left:0;width:100%;height:100%;
+  border:0;max-width:100%;max-height:100%;object-fit:contain;background:#000;
+}
+@media(max-width:640px){
+  .yt-watch{padding:0 0 24px}
+  .yt-player-box{border-radius:0}
+  .yt-watch-meta{padding:12px 12px 0}
+  .yt-watch-actions{padding:0 12px}
+  .yt-watch-desc,.yt-watch-comments{padding:0 12px}
+}
+.yt-watch-title{font-size:18px;font-weight:700;margin:12px 0 6px;line-height:1.3;word-break:break-word}
+.yt-watch-sub{font-size:13px;opacity:.75;margin-bottom:10px}
+.yt-watch-actions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 14px}
+.yt-watch-actions .btn, .yt-watch-actions button{
+  border-radius:20px;padding:8px 14px;font-size:13px;cursor:pointer;
+}
+.yt-watch-desc{
+  padding:12px;border-radius:12px;background:rgba(128,128,128,.1);
+  font-size:14px;line-height:1.5;white-space:pre-wrap;margin-bottom:16px;
+}
+.yt-embed-modal{
+  display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.75);
+  align-items:center;justify-content:center;padding:16px;
+}
+.yt-embed-modal.open{display:flex}
+.yt-embed-modal .box{
+  background:#212121;color:#fff;border-radius:14px;padding:18px;max-width:520px;width:100%;
+}
+.yt-embed-modal textarea{
+  width:100%;min-height:90px;box-sizing:border-box;font-family:monospace;font-size:12px;
+  padding:10px;border-radius:8px;border:1px solid #444;background:#0f0f0f;color:#eee;
+}

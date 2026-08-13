@@ -1,0 +1,10 @@
+:root {
+  --bg: #0a0e17; --bg-elevated: #121826; --card: #151c2c;
+  --text: #e8eef8; --text-dim: #8b9bb4; --border: #243049;
+  --accent: #5b8def; --accent-2: #7eb6ff; --radius: 12px;
+}
+body { background: var(--bg) !important; color: var(--text) !important; }
+.card, .panel, .forum-post { background: var(--card) !important; border-color: var(--border) !important; }
+a { color: var(--accent-2); }
+.btn-primary { background: var(--accent) !important; color: #0a0e17 !important; }
+header, .navbar, .header { background: #0a0e17 !important; border-color: var(--border) !important; }
