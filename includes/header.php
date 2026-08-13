@@ -263,7 +263,7 @@ try {
 </div>
 <?php endif; ?>
 
-<?php $__themesList = themes_all(); if ($__themesList): ?><div class="theme-switcher"><select onchange="document.cookie='site_theme='+this.value+'; path=/; max-age=31536000'; location.reload()"><option value="">Themes</option><?php foreach ($__themesList as $t): ?><option value="<?= e($t['slug']) ?>" <?= (!empty($__activeTheme) && $__activeTheme['slug']===$t['slug'])?'selected':'' ?>><?= e($t['name']) ?></option><?php endforeach; ?></select></div><?php endif; ?>
+<?php $__themesList = themes_all(); if ($__themesList): ?><div class="theme-switcher"><select onchange="var v=this.value;var c='site_theme='+encodeURIComponent(v)+'; path=/; max-age=31536000; SameSite=Lax'+(location.protocol==='https:'?'; Secure':'')+';';document.cookie=c;location.reload()"><option value="">Themes</option><?php foreach ($__themesList as $t): ?><option value="<?= e($t['slug']) ?>" <?= (!empty($__activeTheme) && $__activeTheme['slug']===$t['slug'])?'selected':'' ?>><?= e($t['name']) ?></option><?php endforeach; ?></select></div><?php endif; ?>
 <?php if (!empty($__activeTheme['header'])) theme_safe_include(themes_dir() . '/' . $__activeTheme['header']); ?>
     <style>
       
@@ -440,6 +440,7 @@ try {
   </form>
   <div class="nav-links">
     <a href="/forum">Форум</a>
+    <a href="/partners/">Партнёры</a>
     <a href="/forum_whats_new.php">Что нового</a>
     <a href="/videos">Видео</a>
     <a href="/resources">Ресурсы</a>

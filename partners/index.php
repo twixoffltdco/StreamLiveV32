@@ -106,10 +106,39 @@ $flash = function_exists('flash_get') ? flash_get() : [];
     <div class="form-card">
       <h2 style="margin:0 0 8px;font-size:16px">Ваш промокод</h2>
       <?php if ($promo): ?>
-        <div class="code-box"><?= e($promo['code']) ?></div>
-        <p class="sub">Создан <?= e($promo['created_at'] ?? '') ?>. Переименовать <b>нельзя</b>.</p>
+        <div class="code-box" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <span id="partner-promo-code"><?= e($promo['code']) ?></span>
+          <button type="button" class="btn-p" style="margin:0;padding:6px 12px;font-size:12px" onclick="slCopyText(document.getElementById('partner-promo-code').textContent, this)">Копировать код</button>
+        </div>
+        <p class="sub">Создан <?= e($promo['created_at'] ?? '') ?>. Переименовать <b>нельзя</b>. Доступ по активации: <b>30 дней</b>, повторно тот же код нельзя.</p>
         <p class="sub">Реферальная ссылка:</p>
-        <div class="code-box" style="font-size:13px;word-break:break-all"><?= e(partners_referral_link($promo['code'])) ?></div>
+        <div class="code-box" style="font-size:13px;word-break:break-all;display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap">
+          <span id="partner-ref-link" style="flex:1;min-width:180px"><?= e(partners_referral_link($promo['code'])) ?></span>
+          <button type="button" class="btn-p" style="margin:0;padding:6px 12px;font-size:12px" onclick="slCopyText(document.getElementById('partner-ref-link').textContent, this)">Копировать ссылку</button>
+        </div>
+        <script>
+        function slCopyText(text, btn) {
+          text = (text || '').trim();
+          if (!text) return;
+          function ok() {
+            if (!btn) return;
+            var old = btn.textContent;
+            btn.textContent = 'Скопировано';
+            setTimeout(function(){ btn.textContent = old; }, 1500);
+          }
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(ok).catch(function(){
+              var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
+              try { document.execCommand('copy'); ok(); } catch(e) {}
+              document.body.removeChild(ta);
+            });
+          } else {
+            var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
+            try { document.execCommand('copy'); ok(); } catch(e) {}
+            document.body.removeChild(ta);
+          }
+        }
+        </script>
         <div style="margin-top:12px">
           <div class="stat"><b><?= (int)$stats['activations'] ?></b><span>активаций всего</span></div>
           <div class="stat"><b><?= (int)$stats['active_now'] ?></b><span>активных сейчас</span></div>

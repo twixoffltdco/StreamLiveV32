@@ -1,0 +1,37 @@
+[
+    {
+        "slug": "emerald",
+        "name": "Emerald",
+        "css": "\/assets\/themes\/emerald.css",
+        "header": null,
+        "footer": null
+    },
+    {
+        "slug": "flexdev",
+        "name": "FlexDev",
+        "css": "\/assets\/themes\/flexdev.css",
+        "header": null,
+        "footer": null
+    },
+    {
+        "slug": "midnight",
+        "name": "Midnight",
+        "css": "\/assets\/themes\/midnight.css",
+        "header": null,
+        "footer": null
+    },
+    {
+        "slug": "neon",
+        "name": "Neon",
+        "css": "\/assets\/themes\/neon.css",
+        "header": null,
+        "footer": null
+    },
+    {
+        "slug": "paper",
+        "name": "Paper",
+        "css": "\/assets\/themes\/paper.css",
+        "header": null,
+        "footer": null
+    }
+]
