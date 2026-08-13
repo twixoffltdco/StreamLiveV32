@@ -1,0 +1,10 @@
+/* Намеки на YouTube в стиле «Платформа» */
+body.platforma-style .yt-actions .btn.active,
+body[data-style="platform"] .yt-actions .btn.active {
+  background: rgba(255,255,255,0.12);
+}
+body.platforma-style .player-wrap,
+body[data-style="platform"] .player-wrap {
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+}

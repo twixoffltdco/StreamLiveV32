@@ -1,0 +1,3 @@
+В header_switcher.php ветка flex должна грузить:
+  theme-flex.css?v=2
+  theme-flex.js?v=2
