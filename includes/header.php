@@ -440,7 +440,6 @@ try {
   </form>
   <div class="nav-links">
     <a href="/forum">Форум</a>
-    <a href="/apply_moderator.php">Стать модератором</a>
     <a href="/forum_whats_new.php">Что нового</a>
     <a href="/videos">Видео</a>
     <a href="/resources">Ресурсы</a>
@@ -474,9 +473,9 @@ try {
       <a href="/playlists">🎞️ Плейлисты</a>
       <a href="/continue_watching">▶️ Продолжить просмотр</a>
       <a href="/services">Сервисы</a>
-      <?php if (in_array($__user['role'], ['moderator','admin'], true)): ?><a href="/moderator/index">Модерация каналов</a><a href="/moderator/videos">Модерация видео</a><?php endif; ?>
-      <?php if (function_exists('is_forum_moderator') && is_forum_moderator($__user)): ?><a href="/moderator/forum">Модерация форума</a><?php endif; ?>
-      <?php if ($__user['role'] === 'admin'): ?><a href="/admin/index">Админка</a><?php endif; ?>
+      <?php if (in_array($__user['role'], ['moderator','admin'], true)): ?><a href="/moderator/index.php">Модерация каналов</a><a href="/moderator/videos.php">Модерация видео</a><?php endif; ?>
+      <?php if (function_exists('is_forum_moderator') && is_forum_moderator($__user)): ?><a href="/moderator/forum.php">Модерация форума</a><?php endif; ?>
+      <?php if ($__user['role'] === 'admin'): ?><a href="/admin/index.php">Админка</a><?php endif; ?>
       <form action="/auth/logout.php" method="POST" style="display:inline">
         <?= csrf_field() ?>
         <button class="btn btn-outline btn-sm" type="submit">Выйти</button>

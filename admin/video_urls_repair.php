@@ -42,15 +42,21 @@ if ($do === 'https') {
 }
 
 // sample broken
+$totals = ['videos'=>0,'with_embed'=>0];
+try {
+  $totals['videos'] = (int)db()->query('SELECT COUNT(*) FROM videos')->fetchColumn();
+  $totals['with_embed'] = (int)db()->query("SELECT COUNT(*) FROM videos WHERE embed_url IS NOT NULL AND embed_url!=''")->fetchColumn();
+} catch (Throwable $e) {}
 $samples = [];
 try {
   $samples = db()->query(
     "SELECT id, slug, title, platform, LEFT(embed_url, 120) AS emb, LEFT(source_url, 120) AS src, status
-     FROM videos ORDER BY id DESC LIMIT 15"
+     FROM videos ORDER BY id DESC LIMIT 100"
   )->fetchAll() ?: [];
 } catch (Throwable $e) {}
 ?>
 <h2>Ремонт URL видео после переезда</h2>
+<p>Всего видео: <b><?= (int)($totals['videos']??0) ?></b> · с embed: <b><?= (int)($totals['with_embed']??0) ?></b></p>
 <p>SITE_URL: <code><?= htmlspecialchars(defined('SITE_URL') ? SITE_URL : '?', ENT_QUOTES, 'UTF-8') ?></code></p>
 <?php foreach ($report as $line): ?>
   <div style="padding:10px;margin:8px 0;background:rgba(34,211,238,.12)"><?= htmlspecialchars($line, ENT_QUOTES, 'UTF-8') ?></div>

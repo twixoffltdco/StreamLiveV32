@@ -15,7 +15,13 @@ if (!$channel) {
   $pageTitle = 'Канал не найден';
   require_once __DIR__ . '/includes/header.php';
   echo '<div class="container"><div class="empty-state"><h2>Канал не найден</h2><p>Такого канала не существует</p><a href="/catalog.php" class="btn btn-primary" style="margin-top:14px">В каталог</a></div></div>';
-  require_once __DIR__ . '/includes/footer.php';
+  if (!empty($channel) && !empty($__user) && is_file(__DIR__ . '/includes/flex_watching_js.php')) {
+  $__fw_title = (string)($channel['title'] ?? 'канал');
+  $__fw_url = '/channel.php?slug=' . rawurlencode((string)($channel['slug'] ?? ''));
+  $__fw_source = 'channel';
+  include __DIR__ . '/includes/flex_watching_js.php';
+}
+require_once __DIR__ . '/includes/footer.php';
   exit;
 }
 

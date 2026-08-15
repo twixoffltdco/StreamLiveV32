@@ -4,6 +4,7 @@ header('Cache-Control: no-store');
 require_once dirname(__DIR__) . '/includes/functions.php';
 require_once dirname(__DIR__) . '/includes/auth.php';
 require_once dirname(__DIR__) . '/includes/flex_world.php';
+if (is_file(dirname(__DIR__) . '/includes/flex_watching.php')) require_once dirname(__DIR__) . '/includes/flex_watching.php';
 
 $u = current_user();
 if (!$u) { http_response_code(401); echo json_encode(['ok'=>false,'error'=>'login']); exit; }
@@ -151,6 +152,18 @@ $phone = !empty($j['phone']) ? 1 : 0;
 $activity = mb_substr(trim((string)($j['activity'] ?? 'гуляет')), 0, 120);
 $phoneUrl = mb_substr(trim((string)($j['phone_url'] ?? '')), 0, 500);
 $phoneTitle = mb_substr(trim((string)($j['phone_title'] ?? '')), 0, 120);
+// Сайт → Flex World: если юзер смотрит видео/канал, телефон в мире показывает это всем
+if (function_exists('flex_watching_get')) {
+  try {
+    $__fw = flex_watching_get($uid);
+    if ($__fw) {
+      $phone = 1;
+      $phoneTitle = mb_substr((string)($__fw['title'] ?? 'контент'), 0, 120);
+      $phoneUrl = mb_substr((string)($__fw['url'] ?? ''), 0, 500);
+      $activity = mb_substr('смотрит: ' . $phoneTitle, 0, 120);
+    }
+  } catch (Throwable $e) {}
+}
 if ($phoneUrl !== '' && !preg_match('#^https?://#i', $phoneUrl) && ($phoneUrl[0] ?? '') !== '/') $phoneUrl = '';
 $crown = flex_world_has_crown($uid) ? 1 : 0;
 $role = (string)($u['role'] ?? 'user');

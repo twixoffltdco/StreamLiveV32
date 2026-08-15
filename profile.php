@@ -6,15 +6,17 @@
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
 if (is_file(__DIR__ . '/includes/vibe.php')) { require_once __DIR__ . '/includes/vibe.php'; if (is_file(__DIR__ . '/includes/vibe_ui.php')) require_once __DIR__ . '/includes/vibe_ui.php'; try { vibe_ensure_schema(); } catch (Throwable $e) {} }
-require_once __DIR__ . '/includes/user_display.php';
-user_display_ensure_schema();
+if (is_file(__DIR__ . '/includes/user_display.php')) {
+  try { require_once __DIR__ . '/includes/user_display.php'; } catch (Throwable $e) {}
+  try { if (function_exists('user_display_ensure_schema')) user_display_ensure_schema(); } catch (Throwable $e) {}
+}
 if (is_file(__DIR__ . '/includes/contacts.php')) {
   require_once __DIR__ . '/includes/contacts.php';
 }
-require_once __DIR__ . '/includes/gamification.php';
+if (is_file(__DIR__ . '/includes/gamification.php')) { try { require_once __DIR__ . '/includes/gamification.php'; } catch (Throwable $e) {} }
 
 $__user = current_user();
-try { ensure_user_gravatar_column(); } catch (Throwable $e) {}
+try { if (function_exists('ensure_user_gravatar_column')) ensure_user_gravatar_column(); } catch (Throwable $e) {}
 // Пишем сессию ДО выборки профиля — иначе на своём профиле last_seen ещё старый
 if ($__user && function_exists('user_touch_session')) {
   try { user_touch_session($__user); } catch (Throwable $e) {}

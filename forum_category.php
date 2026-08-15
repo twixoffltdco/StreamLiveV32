@@ -2,6 +2,8 @@
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/service_helpers.php';
+if (is_file(__DIR__ . '/includes/content_moderation.php')) { require_once __DIR__ . '/includes/content_moderation.php'; try { cmod_ensure_schema(); } catch (Throwable $e) {} }
+if (is_file(__DIR__ . '/includes/forum_visibility.php')) require_once __DIR__ . '/includes/forum_visibility.php';
 $__user = current_user();
 
 $categoryId = (int)($_GET['id'] ?? 0);
@@ -21,15 +23,49 @@ if (!$category) {
 $pageTitle = $category['title'] . ' — Форум';
 require_once __DIR__ . '/includes/header.php';
 
-$stmt = db()->prepare(
-  "SELECT t.*, u.username, u.avatar, u.is_verified, u.is_banned, u.gravatar_email,
-     (SELECT COUNT(*) FROM forum_posts p WHERE p.thread_id = t.id AND p.is_deleted = 0) AS post_count
-   FROM forum_threads t JOIN users u ON u.id = t.user_id
-   WHERE t.category_id = ? AND t.is_deleted = 0
-   ORDER BY t.is_pinned DESC, t.last_post_at DESC LIMIT 200"
-);
-$stmt->execute([$categoryId]);
-$threads = $stmt->fetchAll();
+$threads = [];
+$__uid = (int)($__user['id'] ?? 0);
+$__staff = function_exists('forum_is_staff') ? forum_is_staff($__user) : false;
+try {
+  if ($__staff) {
+    $stmt = db()->prepare(
+      "SELECT t.*, u.username, u.avatar, u.is_verified, u.is_banned, u.gravatar_email,
+         (SELECT COUNT(*) FROM forum_posts p WHERE p.thread_id = t.id AND p.is_deleted = 0) AS post_count
+       FROM forum_threads t JOIN users u ON u.id = t.user_id
+       WHERE t.category_id = ? AND t.is_deleted = 0
+       ORDER BY t.is_pinned DESC, t.last_post_at DESC LIMIT 200"
+    );
+    $stmt->execute([$categoryId]);
+  } else {
+    $stmt = db()->prepare(
+      "SELECT t.*, u.username, u.avatar, u.is_verified, u.is_banned, u.gravatar_email,
+         (SELECT COUNT(*) FROM forum_posts p WHERE p.thread_id = t.id AND p.is_deleted = 0) AS post_count
+       FROM forum_threads t JOIN users u ON u.id = t.user_id
+       WHERE t.category_id = ? AND t.is_deleted = 0
+         AND (
+           t.mod_status IS NULL OR t.mod_status = '' OR t.mod_status = 'approved' OR t.mod_status = '0'
+           OR t.user_id = ?
+         )
+       ORDER BY t.is_pinned DESC, t.last_post_at DESC LIMIT 200"
+    );
+    $stmt->execute([$categoryId, $__uid]);
+  }
+  $threads = $stmt->fetchAll() ?: [];
+} catch (Throwable $e) {
+  // нет колонки mod_status — старый запрос
+  try {
+    $stmt = db()->prepare(
+      "SELECT t.*, u.username, u.avatar, u.is_verified, u.is_banned, u.gravatar_email,
+         (SELECT COUNT(*) FROM forum_posts p WHERE p.thread_id = t.id AND p.is_deleted = 0) AS post_count
+       FROM forum_threads t JOIN users u ON u.id = t.user_id
+       WHERE t.category_id = ? AND t.is_deleted = 0
+       ORDER BY t.is_pinned DESC, t.last_post_at DESC LIMIT 200"
+    );
+    $stmt->execute([$categoryId]);
+    $threads = $stmt->fetchAll() ?: [];
+    if (function_exists('forum_filter_rows')) $threads = forum_filter_rows($threads, $__user);
+  } catch (Throwable $e2) { $threads = []; }
+}
 ?>
 <div class="container">
   <p style="margin:20px 0 4px"><a href="/forum.php" style="color:var(--accent-2);font-size:13px">← Форум</a></p>

@@ -3,7 +3,8 @@ require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/service_helpers.php';
 require_once __DIR__ . '/includes/bbcode.php';
-if (is_file(__DIR__ . '/includes/content_moderation.php')) require_once __DIR__ . '/includes/content_moderation.php';
+if (is_file(__DIR__ . '/includes/content_moderation.php')) { require_once __DIR__ . '/includes/content_moderation.php'; try { cmod_ensure_schema(); } catch (Throwable $e) {} }
+if (is_file(__DIR__ . '/includes/forum_visibility.php')) require_once __DIR__ . '/includes/forum_visibility.php';
 $__user = current_user();
 
 $threadId = (int)($_GET['id'] ?? 0);
@@ -27,6 +28,24 @@ if (!$thread) {
 
 $isForumModerator = is_forum_moderator($__user);
 
+// Тема на модерации — только автор/staff
+if ($thread) {
+  $__ms = strtolower(trim((string)($thread['mod_status'] ?? 'approved')));
+  if (in_array($__ms, ['pending','rejected'], true)) {
+    $__own = $__user && (int)($thread['user_id'] ?? 0) === (int)$__user['id'];
+    $__st = function_exists('forum_is_staff') ? forum_is_staff($__user) : ($__user && in_array(($__user['role']??''), ['admin','moderator'], true));
+    if (!$__own && !$__st) {
+      http_response_code(404);
+      $pageTitle = 'Тема на модерации';
+      require_once __DIR__ . '/includes/header.php';
+      echo '<div class="container"><div class="empty-state"><h2>Тема на модерации</h2><p>После проверки она появится на форуме.</p><a href="/forum.php" class="btn btn-primary" style="margin-top:14px">На форум</a></div></div>';
+      require_once __DIR__ . '/includes/footer.php';
+      exit;
+    }
+  }
+}
+
+
 // ---- Обработка форм (ответ, удаление сообщения, пин/лок) ----
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   csrf_verify();
@@ -41,15 +60,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           ->execute([$threadId, $__user['id'], $message, 'pending']);
         $postId = (int)db()->lastInsertId();
       } catch (Throwable $e) {
-        db()->prepare('INSERT INTO forum_posts (thread_id, user_id, message) VALUES (?, ?, ?)')
-          ->execute([$threadId, $__user['id'], $message]);
-        $postId = (int)db()->lastInsertId();
-        try { db()->prepare("UPDATE forum_posts SET mod_status='pending' WHERE id=?")->execute([$postId]); } catch (Throwable $e2) {}
+        try {
+          db()->prepare('INSERT INTO forum_posts (thread_id, user_id, message) VALUES (?, ?, ?)')
+            ->execute([$threadId, $__user['id'], $message]);
+          $postId = (int)db()->lastInsertId();
+          try { db()->prepare("UPDATE forum_posts SET mod_status='pending' WHERE id=?")->execute([$postId]); } catch (Throwable $e2) {}
+        } catch (Throwable $e3) {}
       }
       if ($postId > 0 && function_exists('cmod_enqueue')) {
         try { cmod_enqueue('post', $postId, (int)$__user['id'], (string)$thread['title'], mb_substr($message, 0, 300)); } catch (Throwable $e) {}
       }
-      // last_post_at только после approve — но чтобы тема не «умерла», обновляем у автора
       try { db()->prepare('UPDATE forum_threads SET last_post_at = NOW() WHERE id = ?')->execute([$threadId]); } catch (Throwable $e) {}
     }
   } elseif ($action === 'delete_post' && $isForumModerator) {
@@ -77,14 +97,18 @@ try {
   $stmt->execute([$threadId]);
   $posts = $stmt->fetchAll() ?: [];
 } catch (Throwable $e) { $posts = []; }
-$__uid = (int)($__user['id'] ?? 0);
-$__staff = $__user && (in_array(($__user['role'] ?? ''), ['admin','moderator'], true) || (function_exists('is_forum_moderator') && is_forum_moderator($__user)));
-$posts = array_values(array_filter($posts, function ($fp) use ($__uid, $__staff) {
-  $ms = strtolower(trim((string)($fp['mod_status'] ?? 'approved')));
-  if ($ms === 'approved' || $ms === '' || $ms === '0') return true;
-  if ($__staff) return true;
-  return $__uid > 0 && (int)($fp['user_id'] ?? 0) === $__uid;
-}));
+if (function_exists('forum_filter_rows')) {
+  $posts = forum_filter_rows($posts, $__user);
+} else {
+  $__uid = (int)($__user['id'] ?? 0);
+  $__staff = $__user && in_array(($__user['role'] ?? ''), ['admin','moderator'], true);
+  $posts = array_values(array_filter($posts, function ($fp) use ($__uid, $__staff) {
+    $ms = strtolower(trim((string)($fp['mod_status'] ?? 'approved')));
+    if ($ms === 'approved' || $ms === '' || $ms === '0') return true;
+    if ($__staff) return true;
+    return $__uid > 0 && (int)($fp['user_id'] ?? 0) === $__uid;
+  }));
+}
 
 $pageTitle = $thread['title'] . ' — Форум';
 require_once __DIR__ . '/includes/header.php';

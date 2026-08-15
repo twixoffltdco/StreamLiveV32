@@ -1,4 +1,9 @@
-<?php require_once __DIR__ . '/_layout_start.php'; ?>
+<?php 
+$totalVideos = 0; $totalResources = 0; $pendingContent = 0;
+try { $totalVideos = (int)db()->query('SELECT COUNT(*) FROM videos')->fetchColumn(); } catch (Throwable $e) {}
+try { $totalResources = (int)db()->query('SELECT COUNT(*) FROM resources')->fetchColumn(); } catch (Throwable $e) {}
+try { $pendingContent = (int)db()->query("SELECT COUNT(*) FROM content_moderation_queue WHERE status='pending'")->fetchColumn(); } catch (Throwable $e) {}
+require_once __DIR__ . '/_layout_start.php'; ?>
 <?php require_once __DIR__ . '/../includes/stats.php'; ?>
 <h2>Обзор</h2>
 <?php
@@ -66,6 +71,9 @@ foreach ($stats['by_day'] as $d) { $maxDayViews = max($maxDayViews, (int)$d['c']
 <div class="stat-grid">
   <div class="stat-card"><div class="num"><?= $forumThreads ?></div><div class="lbl">Тем на форуме</div></div>
   <div class="stat-card"><div class="num"><?= $forumPosts ?></div><div class="lbl">Сообщений на форуме</div></div>
+  <div class="stat-card"><div class="num"><?= (int)($totalVideos ?? 0) ?></div><div class="lbl">Видео всего</div></div>
+  <div class="stat-card"><div class="num"><?= (int)($totalResources ?? 0) ?></div><div class="lbl">Ресурсов</div></div>
+  <div class="stat-card"><div class="num"><?= (int)($pendingContent ?? 0) ?></div><div class="lbl">Очередь контента</div></div>
   <div class="stat-card"><div class="num"><?= $bcChannels ?></div><div class="lbl">Каналов-рассылок (<?= $bcSubs ?> подписок)</div></div>
 </div>
 
